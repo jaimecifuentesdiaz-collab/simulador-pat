@@ -11,6 +11,9 @@ PAT 133: deshacer, rehacer y duplicar. Cada evento que cambia la planta apila el
 PAT 134: el catálogo suma «Instrumentación ISA-5.1 y ISA-5.4»: burbujas, elementos primarios y finales y elementos de lazo que
 se sueltan en el lienzo, se editan en Propiedades y se unen con líneas de señal (pat_sim.motor.instrumentacion). Un parámetro
 escrito fuera de rango vuelve con el aviso «Mínimo …» y el campo muestra el valor que usó el motor.
+PAT 135: la planta lleva la tabla de precedencia del mantenedor (pl.precedencia): el lienzo rechaza las conexiones que se
+saltan etapas del proceso, con un mensaje que nombra las que faltan, y la misma regla rige «Secuencia sugerida» y «Diagnóstico».
+El catálogo del lienzo deja solo «Todos los equipos (ISO 10628)» e «Instrumentación ISA-5.1 y ISA-5.4».
 """
 from __future__ import annotations
 import streamlit as st
@@ -83,7 +86,17 @@ def _avisar(msg: str):
 
 @st.cache_data(show_spinner=False)
 def _catalogo_lienzo() -> dict:
-    return LZ.catalogo_lienzo(RUBROS, catalogo)
+    # PAT 135 (capturas de Jaime): la lista desplegable queda con dos opciones, todos los equipos e instrumentación
+    return LZ.catalogo_lienzo({}, catalogo)
+
+
+def _precedencia():
+    """PAT 135: tabla de estados y precedencia del mantenedor (con la opción «Permitir conexiones libres»). Sin base, None."""
+    try:
+        from pat_sim.datos import mantenedor as MANT
+        return MANT.tabla_precedencia(C.obtener_bd())
+    except Exception:
+        return None
 
 
 TOPE_HISTORIAL = 30          # PAT 133: pasos de deshacer que se guardan (Supuesto: suficiente para una sesión de diseño)
@@ -179,6 +192,7 @@ def mostrar():
     st.subheader("Diseño de la planta")
     if ss.get("aviso_diseno"):
         st.success(ss.pop("aviso_diseno"))
+    pl.precedencia = _precedencia()      # PAT 135: el motor la toma como atributo de la planta
     _procesar_eventos(pl)
     sol, motivo = _resolver(pl)          # 1 ms con la planta basada en Agrozzi: se resuelve en cada ejecución
     datos = LZ.datos_lienzo(pl, sol, motivo, _catalogo_lienzo(), int(ss.get("lienzo_seq", 0)), ss.get("lienzo_mensajes", []),

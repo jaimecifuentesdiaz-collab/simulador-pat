@@ -85,6 +85,7 @@ def mostrar():
     C.ayuda(C.esc(f"Henry Hub: {C.fmt(C.HENRY_HUB, 2)} US$/MMBtu, {C.FUENTE_HH}. Dólar: {C.fmt(C.DOLAR, 2)} $/US$, {C.FUENTE_DOLAR}. "   # PAT 134: ayuda «?»
                   f"La planta quema gas natural licuado regasificado, que se modela como metano (Engineering ToolBox, 2003; poder calorífico superior)."),
             "Precios y supuestos")
+    _escenario_gas(E)                                         # PAT 135: Henry Hub, importación o precio industrial del mantenedor
     with st.form("form_eco"):
         a, b, c = st.columns(3)
         pg = a.number_input(C.esc("Precio del gas (US$/MMBtu)"), 0.0, 100.0, float(E["precio_gas"]), 0.1,
@@ -203,3 +204,38 @@ def mostrar_biomasa(r):
     df = pd.DataFrame({"Ahorro de la cascada (MM$ por año)": [des["m3"] * p_ / 1e6 for p_ in precios]}, index=precios)
     st.line_chart(df, x_label="Precio de la biomasa ($/m³ estéreo)", y_label="MM$ por año")
     _riesgo(pl, r, E, inv_eval)
+
+def _escenarios_gas() -> list:
+    """PAT 135: escenarios de precio del gas leídos del mantenedor (los mismos del modelo de los Capítulos 2 a 4)."""
+    out = []
+    try:
+        from pat_sim.datos import mantenedor as M
+        bd = C.obtener_bd()
+        hh = M.parametro("henry_hub", C.HENRY_HUB, bd=bd)
+        out.append((f"Henry Hub ({C.fmt(hh, 2)} US$/MMBtu)", hh))
+        imp = M.parametro(M.CLAVE_GAS_IMPORTACION, None, bd=bd)
+        if imp is not None:
+            out.append((f"Importación FOB ({C.fmt(imp, 2)} US$/MMBtu)", imp))
+        ind = M.parametro(M.CLAVE_GAS_CHILE, None, bd=bd)
+        if ind is not None:
+            out.append((f"Industrial en Chile ({C.fmt(ind, 2)} US$/MMBtu)", ind))
+    except Exception:
+        out = [(f"Henry Hub ({C.fmt(C.HENRY_HUB, 2)} US$/MMBtu)", C.HENRY_HUB)]
+    return out
+
+
+def _escenario_gas(E: dict):
+    """PAT 135: al cambiar el escenario se reemplaza el precio del gas del formulario; después se puede editar a mano."""
+    esc = _escenarios_gas()
+    if len(esc) < 2:
+        return
+    nombres = [n for n, _ in esc]
+    inicial = len(nombres) - 1 if nombres[-1].startswith("Industrial") else 0   # si existe el precio industrial, parte con él
+    elegido = st.radio(C.esc("Escenario de precio del gas"), nombres, index=inicial, horizontal=True, key="eco_esc_gas",
+                       help=C.esc("Henry Hub es la referencia de Estados Unidos que la CNE usa para el GNL importado (piso). "
+                                  "Importación FOB es el precio de importación del modelo de los Capítulos 2 a 4. "
+                                  "El profesor puede editar estos valores o agregar el precio industrial en el Mantenedor."))
+    if st.session_state.get("_eco_esc_gas_previo") != elegido:
+        st.session_state["_eco_esc_gas_previo"] = elegido
+        E["precio_gas"] = dict(esc)[elegido]
+        E["gas_supuesto"] = False

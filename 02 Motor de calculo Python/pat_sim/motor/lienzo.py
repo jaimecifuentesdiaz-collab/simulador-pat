@@ -11,6 +11,10 @@ mover_instrumento, quitar_instrumento, conectar_senal, senal y quitar_senal; ver
 escrito fuera de su rango se acota y vuelve con el aviso «Mínimo …» o «Máximo …».
 Además resolver_parcial(pl): si la planta no se puede resolver (por ejemplo, un equipo recién agregado sin alimentación),
 resuelve la parte que sí tiene alimentación para que el lienzo siga mostrando los flujos; la planta queda sin resolver.
+PAT 135: restricción de precedencia al conectar (motor/precedencia.py). Si la planta trae la tabla (argumento «precedencia» o
+atributo pl.precedencia, que la interfaz carga desde el mantenedor), una conexión de producto se rechaza cuando el estado del
+material que sale del origen no está entre los que acepta el destino, con un mensaje que nombra las etapas que faltan. La
+misma regla rige «Secuencia sugerida» y «Diagnóstico». Sin tabla, o con «Permitir conexiones libres», todo es como antes.
 """
 from __future__ import annotations
 import json, math, time
@@ -20,6 +24,7 @@ from ..simbolos import iso10628
 from .equipos import OPCIONALES
 from . import instrumentacion as IN
 from ..simbolos import isa51
+from . import precedencia as PR          # PAT 135
 
 # Prefijo del número de corriente de servicio (las corrientes de proceso se numeran 1, 2, 3...)
 PREFIJO_SERVICIO = {"vapor": "V", "calor": "Q", "electricidad": "E", "gas": "G", "aire": "A"}
@@ -112,11 +117,17 @@ def aviso_rango(p, pedido, usado) -> str | None:
     return None
 
 
-def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None) -> dict:
+def _regla_conectar(pl: Planta, precedencia=None):
+    """PAT 135: tabla de precedencia que restringe las conexiones (None si no hay, si el rubro no tiene estados o si son libres)."""
+    t = PR.regla(pl, precedencia)
+    return None if t is None or t.libre else t
+
+
+def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None, precedencia=None) -> dict:
     """Aplica un evento del lienzo a la planta. Devuelve {ok, mensaje, recalcular}.
 
-    Los errores de edición (puerto inexistente, tipos incompatibles, ciclo) no lanzan excepción: vuelven con ok=False
-    y la planta queda como estaba.
+    Los errores de edición (puerto inexistente, tipos incompatibles, ciclo, precedencia) no lanzan excepción: vuelven con
+    ok=False y la planta queda como estaba. precedencia: tabla de motor/precedencia.py (si no, pl.precedencia o ninguna).
     """
     if tipos is None:
         from ..catalogos.registro import TIPOS as tipos
@@ -147,6 +158,12 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None) -> dict:
                                  f"y la entrada {de}.{pd_} espera {TIPOS_CORRIENTE[pe.tipo][0].lower()}")
             if any((c.origen, c.puerto_origen, c.destino, c.puerto_destino) == (o, po, de, pd_) for c in pl.conexiones):
                 raise ValueError(f"Ya existe la conexión {o}.{po} → {de}.{pd_}")
+            regla = _regla_conectar(pl, precedencia)              # PAT 135: precedencia de los estados del material
+            if regla is not None:
+                m_ = PR.revisar(pl, regla, o, po, de, pd_)
+                if m_:
+                    raise ValueError(m_)
+                antes_ = {_clave_conexion(c_) for _, c_, _m in PR.violaciones(pl, regla)}
             usado = sum(c.reparto for c in pl.conexiones if c.origen == o and c.puerto_origen == po)
             rep = d.get("reparto")
             rep = float(rep) if rep is not None else (100.0 - usado if usado < 99.99 else 100.0)
@@ -158,6 +175,11 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None) -> dict:
                 except ValueError:
                     pl.conexiones.remove(c)
                     raise ValueError("Esa conexión cierra un ciclo de corrientes de proceso; declare la recirculación como especificación")
+            if regla is not None:                                  # PAT 135: un equipo de paso lleva el estado aguas abajo
+                nuevas = [m for _, c_, m in PR.violaciones(pl, regla) if _clave_conexion(c_) not in antes_]
+                if nuevas:
+                    pl.conexiones.remove(c)
+                    raise ValueError(nuevas[0])
             msg = f"Conectado {o}.{po} → {de}.{pd_} (corriente {nombre}, {c.reparto:g} %)."
             if usado + c.reparto > 100.01:
                 msg += f" El puerto {o}.{po} reparte ahora {usado + c.reparto:g} %: ajuste los repartos."
@@ -216,7 +238,7 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None) -> dict:
                 raise ValueError(f"{eq.id} no tiene una alimentación editable")
             return dict(ok=True, mensaje=None, recalcular=True)
         if e == "secuencia":
-            n = secuencia_sugerida(pl)
+            n = secuencia_sugerida(pl, precedencia)
             return dict(ok=True, mensaje=f"Secuencia sugerida: {n} conexión(es) nuevas." if n else
                         "Secuencia sugerida: no quedaban entradas libres que conectar.", recalcular=n > 0)
         if e == "capacidades":
@@ -268,11 +290,14 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None) -> dict:
         return dict(ok=False, mensaje=str(x), recalcular=False)
 
 
-def secuencia_sugerida(pl: Planta) -> int:
+def secuencia_sugerida(pl: Planta, precedencia=None) -> int:
     """Como «Secuencia sugerida» del simulador del profesor: conecta cada entrada de proceso libre con la salida
     compatible libre del equipo anterior (en el orden en que se agregaron) y las entradas de vapor o calor libres con la
-    caldera o el generador de calor. No toca las conexiones que ya existen."""
+    caldera o el generador de calor. No toca las conexiones que ya existen.
+    PAT 135: con tabla de precedencia, elige el equipo cuyo material acepta la entrada (primero los anteriores, después los
+    que se agregaron más tarde) y prueba el siguiente si una conexión se rechaza."""
     eqs = list(pl.equipos.values()); n = 0
+    regla = _regla_conectar(pl, precedencia)
     def libre(eq, p):
         return sum(c.reparto for c in pl.conexiones if c.origen == eq.id and c.puerto_origen == p.nombre) < 99.99
     for i, eq in enumerate(eqs):
@@ -285,13 +310,26 @@ def secuencia_sugerida(pl: Planta) -> int:
                 fuente = next(((a, q) for a in eqs if a.tipo.startswith("caldera") for q in a.salidas if q.tipo == p.tipo), None)
             elif p.tipo in TIPOS_SERVICIO:
                 continue
+            elif regla is not None:                                # PAT 135
+                cands = [(a, q) for a in list(reversed(eqs[:i])) + eqs[i + 1:] if not a.tipo.startswith("caldera") and a.id != eq.id
+                         for q in a.salidas if compatibles(q.tipo, p.tipo) and q.tipo != "subproducto" and libre(a, q)
+                         and PR.revisar(pl, regla, a.id, q.nombre, eq.id, p.nombre) is None]
+                cands.sort(key=lambda aq: PR.estados_salida(pl, regla, aq[0].id) is None)    # primero los de estado conocido
+                for a, q in cands:
+                    r = aplicar_evento(pl, dict(evento="conectar", datos=dict(origen=a.id, puerto_origen=q.nombre, destino=eq.id,
+                                                                            puerto_destino=p.nombre)), precedencia=precedencia)
+                    if r["ok"]:
+                        n += 1
+                        break
+                continue
             else:
                 fuente = next(((a, q) for a in reversed(eqs[:i]) if not a.tipo.startswith("caldera") for q in a.salidas
                                if compatibles(q.tipo, p.tipo) and q.tipo != "subproducto" and libre(a, q)), None)
             if fuente is None:
                 continue
             a, q = fuente
-            r = aplicar_evento(pl, dict(evento="conectar", datos=dict(origen=a.id, puerto_origen=q.nombre, destino=eq.id, puerto_destino=p.nombre)))
+            r = aplicar_evento(pl, dict(evento="conectar", datos=dict(origen=a.id, puerto_origen=q.nombre, destino=eq.id, puerto_destino=p.nombre)),
+                               precedencia=precedencia)
             n += 1 if r["ok"] else 0
     return n
 
@@ -478,7 +516,8 @@ def _grupo(ev: dict):
     return None
 
 
-def aplicar_con_historial(pl: Planta, ev: dict, hist: Historial, tipos: dict | None = None, ahora: float | None = None) -> dict:
+def aplicar_con_historial(pl: Planta, ev: dict, hist: Historial, tipos: dict | None = None, ahora: float | None = None,
+                          precedencia=None) -> dict:
     """Aplica un evento del lienzo con deshacer y rehacer: «deshacer» y «rehacer» mueven la planta por el historial; cualquier
     otro evento que cambie la planta apila el estado anterior (y vacía rehacer). Devuelve lo mismo que aplicar_evento."""
     e = ev.get("evento")
@@ -491,7 +530,7 @@ def aplicar_con_historial(pl: Planta, ev: dict, hist: Historial, tipos: dict | N
         return dict(ok=True, mensaje=("Deshecho: " if e == "deshacer" else "Rehecho: ") + (et or "último cambio") + ".", recalcular=True,
                     restaurada=True)
     antes = instantanea(pl)
-    r = aplicar_evento(pl, ev, tipos)
+    r = aplicar_evento(pl, ev, tipos, precedencia)
     if r.get("ok") and instantanea(pl) != antes:
         hist.apilar(antes, etiqueta_evento(ev, r), _grupo(ev), ahora)
     return r
@@ -723,8 +762,9 @@ def _corriente(pl, sol, c):
     return f
 
 
-def diagnostico(pl: Planta, motivo: str | None, tr: dict | None = None) -> list[dict]:
-    """Reglas como las del simulador del profesor: sin alimentación, repartos, sobrecarga, falta de servicio térmico."""
+def diagnostico(pl: Planta, motivo: str | None, tr: dict | None = None, precedencia=None) -> list[dict]:
+    """Reglas como las del simulador del profesor: sin alimentación, repartos, sobrecarga, falta de servicio térmico.
+    PAT 135: también las conexiones existentes que no respetan la precedencia (error; aviso si las conexiones son libres)."""
     out = []
     if motivo:
         out.append(dict(nivel="error", texto=f"La planta no se puede resolver: {motivo}"))
@@ -754,6 +794,10 @@ def diagnostico(pl: Planta, motivo: str | None, tr: dict | None = None) -> list[
         if v and v["sobrecarga"] > 1e-6:
             out.append(dict(nivel="error", equipo=k, texto=f"Sobrecarga o acumulación en {k} ({eq.nombre}): recibe {_f(v['demanda'])} t/h y su "
                                                            f"capacidad efectiva es {_f(v['efectiva'])} t/h; se acumulan {_f(v['sobrecarga'])} t/h"))
+    t_ = PR.regla(pl, precedencia)                                  # PAT 135
+    for _i, c, m in PR.violaciones(pl, t_):
+        out.append(dict(nivel="aviso" if t_.libre else "error", equipo=c.destino,
+                        texto=f"La conexión {c.origen}.{c.puerto_origen} → {c.destino}.{c.puerto_destino} no respeta el orden del proceso: {m}"))
     if pl.equipos and tr is not None and tr["produccion_plan"] is None:
         out.append(dict(nivel="aviso", texto="Falta una salida de producto final: ninguna salida de producto queda libre al final de la línea"))
     for a in pl.avisos:
@@ -766,7 +810,7 @@ def diagnostico(pl: Planta, motivo: str | None, tr: dict | None = None) -> list[
 
 
 def datos_lienzo(pl: Planta, sol: Planta | None, motivo: str | None, catalogo: dict, ultimo_seq: int = 0,
-                 mensajes: list | None = None, kpis_extra: dict | None = None, historial: dict | None = None) -> dict:
+                 mensajes: list | None = None, kpis_extra: dict | None = None, historial: dict | None = None, precedencia=None) -> dict:
     fijados = {(s.equipo_var, s.param): s.descripcion or s.param for s in pl.especs}
     equipos = []
     for k, eq in pl.equipos.items():
@@ -850,7 +894,7 @@ def datos_lienzo(pl: Planta, sol: Planta | None, motivo: str | None, catalogo: d
         if carga:
             alim.append(dict(id=k, nombre=eq.nombre, valor=carga, editable=editable, max=max(10.0, round(carga * 2, -1))))
     return dict(nombre=pl.nombre, rubro=pl.rubro, resuelta=pl.resuelta, motivo=motivo, equipos=equipos, conexiones=conexiones,
-                kpis=kpis, diagnostico=diagnostico(pl, motivo, tr), pistas=pistas(pl, sol, motivo, tr), catalogo=catalogo,
+                kpis=kpis, diagnostico=diagnostico(pl, motivo, tr, precedencia), pistas=pistas(pl, sol, motivo, tr), catalogo=catalogo,
                 curva=curva_linea(pl, sol), especs=especs, alimentaciones=alim,
                 tipos={k: dict(nombre=v[0], color=v[1], grosor=v[2], servicio=k in TIPOS_SERVICIO) for k, v in TIPOS_CORRIENTE.items()},
                 globales={k: _num(v) for k, v in pl.globales.items() if _num(v) is not None},

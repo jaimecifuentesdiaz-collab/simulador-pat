@@ -53,8 +53,9 @@ details.ayuda.sin-ayuda .q,details.ayuda.sin-ayuda .ayuda-txt{display:none}
 .kpi.malo{border-color:#ebc0ba;background:#fcefed}
 .kpi.bien{border-color:#b6dfc6;background:#ecf8f0}
 .cols{display:grid;grid-template-columns:264px minmax(0,1fr);gap:8px;align-items:start}
-.bajo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:6px}
+.bajo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:6px;align-items:start}
 .bajo .ancho{grid-column:1/-1}
+.bajo .mitad{min-width:0}
 details.exp{border:1px solid var(--borde);border-radius:8px;background:var(--panel);padding:6px 10px;margin:8px 0}
 details.exp>summary{cursor:pointer;font-weight:600;color:#25485a}
 details.exp>summary h4{display:inline;margin:0}
@@ -198,10 +199,13 @@ svg text{font-family:"Source Sans Pro","Segoe UI",Arial,sans-serif}
         <div id="barras" class="cap-lista"></div>
         </details>
       </div>
-      <div class="ancho">
+      <!-- PAT 135 (capturas de Jaime): gráfico en la mitad izquierda y «Variables de planta» en la derecha, alineados arriba -->
+      <div class="mitad">
         <details class="ayuda tit sin-ayuda" id="curva-det" style="margin-top:0"><summary><h4 id="curva-tit">Curva de desempeño</h4><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt" id="curva-ayuda"></div></details>
         <div id="curva"></div>
-        <details class="ayuda tit"><summary><h4>Variables de planta</h4><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt"><b>Cómo se usa:</b> arrastre equipos desde el catálogo; conecte arrastrando de un puerto de salida (círculo de color) a uno de entrada; haga clic en un equipo o una línea para editar capacidad, estado, repartos y parámetros, que se recalculan al instante. Rueda: zoom; arrastrar el fondo: mover la vista; Supr: quitar lo seleccionado; Esc: cerrar; Ctrl+Z: deshacer; Ctrl+Y o Ctrl+Mayús+Z: rehacer; Ctrl+C y Ctrl+V: copiar y pegar el equipo seleccionado (Mayús+clic para elegir varios).</div></details>
+      </div>
+      <div class="mitad">
+        <details class="ayuda tit" style="margin-top:0"><summary><h4>Variables de planta</h4><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt"><b>Cómo se usa:</b> arrastre equipos desde el catálogo; conecte arrastrando de un puerto de salida (círculo de color) a uno de entrada; haga clic en un equipo o una línea para editar capacidad, estado, repartos y parámetros, que se recalculan al instante. Rueda: zoom; arrastrar el fondo: mover la vista; Supr: quitar lo seleccionado; Esc: cerrar; Ctrl+Z: deshacer; Ctrl+Y o Ctrl+Mayús+Z: rehacer; Ctrl+C y Ctrl+V: copiar y pegar el equipo seleccionado (Mayús+clic para elegir varios).</div></details>
         <div id="vars"></div>
       </div>
     </div>
@@ -1237,22 +1241,28 @@ function curvaAyuda(texto) {           // PAT 134: la lectura de la curva va en 
 function pintarCaja() {
   const c = $("caja");
   if (!caja) return;
-  if (caja === "diag") c.innerHTML = "<b>Diagnóstico solicitado:</b><ul>" + D.diagnostico.map(x => `<li class="${x.nivel}"${x.equipo ? ` data-eq="${x.equipo}"` : ""}>${esc(x.texto)}</li>`).join("") + "</ul>";
-  else { const p = D.pistas, i = (pistaN - 1) % p.length; c.innerHTML = `<b>Pista ${pistaN} · situación actual</b><p style="margin:4px 0">${esc(p[i])}</p><span class="nota">Esta pista es una orientación; no realiza cambios en el diseño.</span>`; }
+  if (caja === "diag") c.innerHTML = "<b>Diagnóstico solicitado:</b><ul>" + D.diagnostico.map(x => `<li class="${x.nivel}"${x.equipo ? ` data-eq="${x.equipo}"` : ""}>${md(x.texto)}</li>`).join("") + "</ul>";
+  else { const p = D.pistas, i = (pistaN - 1) % p.length; c.innerHTML = `<b>Pista ${pistaN} · situación actual</b><p style="margin:4px 0">${md(p[i])}</p><span class="nota">Esta pista es una orientación; no realiza cambios en el diseño.</span>`; }
 }
 $("caja").addEventListener("click", ev => { const li = ev.target.closest("[data-eq]"); if (li && eqPor(li.dataset.eq)) { sel = {t: "eq", id: li.dataset.eq}; pintarTodo(); } });
 
 let toastT = null;
+function md(s) { return esc(s).replace(/\*([^*\n]+)\*/g, "<i>$1</i>"); }   // PAT 135: *hot break* en cursiva
 function aviso(texto, tipo) {
   const malo = tipo === "error" || tipo === "aviso";       // PAT 134: «aviso» = valor acotado por el motor
-  const t = $("toast"); t.textContent = texto; t.className = "toast ver" + (malo ? " error" : "");
+  const t = $("toast"); t.innerHTML = md(texto); t.className = "toast ver" + (malo ? " error" : "");
   clearTimeout(toastT); toastT = setTimeout(() => { t.className = "toast"; }, malo ? 5200 : 3600);
 }
 
 function pintarTodo() {
   if (!D) return;
   pintarKPIs(); pintarSVG(); pintarBarras(); pintarProp(); pintarVars(); pintarCurva(); pintarCaja(); botonesHistorial();
-  altura();
+  ajustarCatalogo(); altura();
+}
+function ajustarCatalogo() {          // PAT 135: el panel del catálogo llega hasta donde termina el lienzo (720 px)
+  const lista = $("catalogo"), lz = $("lienzo");
+  const alto = Math.round(lz.getBoundingClientRect().bottom - lista.getBoundingClientRect().top - 9);   // 8 px de relleno y 1 de borde del panel
+  if (alto > 120 && Math.abs((parseFloat(lista.style.height) || 0) - alto) > 1) { lista.style.height = alto + "px"; lista.style.maxHeight = alto + "px"; }
 }
 
 // ------------------------------------------------------------------ barra de herramientas
@@ -1304,9 +1314,9 @@ function exportar(tipo) {
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
 }
 
-new ResizeObserver(() => { if (D) { if (ajustePendiente || !vistaManual) ajustar(); else pintarSVG(); altura(); } }).observe($("lienzo"));
+new ResizeObserver(() => { if (D) { if (ajustePendiente || !vistaManual) ajustar(); else pintarSVG(); ajustarCatalogo(); altura(); } }).observe($("lienzo"));
 new ResizeObserver(() => altura()).observe(document.body);
-new ResizeObserver(() => altura()).observe(document.querySelector(".centro"));
+new ResizeObserver(() => { if (D) ajustarCatalogo(); altura(); }).observe(document.querySelector(".centro"));
 aST("streamlit:componentReady", {apiVersion: 1});
 </script>
 </body>

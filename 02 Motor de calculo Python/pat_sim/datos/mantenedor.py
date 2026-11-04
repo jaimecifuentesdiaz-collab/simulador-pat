@@ -8,6 +8,9 @@ El profesor Torres pidió (reunión del 04-11-2026, indicaciones 4 y 5) «una ba
 - parametros: clave, valor, unidad, fuente y fecha (CEPCI, dólar, Henry Hub, precios de energía y de biomasa).
 - desafios: título, enunciado, producto, rubro, demanda por período con su unidad, precios de venta, autor, fecha y activo.
 - usuarios_rol: usuarios con rol (profesor o estudiante) y clave guardada solo como hash con sal (opcional).
+- estados_material y precedencia (PAT 135, pedida por Jaime): cadena ordenada de estados del material por rubro y, por tipo
+  de equipo, qué estados acepta en su entrada de producto y qué estado entrega (motor/precedencia.py). La opción del profesor
+  «Permitir conexiones libres» se guarda en parametros con la clave «conexiones_libres» (1 = libres).
 
 sembrar() copia a la base lo que hoy está escrito en catalogos/, simbolos/, motor/calculadoras.py y ui/comun.py, sin borrar
 esos archivos (quedan como semilla), y crea dos desafíos de ejemplo. Es idempotente: solo agrega lo que falta y nunca pisa
@@ -28,10 +31,12 @@ COMUN_UI = AQUI.parents[2] / "04 Interfaz Streamlit" / "ui" / "comun.py"
 # PROFESOR_CLAVE_SHA256 en st.secrets ni en las variables de entorno (o está vacía). Cambiarla en secrets.toml al publicar.
 HASH_CLAVE_DEFECTO = "8be258bb45e4e2ab8e9a695f0b3006c018370af62c7a41752e091ee7934b777a"
 NOMBRE_SECRETO = "PROFESOR_CLAVE_SHA256"
+CLAVE_GAS_IMPORTACION = "precio_gas_importacion"   # PAT 135: escenario de importación de los Capítulos 2 a 4
 CLAVE_GAS_CHILE = "precio_gas_industrial_chile"   # PAT 135: US$/MMBtu del gas natural industrial en Chile (sin semilla: falta fuente segura)
 
 ROLES = ("profesor", "estudiante")
-TABLAS = ("simbolos", "catalogo_equipos", "parametros", "desafios", "usuarios_rol")
+TABLAS = ("simbolos", "catalogo_equipos", "parametros", "desafios", "usuarios_rol", "estados_material", "precedencia")
+CLAVE_LIBRE = "conexiones_libres"               # PAT 135: opción del profesor «Permitir conexiones libres» (tabla parametros)
 
 ESQUEMA_MANTENEDOR = """
 CREATE TABLE IF NOT EXISTS simbolos (
@@ -87,6 +92,26 @@ CREATE TABLE IF NOT EXISTS usuarios_rol (
     rol TEXT NOT NULL DEFAULT 'estudiante',
     clave_hash TEXT NOT NULL DEFAULT '',
     creado TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS estados_material (
+    rubro TEXT NOT NULL,
+    orden REAL NOT NULL DEFAULT 0,
+    codigo TEXT NOT NULL,
+    nombre TEXT NOT NULL DEFAULT '',
+    etapa TEXT NOT NULL DEFAULT '',
+    fuente TEXT NOT NULL DEFAULT '',
+    modificado TEXT NOT NULL,
+    PRIMARY KEY (rubro, codigo)
+);
+CREATE TABLE IF NOT EXISTS precedencia (
+    rubro TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    acepta TEXT NOT NULL DEFAULT '',
+    entrega TEXT NOT NULL DEFAULT '',
+    opcional INTEGER NOT NULL DEFAULT 0,
+    fuente TEXT NOT NULL DEFAULT '',
+    modificado TEXT NOT NULL,
+    PRIMARY KEY (rubro, tipo)
 );
 CREATE INDEX IF NOT EXISTS ix_simbolos_norma ON simbolos (norma, codigo);
 CREATE INDEX IF NOT EXISTS ix_desafios_activo ON desafios (activo, titulo);
@@ -163,6 +188,12 @@ def semilla_parametros() -> list[dict]:
                   fecha="2026-11-04"))
     F.append(dict(clave="anios_evaluacion", nombre="Horizonte de la evaluación económica", valor=20, unidad="años", categoria="Supuesto",
                   fuente="Supuesto: 20 años, valor de partida del simulador (ui/comun.py); el profesor lo ajusta según la vida útil del proyecto",
+                  fecha="2026-11-04"))
+    # PAT 135: segundo escenario de gas, el mismo del modelo de los Capítulos 2 a 4 (FLUJO_A3, «Flujo importación»).
+    F.append(dict(clave=CLAVE_GAS_IMPORTACION, nombre="Precio del gas natural de importación (FOB)", valor=round(6.89 / 1.037, 3),
+                  unidad="US$/MMBtu", categoria="Oficial",
+                  fuente="Modelo_PAT_Capitulos2a4_Agrozzi_v1.xlsx, hoja PARAMETROS: fob_mcf 6,89 US$/mcf dividido por mcf_mmbtu 1,037; "
+                         "precio FOB de importación, sin regasificación, transporte ni distribución",
                   fecha="2026-11-04"))
     # No se siembra «precio_gas_industrial_chile» (US$/MMBtu): no hay un valor con fuente segura en la carpeta del proyecto.
     # Si el profesor lo agrega en el mantenedor, Economía lo usa en lugar del Henry Hub (clave en CLAVE_GAS_CHILE).
@@ -264,6 +295,115 @@ def desafio_agar() -> dict:
                      fuente="Supuesto ilustrativo: demanda mensual de ejemplo con peak en invierno; " + _SUP_AGAR),
         precios=[dict(producto="Agar agar en polvo, grado alimentario", precio=18.0, moneda="US$", unidad="kg", fuente="Supuesto: " + _SUP_AGAR),
                  dict(producto="Agar agar bacteriológico", precio=35.0, moneda="US$", unidad="kg", fuente="Supuesto: " + _SUP_AGAR)])
+
+
+# ------------------------------------------------------------------ PAT 135: estados del material y precedencia
+_F_TOMATE = ("Supuesto: orden de la línea de la planta basada en Agrozzi del Capítulo 1 (escenarios/agrozzi.py): recepción, lavado, "
+             "trituradora, hot break, refinadora, evaporadores, esterilizador, enfriamiento y llenado aséptico")
+_F_PELLET = "Supuesto: orden de la línea de escenarios/pellet.py (secado, molienda, pelletizado, enfriamiento, cribado y ensacado)"
+_F_CHIP = "Supuesto: orden de la línea de escenarios/chip.py (astillado, cribado, secado y acopio)"
+_F_LENA = "Supuesto: orden de la línea de escenarios/lena.py (trozado y partido, secado y acopio)"
+
+# (rubro, orden, código, nombre, etapa que produce el estado, fuente)
+_ESTADOS = [
+    ("tomate", 1, "tomate_fresco", "tomate fresco", "recepción", _F_TOMATE),
+    ("tomate", 2, "tomate_lavado", "tomate lavado y seleccionado", "lavado", _F_TOMATE),
+    ("tomate", 3, "tomate_triturado", "tomate triturado", "trituración", _F_TOMATE),
+    ("tomate", 4, "jugo_caliente", "jugo caliente", "*hot break*", _F_TOMATE),
+    ("tomate", 5, "jugo_refinado", "jugo refinado", "refinado", _F_TOMATE),
+    ("tomate", 6, "pasta_concentrada", "pasta concentrada", "evaporación", _F_TOMATE),
+    ("tomate", 7, "pasta_esteril", "pasta estéril", "esterilización", _F_TOMATE),
+    ("tomate", 8, "pasta_enfriada", "pasta enfriada", "enfriamiento", _F_TOMATE),
+    ("tomate", 9, "pasta_envasada", "pasta envasada", "llenado aséptico", _F_TOMATE),
+    ("pellet", 1, "biomasa_humeda", "biomasa húmeda", "recepción", _F_PELLET),
+    ("pellet", 2, "biomasa_seca", "biomasa seca", "secado", _F_PELLET),
+    ("pellet", 3, "biomasa_molida", "biomasa molida", "molienda", _F_PELLET),
+    ("pellet", 4, "pellet_caliente", "pellet caliente", "pelletizado", _F_PELLET),
+    ("pellet", 5, "pellet_enfriado", "pellet enfriado", "enfriamiento", _F_PELLET),
+    ("pellet", 6, "pellet_cribado", "pellet cribado", "cribado", _F_PELLET),
+    ("pellet", 7, "pellet_ensacado", "pellet ensacado", "ensacado", _F_PELLET),
+    ("chip", 1, "rollizo_verde", "rollizos verdes", "recepción", _F_CHIP),
+    ("chip", 2, "astilla_verde", "astilla verde", "astillado", _F_CHIP),
+    ("chip", 3, "astilla_cribada", "astilla cribada", "cribado", _F_CHIP),
+    ("chip", 4, "astilla_seca", "astilla seca", "secado", _F_CHIP),
+    ("chip", 5, "chip_acopiado", "chip acopiado", "acopio", _F_CHIP),
+    ("lena", 1, "trozas_verdes", "trozas verdes", "recepción", _F_LENA),
+    ("lena", 2, "lena_partida", "leña trozada y partida", "trozado y partido", _F_LENA),
+    ("lena", 3, "lena_seca", "leña seca", "secado", _F_LENA),
+    ("lena", 4, "lena_acopiada", "leña acopiada", "acopio", _F_LENA),
+]
+_SECADORES = ("secador_biomasa", "secador_banda", "secador_lena")
+_OPC_FLASH = ("Supuesto: la pasta estéril también se puede enfriar en la sección de enfriamiento del propio esterilizador, sin una "
+              "cámara aparte, y llegar enfriada a la llenadora")
+_OPC_CRIBA = "Supuesto: la criba de finos es habitual pero no indispensable; sin ella el producto sigue sin cribar a la etapa siguiente"
+_OPC_LENA = ("Supuesto: la leña trozada y partida también se seca al aire en el acopio (secado natural); el acopio revisa la humedad "
+             "con el límite de la NCh2907")
+# (rubro, tipo, acepta, entrega, opcional, fuente). Los tipos sin fila dejan pasar el estado (bombas, estanques, intercambiadores).
+_PRECEDENCIA = [
+    ("tomate", "alimentacion_tomate", "", "tomate_fresco", False, _F_TOMATE),
+    ("tomate", "recepcion_seleccion", "tomate_fresco", "tomate_lavado", False, _F_TOMATE),
+    ("tomate", "trituradora", "tomate_lavado", "tomate_triturado", False, _F_TOMATE),
+    ("tomate", "hot_break", "tomate_triturado", "jugo_caliente", False, _F_TOMATE),
+    ("tomate", "refinadora", "jugo_caliente", "jugo_refinado", False, _F_TOMATE),
+    ("tomate", "evaporador_mvr", "jugo_refinado, pasta_concentrada", "pasta_concentrada", False, _F_TOMATE + "; varias etapas de evaporación en serie"),
+    ("tomate", "evaporador_multiefecto", "jugo_refinado, pasta_concentrada", "pasta_concentrada", False, _F_TOMATE + "; varias etapas de evaporación en serie"),
+    ("tomate", "esterilizador", "pasta_concentrada", "pasta_esteril", False, _F_TOMATE),
+    ("tomate", "enfriamiento_flash", "pasta_esteril", "pasta_enfriada", True, _OPC_FLASH),
+    ("tomate", "llenadora_aseptica", "pasta_enfriada", "pasta_envasada", False, _F_TOMATE),
+    ("pellet", "alimentacion_biomasa", "", "biomasa_humeda", False, _F_PELLET),
+    *[("pellet", t, "biomasa_humeda", "biomasa_seca", False, _F_PELLET) for t in _SECADORES],
+    ("pellet", "molino_martillos", "biomasa_seca", "biomasa_molida", False, _F_PELLET),
+    ("pellet", "pelletizadora", "biomasa_molida", "pellet_caliente", False, _F_PELLET),
+    ("pellet", "enfriador_pellet", "pellet_caliente", "pellet_enfriado", False, _F_PELLET),
+    ("pellet", "criba_biomasa", "pellet_enfriado", "pellet_cribado", True, _OPC_CRIBA),
+    ("pellet", "despacho_biomasa", "pellet_cribado", "pellet_ensacado", False, _F_PELLET),
+    ("chip", "alimentacion_biomasa", "", "rollizo_verde", False, _F_CHIP),
+    ("chip", "astilladora", "rollizo_verde", "astilla_verde", False, _F_CHIP),
+    ("chip", "criba_biomasa", "astilla_verde", "astilla_cribada", True, _OPC_CRIBA),
+    *[("chip", t, "astilla_cribada", "astilla_seca", False, _F_CHIP) for t in _SECADORES],
+    ("chip", "despacho_biomasa", "astilla_seca", "chip_acopiado", False, _F_CHIP),
+    ("lena", "alimentacion_biomasa", "", "trozas_verdes", False, _F_LENA),
+    ("lena", "sierra_lena", "trozas_verdes", "lena_partida", False, _F_LENA),
+    *[("lena", t, "lena_partida", "lena_seca", True, _OPC_LENA) for t in _SECADORES],
+    ("lena", "despacho_biomasa", "lena_seca", "lena_acopiada", False, _F_LENA),
+]
+
+
+def semilla_estados() -> list[dict]:
+    return [dict(rubro=r, orden=o, codigo=c, nombre=n, etapa=e, fuente=f) for r, o, c, n, e, f in _ESTADOS]
+
+
+def semilla_precedencia() -> list[dict]:
+    return [dict(rubro=r, tipo=t, acepta=a, entrega=e, opcional=o, fuente=f) for r, t, a, e, o, f in _PRECEDENCIA]
+
+
+def validar_precedencia(estados: list[dict], filas: list[dict]) -> list[str]:
+    """Errores de la tabla: códigos repetidos, estados que no existen en su rubro y filas sin fuente."""
+    from ..motor.precedencia import lista_codigos, CUALQUIERA
+    err, por_rubro = [], {}
+    for e in estados:
+        r, c = _txt(e.get("rubro")), _txt(e.get("codigo"))
+        if not r or not c:
+            err.append("Cada estado necesita rubro y código"); continue
+        if c in por_rubro.setdefault(r, set()):
+            err.append(f"Estado repetido en {r}: {c}")
+        por_rubro[r].add(c)
+        if _num(e.get("orden")) is None:
+            err.append(f"{r}.{c}: el orden debe ser un número")
+    for f in filas:
+        r, t = _txt(f.get("rubro")), _txt(f.get("tipo"))
+        if not r or not t:
+            err.append("Cada fila de precedencia necesita rubro y tipo de equipo"); continue
+        validos = set().union(*por_rubro.values()) if r == CUALQUIERA else por_rubro.get(r, set())
+        for c in lista_codigos(f.get("acepta")):
+            if c != CUALQUIERA and c not in validos:
+                err.append(f"{r}.{t}: acepta «{c}», que no es un estado de {r}")
+        e = _txt(f.get("entrega"))
+        if e and e not in validos:
+            err.append(f"{r}.{t}: entrega «{e}», que no es un estado de {r}")
+        if not _txt(f.get("fuente")):
+            err.append(f"{r}.{t}: falta la fuente (o «Supuesto» con su justificación)")
+    return err
 
 
 def semilla_desafios() -> list[dict]:
@@ -471,6 +611,82 @@ class Mantenedor:
             return [dict(usuario=f["usuario"], rol=f["rol"], con_clave=bool(f["clave_hash"]), creado=f["creado"])
                     for f in con.execute("SELECT * FROM usuarios_rol ORDER BY rol, usuario")]
 
+    # ------------------------------------------------------------------ PAT 135: estados del material y precedencia
+    def listar_estados(self, rubro: str | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM estados_material", ()
+        if rubro:
+            sql += " WHERE rubro = ?"; args = (rubro,)
+        with self._con() as con:
+            return [dict(f) for f in con.execute(sql + " ORDER BY rubro, orden, codigo", args)]
+
+    def guardar_estado(self, rubro: str, orden, codigo: str, nombre: str = "", etapa: str = "", fuente: str = "") -> None:
+        rubro, codigo = _txt(rubro), _txt(codigo)
+        if not rubro or not codigo:
+            raise ValueError("El estado necesita rubro y código")
+        o = _num(orden)
+        if o is None:
+            raise ValueError(f"El orden de «{codigo}» debe ser un número")
+        with self._con() as con:
+            con.execute("INSERT INTO estados_material (rubro, orden, codigo, nombre, etapa, fuente, modificado) VALUES (?,?,?,?,?,?,?) "
+                        "ON CONFLICT(rubro, codigo) DO UPDATE SET orden=excluded.orden, nombre=excluded.nombre, etapa=excluded.etapa, "
+                        "fuente=excluded.fuente, modificado=excluded.modificado",
+                        (rubro, o, codigo, _txt(nombre) or codigo, _txt(etapa), _txt(fuente), _ahora()))
+
+    def eliminar_estado(self, rubro: str, codigo: str) -> None:
+        with self._con() as con:
+            con.execute("DELETE FROM estados_material WHERE rubro = ? AND codigo = ?", (rubro, codigo))
+
+    def listar_precedencia(self, rubro: str | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM precedencia", ()
+        if rubro:
+            sql += " WHERE rubro = ?"; args = (rubro,)
+        with self._con() as con:
+            filas = [dict(f) for f in con.execute(sql + " ORDER BY rubro, tipo", args)]
+        for f in filas:
+            f["opcional"] = bool(f["opcional"])
+        return filas
+
+    def guardar_precedencia(self, rubro: str, tipo: str, acepta="", entrega: str = "", opcional: bool = False, fuente: str = "") -> None:
+        from ..motor.precedencia import lista_codigos
+        rubro, tipo = _txt(rubro), _txt(tipo)
+        if not rubro or not tipo:
+            raise ValueError("La fila de precedencia necesita rubro y tipo de equipo")
+        with self._con() as con:
+            con.execute("INSERT INTO precedencia (rubro, tipo, acepta, entrega, opcional, fuente, modificado) VALUES (?,?,?,?,?,?,?) "
+                        "ON CONFLICT(rubro, tipo) DO UPDATE SET acepta=excluded.acepta, entrega=excluded.entrega, opcional=excluded.opcional, "
+                        "fuente=excluded.fuente, modificado=excluded.modificado",
+                        (rubro, tipo, ", ".join(lista_codigos(acepta)), _txt(entrega), 1 if opcional else 0, _txt(fuente), _ahora()))
+
+    def eliminar_precedencia(self, rubro: str, tipo: str) -> None:
+        with self._con() as con:
+            con.execute("DELETE FROM precedencia WHERE rubro = ? AND tipo = ?", (rubro, tipo))
+
+    def conexiones_libres(self) -> bool:
+        p = self.obtener_parametro(CLAVE_LIBRE)
+        return bool(p and p["valor"])
+
+    def fijar_conexiones_libres(self, libre: bool) -> None:
+        self.guardar_parametro(CLAVE_LIBRE, 1 if libre else 0, "—", "Opción del profesor en el mantenedor (1 = conexiones libres, "
+                               "sin la restricción de precedencia)", date.today().isoformat(), "Permitir conexiones libres", "Usuario")
+
+    def sembrar_precedencia(self) -> dict:
+        """Copia la semilla de estados y precedencia sin pisar lo editado (INSERT OR IGNORE)."""
+        out = dict(estados_material=0, precedencia=0); ahora = _ahora()
+        with self._con() as con:
+            for e in semilla_estados():
+                out["estados_material"] += con.execute(
+                    "INSERT OR IGNORE INTO estados_material (rubro, orden, codigo, nombre, etapa, fuente, modificado) VALUES (?,?,?,?,?,?,?)",
+                    (e["rubro"], e["orden"], e["codigo"], e["nombre"], e["etapa"], e["fuente"], ahora)).rowcount
+            for f in semilla_precedencia():
+                out["precedencia"] += con.execute(
+                    "INSERT OR IGNORE INTO precedencia (rubro, tipo, acepta, entrega, opcional, fuente, modificado) VALUES (?,?,?,?,?,?,?)",
+                    (f["rubro"], f["tipo"], f["acepta"], f["entrega"], 1 if f["opcional"] else 0, f["fuente"], ahora)).rowcount
+        return out
+
+    def tabla_precedencia(self) -> dict:
+        """Lo que recibe el motor (motor/precedencia.Precedencia.desde): {estados, precedencia, libre}."""
+        return dict(estados=self.listar_estados(), precedencia=self.listar_precedencia(), libre=self.conexiones_libres())
+
     # ------------------------------------------------------------------ semilla
     def sembrar(self, desafios: bool = True) -> dict:
         """Copia la semilla a la base sin pisar lo editado (INSERT OR IGNORE). Devuelve cuántas filas agregó en cada tabla."""
@@ -492,6 +708,8 @@ class Mantenedor:
                     (e["tipo"], e["rubro"], a_json(e["rubros"]), e["nombre"], e["simbolo"], e["iso_categoria"], e["iso_letra"],
                      a_json(e["parametros"]), e["fuente"], ahora)).rowcount
             titulos = {f[0] for f in con.execute("SELECT titulo FROM desafios")}
+        # PAT 135: estados y precedencia; sus cuentas aparecen en el resultado solo si se agregaron filas
+        out.update({k: v for k, v in self.sembrar_precedencia().items() if v})
         if desafios:
             for fn in (desafio_agrozzi, desafio_agar):
                 # el título se conoce sin calcular la planta: se arma la semilla solo si falta (Agrozzi tarda cerca de 1 s)
@@ -525,6 +743,18 @@ def mantenedor(bd=None) -> Mantenedor:
 def sembrar(bd=None, desafios: bool = True) -> dict:
     """Llamar una vez al iniciar la aplicación (después de BaseDatos.precargar). Idempotente."""
     return mantenedor(bd).sembrar(desafios)
+
+
+def tabla_precedencia(bd=None) -> dict:
+    """PAT 135: tabla de precedencia para el motor, desde la base; si la base no tiene estados, los siembra; si falla, la semilla."""
+    try:
+        m = mantenedor(bd)
+        t = m.tabla_precedencia()
+        if not t["estados"] and not t["precedencia"]:
+            m.sembrar_precedencia(); t = m.tabla_precedencia()
+        return t
+    except (sqlite3.Error, OSError):
+        return dict(estados=semilla_estados(), precedencia=semilla_precedencia(), libre=False)
 
 
 def _de_semilla(tipo: str, clave, norma: str | None):

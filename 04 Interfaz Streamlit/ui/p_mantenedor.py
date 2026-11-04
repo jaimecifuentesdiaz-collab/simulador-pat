@@ -4,11 +4,14 @@ Con la clave del profesor se crean, editan y activan los desafíos y se editan l
 energía), el catálogo de equipos y la simbología, todo guardado en la base de datos (datos/mantenedor.py). Sin la clave,
 todo se ve en solo lectura. La clave se compara por su SHA-256 con st.secrets["PROFESOR_CLAVE_SHA256"] o con la variable de
 entorno del mismo nombre; si ninguna existe (o está vacía), con el hash de respaldo del código (clave «torres2026»).
+PAT 135: pestaña Precedencia, con la cadena de estados del material por rubro, qué acepta y qué entrega cada tipo de equipo y
+la opción «Permitir conexiones libres» (tablas estados_material y precedencia, y la clave conexiones_libres de parametros).
 """
 from __future__ import annotations
 import html, os, re
 import streamlit as st
-from pat_sim.catalogos.registro import RUBROS
+from pat_sim.catalogos.registro import RUBROS, TIPOS
+from pat_sim.motor import precedencia as PR
 from pat_sim.datos import mantenedor as M
 from pat_sim.motor import desafio as D
 from . import comun as C
@@ -335,6 +338,89 @@ def _tab_simbolos(m, ok: bool):
         (st.error if err else st.success)("; ".join(err) if err else "Símbolos guardados.")
 
 
+# ---------------------------------------------------------------- PAT 135: precedencia de los estados del material
+AYUDA_PRECEDENCIA = """
+**Para qué sirve.** En el lienzo de Diseño, una conexión de producto solo se acepta si el estado del material que sale del
+equipo de origen está entre los que acepta el equipo de destino. Así no se puede conectar, por ejemplo, la recepción de
+tomate directo a la llenadora aséptica: el mensaje nombra las etapas que faltan. La misma regla usan «Secuencia sugerida» y
+«Diagnóstico».
+
+**Estados.** Cada rubro tiene una cadena ordenada; «etapa» es la operación que produce ese estado y es lo que se nombra en
+«Faltan: …». **Precedencia.** Por tipo de equipo: estados que acepta (códigos separados por coma; vacío o «*» = cualquiera),
+estado que entrega (vacío = deja pasar el estado, como una bomba o un estanque) y si es opcional (se puede saltar). Los tipos
+sin fila dejan pasar el estado. El rubro «*» vale para todos los rubros que no tengan su propia fila.
+"""
+
+
+def _tab_precedencia(m, ok: bool):
+    with st.expander("?  Cómo funciona la precedencia"):
+        st.markdown(AYUDA_PRECEDENCIA)
+    libre = m.conexiones_libres()
+    nuevo_libre = st.checkbox("Permitir conexiones libres (sin la restricción de precedencia)", value=libre, disabled=not ok,
+                              key="man_prec_libre", help="Opción del profesor: con ella el lienzo acepta cualquier conexión de tipos "
+                                                         "compatibles y el diagnóstico solo avisa.")
+    if ok and bool(nuevo_libre) != libre and st.button("Guardar la opción", key="man_prec_guardar_libre"):
+        m.fijar_conexiones_libres(bool(nuevo_libre))
+        st.success("Conexiones libres activadas." if nuevo_libre else "Restricción de precedencia activada.")
+    estados = m.listar_estados(); filas = m.listar_precedencia()
+    rubros = list(dict.fromkeys([r for r in RUBROS if r != "general"] + [e["rubro"] for e in estados] + [f["rubro"] for f in filas]))
+    _valida("man_prec_rubro", rubros)
+    rubro = st.selectbox("Rubro", rubros, format_func=lambda r: "Todos los rubros (*)" if r == PR.CUALQUIERA else RUBROS.get(r, r),
+                         key="man_prec_rubro")
+    t = PR.Precedencia(estados, filas)
+    es_r = [e for e in estados if e["rubro"] == rubro]; fs_r = [f for f in filas if f["rubro"] == rubro]
+    if es_r:
+        st.markdown(C.esc("Cadena: " + t.cadena(rubro)))
+    st.markdown("##### Estados del material")
+    C.mostrar_tabla(es_r, [("orden", "Orden", "num", 0), ("codigo", "Código", "txt", 0), ("nombre", "Nombre", "txt", 0),
+                           ("etapa", "Etapa que lo produce", "txt", 0), ("fuente", "Fuente", "txt", 0)])
+    st.markdown("##### Qué acepta y qué entrega cada tipo de equipo")
+    nom = lambda c: t.nombre(rubro, c) if c != PR.CUALQUIERA else "cualquiera"
+    C.mostrar_tabla([dict(tipo=f"{TIPOS[f['tipo']].nombre_tipo} ({f['tipo']})" if f["tipo"] in TIPOS else f["tipo"],
+                          acepta=", ".join(nom(c) for c in PR.lista_codigos(f["acepta"])) or "cualquiera",
+                          entrega=nom(f["entrega"]) if f["entrega"] else "el mismo que recibe", opc="Sí" if f["opcional"] else "No",
+                          fuente=f["fuente"]) for f in fs_r],
+                    [("tipo", "Tipo de equipo", "txt", 0), ("acepta", "Acepta", "txt", 0), ("entrega", "Entrega", "txt", 0),
+                     ("opc", "Opcional", "txt", 0), ("fuente", "Fuente", "txt", 0)])
+    st.caption("Los tipos que no aparecen (bombas, estanques, intercambiadores, válvulas y demás equipos generales) dejan pasar el estado.")
+    if not ok:
+        return
+    st.markdown("##### Editar")
+    ce = ["orden", "codigo", "nombre", "etapa", "fuente"]
+    ee = _editor([{c: e.get(c) for c in ce} for e in es_r], ce, f"man_prec_est_{rubro}",
+                 {"orden": _col("NumberColumn", "Orden", "center"), "codigo": _col("TextColumn", "Código", "left", required=True),
+                  "nombre": _col("TextColumn", "Nombre", "left"), "etapa": _col("TextColumn", "Etapa que lo produce", "left"),
+                  "fuente": _col("TextColumn", "Fuente", "left")})
+    cf = ["tipo", "acepta", "entrega", "opcional", "fuente"]
+    codigos = [""] + sorted({str(e.get("codigo")) for e in ee if e.get("codigo")} | {f["entrega"] for f in fs_r if f["entrega"]})
+    ef = _editor([{c: f.get(c) for c in cf} for f in fs_r], cf, f"man_prec_fil_{rubro}",
+                 {"tipo": _col("SelectboxColumn", "Tipo de equipo", "left", options=sorted(TIPOS), required=True),
+                  "acepta": _col("TextColumn", "Acepta (códigos separados por coma)", "left"),
+                  "entrega": _col("SelectboxColumn", "Entrega (vacío = deja pasar)", "left", options=codigos),
+                  "opcional": _col("CheckboxColumn", "Opcional", "center"), "fuente": _col("TextColumn", "Fuente", "left")})
+    if st.button("Guardar estados y precedencia", type="primary", key=f"man_prec_guardar_{rubro}"):
+        est_n = [dict(e, rubro=rubro) for e in ee if e.get("codigo")]
+        fil_n = [dict(f, rubro=rubro, opcional=bool(f.get("opcional"))) for f in ef if f.get("tipo")]
+        otros_e = [e for e in estados if e["rubro"] != rubro]; otros_f = [f for f in filas if f["rubro"] != rubro]
+        err = M.validar_precedencia(otros_e + est_n, otros_f + fil_n)
+        if err:
+            st.error("No se guardó: " + "; ".join(err))
+            return
+        try:
+            for e in est_n:
+                m.guardar_estado(rubro, e.get("orden"), e["codigo"], e.get("nombre") or "", e.get("etapa") or "", e.get("fuente") or "")
+            for f in fil_n:
+                m.guardar_precedencia(rubro, f["tipo"], f.get("acepta") or "", f.get("entrega") or "", f["opcional"], f.get("fuente") or "")
+        except ValueError as x:
+            st.error(f"No se guardó: {x}")
+            return
+        for c in {e["codigo"] for e in es_r} - {str(e["codigo"]).strip() for e in est_n}:
+            m.eliminar_estado(rubro, c)
+        for tp in {f["tipo"] for f in fs_r} - {str(f["tipo"]).strip() for f in fil_n}:
+            m.eliminar_precedencia(rubro, tp)
+        st.success(f"Estados y precedencia de {RUBROS.get(rubro, rubro)} guardados. El lienzo de Diseño los usa desde la próxima acción.")
+
+
 # ---------------------------------------------------------------- pantalla
 def mostrar():
     st.subheader("Mantenedor")
@@ -345,10 +431,12 @@ def mostrar():
         m = M.mantenedor(C.obtener_bd())
         if not m.contar()["catalogo_equipos"]:
             m.sembrar()
+        elif not m.contar()["estados_material"]:          # PAT 135: base sembrada antes de las tablas de precedencia
+            m.sembrar_precedencia()
     except Exception as e:
         st.error(f"No se pudo abrir la base de datos del mantenedor: {e}")
         return
-    t1, t2, t3, t4 = st.tabs(["Desafíos", "Parámetros", "Catálogo de equipos", "Símbolos"])
+    t1, t2, t3, t4, t5 = st.tabs(["Desafíos", "Parámetros", "Catálogo de equipos", "Símbolos", "Precedencia"])
     with t1:
         _tab_desafios(m, ok)
     with t2:
@@ -357,3 +445,5 @@ def mostrar():
         _tab_catalogo(m, ok)
     with t4:
         _tab_simbolos(m, ok)
+    with t5:                                   # PAT 135
+        _tab_precedencia(m, ok)
