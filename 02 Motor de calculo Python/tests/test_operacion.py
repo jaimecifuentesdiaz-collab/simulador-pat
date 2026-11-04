@@ -79,14 +79,46 @@ def test_laboratorio_entrega_con_demora():
 
 def test_variables_de_la_pasta_siguen_a_la_planta():
     pl = agrozzi.crear(); v = {x.id: x for x in Q.variables(pl)}
-    assert math.isclose(v["brix"].media, 30.0, abs_tol=1e-6) and v["t_est"].media == 103.0 and v["t_est"].lo == 103.0
+    assert math.isclose(v["brix"].media, 30.0, abs_tol=1e-6) and v["t_est"].lo == 103.0
     assert v["howard"].hi == 50.0 and v["ph"].hi == 4.5
-    # la DIA exige más de 103 °C: con la consigna en 103 °C la mitad de las muestras queda bajo el mínimo
+    # PAT 135 (T8): la DIA exige más de 103 °C y el balance deja la consigna en 103 °C; sin banda de guarda la mitad de
+    # las muestras quedaría bajo el mínimo. Con la banda el lazo opera a 103 + 3 x 0,6 = 104,8 °C y la consigna se guarda.
     assert math.isclose(OP.prob_conforme(103.0, 0.6, 103.0, 110.0), 0.5, abs_tol=1e-9)
-    c0 = OP.conformidad(pl)
+    assert math.isclose(v["t_est"].media, 104.8, abs_tol=1e-9) and v["t_est"].consigna == 103.0
+    assert math.isclose(OP.conformidad(pl), OP.S["conf_max"], abs_tol=1e-3)
     acc = [a for a in Q.acciones(pl) if a["variable"] == "t_est"][0]
-    assert Q.aplicar_accion(pl, acc, 105.0); pl.resolver()
-    assert OP.conformidad(pl) > c0 + 0.3
+    assert Q.aplicar_accion(pl, acc, 100.0); pl.resolver()          # bajo el mínimo de la DIA: casi todo no conforme
+    assert OP.conformidad(pl) < 0.01
+
+
+def test_banda_de_guarda_no_deja_la_conformidad_en_50():
+    """PAT 135 (T8): con las consignas de diseño en el límite (esterilizador 103 °C, humedad 10 % ENplus A1 y 25 % del
+    chip) la conformidad era 50 % y el OEE de los turnos 41,5 %."""
+    for mod in (agrozzi, pellet, chip, lena):
+        pl = mod.crear(); pl.resolver()
+        assert OP.conformidad(pl) > 0.98
+
+
+def test_banda_de_guarda_mueve_solo_lo_que_esta_en_el_borde():
+    v = Q.Variable("x", "x", "", 10.0, 20.0, 1.0, 10.5, "", "")
+    assert Q.banda_guarda(v).media == 13.0 and v.consigna == 10.5
+    v = Q.Variable("x", "x", "", None, 10.0, 0.2, 10.0, "", "")
+    assert math.isclose(Q.banda_guarda(v).media, 9.4) and v.consigna == 10.0
+    v = Q.Variable("x", "x", "", 10.0, 20.0, 1.0, 15.0, "", "")
+    assert Q.banda_guarda(v).media == 15.0 and v.consigna is None          # centrada: no se toca
+    v = Q.Variable("x", "x", "", 10.0, 20.0, 1.0, 9.0, "", "")
+    assert Q.banda_guarda(v).media == 9.0 and v.consigna is None           # fuera de especificación: no se toca
+    v = Q.Variable("x", "x", "", 10.0, 12.0, 1.0, 10.2, "", "")
+    assert Q.banda_guarda(v).media == 10.2                                 # rango más estrecho que la banda
+
+
+def test_oee_de_los_turnos_sobre_75():
+    from pat_sim.motor import tablero as T
+    for mod in (agrozzi, pellet):
+        pl = mod.crear(); pl.resolver(); op = _op(pl)
+        turnos = [OP.correr_turno(op, pl) for _ in range(6)]
+        turnos = [t if isinstance(t, dict) else t.__dict__ for t in turnos]
+        assert T.oee_operacion(turnos, OP.linea(pl))["oee"] > 0.75
 
 
 def test_variables_de_biomasa():

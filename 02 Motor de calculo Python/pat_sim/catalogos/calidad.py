@@ -28,6 +28,7 @@ class Variable:
     categoria: str = "Supuesto"
     equipo_control: str | None = None   # su estado (desgaste) aumenta la variabilidad
     decimales: int = 2
+    consigna: float | None = None       # PAT 135: valor del balance cuando la banda de guarda movió la media
 
     def a_dict(self) -> dict:
         return asdict(self)
@@ -133,12 +134,40 @@ def variables_biomasa(pl) -> list[Variable]:
     return out
 
 
+# PAT 135 (T8): banda de guarda de los lazos de control. Supuesto: el operador fija la consigna del lazo a 3 desviaciones
+# estándar dentro del límite de especificación, que corresponde a un índice de capacidad Cpk = 1,0 (Montgomery, 2020,
+# Introduction to Statistical Quality Control, cap. 8). Sin ella, una consigna de diseño puesta justo en el límite (el
+# esterilizador a 103 °C, mínimo de la DIA; el secador a 10 % de humedad, máximo de la ENplus A1) deja la mitad del
+# producto fuera de especificación y la conformidad cae a 50 %.
+Z_GUARDA = 3.0
+
+
+def banda_guarda(v: Variable, z: float = Z_GUARDA) -> Variable:
+    """Si la media del balance está dentro de la especificación pero a menos de z desviaciones de un límite, la mueve a
+    z desviaciones hacia adentro (la consigna con banda de guarda). Una media fuera de especificación no se toca: la
+    conformidad debe caer si el usuario baja la temperatura del esterilizador o deja el pellet más húmedo que la norma."""
+    m, g = v.media, z * v.sd
+    if v.lo is not None and v.hi is not None and (v.hi - v.lo) < 2 * g:
+        return v                                         # rango demasiado estrecho para la banda: se deja centrada
+    nueva = m
+    if v.lo is not None and v.lo <= m < v.lo + g:
+        nueva = v.lo + g
+    if v.hi is not None and v.hi - g < m <= v.hi:
+        nueva = v.hi - g
+    if nueva != m:
+        v.consigna = m
+        v.media = nueva
+        v.fuente_media += (f" Banda de guarda (Supuesto): el lazo opera a {z:g} desviaciones estándar dentro del límite "
+                           f"(Cpk 1,0), porque el balance deja la consigna en el límite de especificación.")
+    return v
+
+
 def variables(pl) -> list[Variable]:
     """Variables de calidad de la planta actual (resuelta). Tomate o biomasa; otra planta, sin variables."""
     if pl.rubro == "tomate":
-        return variables_tomate(pl)
+        return [banda_guarda(v) for v in variables_tomate(pl)]
     if _equipo(pl, "despacho") is not None:
-        return variables_biomasa(pl)
+        return [banda_guarda(v) for v in variables_biomasa(pl)]
     return []
 
 

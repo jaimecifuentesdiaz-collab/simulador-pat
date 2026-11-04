@@ -98,6 +98,10 @@ def mostrar():
             st.warning(f"La media de «{x.nombre}» ({C.fmt(x.media, x.decimales)} {x.unidad}) está en el límite o fuera de la especificación "
                        f"({x.especificacion()}): con la variabilidad común, gran parte del producto queda fuera. Mueva la consigna con las "
                        "acciones correctivas, dejando margen.")
+        for x in [x for x in vs if getattr(x, "consigna", None) is not None]:   # PAT 135 (T8): banda de guarda
+            st.caption(C.esc(f"«{x.nombre}»: el balance deja la consigna en {C.fmt(x.consigna, x.decimales)} {x.unidad}, justo en el límite "
+                             f"({x.especificacion()}); el lazo opera con banda de guarda en {C.fmt(x.media, x.decimales)} {x.unidad} "
+                             "(3 desviaciones estándar adentro, Cpk 1,0; Supuesto)."))
     with st.expander("Variables de calidad: medias, variabilidad y fuentes", expanded=False):
         AT.tabla("cal_variables", "Medias, variabilidad y fuentes")   # PAT 134: «?» de la tabla
         C.mostrar_tabla([dict(n=x.nombre, m=x.media, sd=x.sd * OP.factor_variabilidad(pl, x), p=100 * OP.prob_conforme(x.media, x.sd * OP.factor_variabilidad(pl, x), x.lo, x.hi),
