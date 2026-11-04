@@ -112,6 +112,12 @@ def _procesar_eventos(pl):
     msgs = ss.setdefault("lienzo_mensajes", [])
     for ev in evs:                                   # sin llamadas a Streamlit en el ciclo: no se interrumpe a medias
         r = _guardar(pl) if ev.get("evento") == "guardar" else LZ.aplicar_con_historial(pl, ev, hist, TIPOS)
+        if ev.get("evento") == "agregar" and r.get("ok") and r.get("id") in pl.equipos:   # PAT 135: parámetros por defecto del mantenedor
+            try:
+                from pat_sim.datos import mantenedor as MANT
+                MANT.aplicar_defectos(pl.equipos[r["id"]], C.obtener_bd())
+            except Exception:
+                pass                                     # sin base queda el valor del catálogo
         restaurada = restaurada or bool(r.get("restaurada"))
         ss.lienzo_seq = int(ev["seq"])
         recalcular = recalcular or r["recalcular"]

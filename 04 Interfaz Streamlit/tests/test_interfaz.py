@@ -29,10 +29,11 @@ def test_cifras_del_capitulo_1(app):
     assert m["Gas desplazado por A3 (colector común de condensados)"] == "79.023 MMBtu" and m["CO2 evitado por temporada"] == "4.131 t"
 
 
-def test_diecinueve_pantallas_sin_errores(app):
-    # PAT 134: las diecinueve pantallas van en el índice lateral; las únicas pestañas que quedan son las diez de Calculadoras
+def test_veinticuatro_pantallas_sin_errores(app):
+    # PAT 135: veinticuatro pantallas en el índice lateral (se suman Desafío, Layout, Costeo, Riesgo económico y Mantenedor);
+    # las únicas pestañas que quedan son las diez de Calculadoras
     assert len(app.tabs) == 10 and not app.error
-    assert len(app.sidebar.radio(key="pagina").options) == 19
+    assert len(app.sidebar.radio(key="pagina").options) == 24
 
 
 def test_indice_lateral_muestra_solo_la_pantalla_elegida(tmp_path, monkeypatch):
@@ -40,7 +41,7 @@ def test_indice_lateral_muestra_solo_la_pantalla_elegida(tmp_path, monkeypatch):
     bd = tmp_path / "t.db"; shutil.copyfile(BD_ORIGEN, bd)
     monkeypatch.setenv("PAT_SIM_DB", str(bd)); monkeypatch.delenv("PAT_TODAS_LAS_PAGINAS", raising=False)
     at = AppTest.from_file(APP, default_timeout=170); at.run()
-    assert not at.exception and at.session_state.pagina == "Escenario" and len(at.tabs) == 0
+    assert not at.exception and at.session_state.pagina == "Desafío" and len(at.tabs) == 0   # PAT 135: se abre en Desafío
     at.sidebar.radio(key="pagina").set_value("Calculadoras").run()
     assert not at.exception and len(at.tabs) == 10
 

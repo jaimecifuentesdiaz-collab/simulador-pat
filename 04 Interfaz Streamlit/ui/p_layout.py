@@ -26,15 +26,15 @@ modelo de lenguaje se le envía la lista de equipos y corrientes y devuelve las 
 equipos, se usa el algoritmo propio: intercambio por pares tipo CRAFT (Armour y Buffa, 1963), que minimiza Σ flujo × distancia
 rectilínea entre equipos conectados, con el orden del proceso como relación más fuerte (Muther, 1973, Systematic Layout Planning). Los
 equipos van en filas en zigzag con pasillos de 1,5 m (Supuesto), así no se superponen. 3) En el plano usted arrastra (ajuste a 0,5 m)
-y rota (doble clic o R) los equipos; el plano marca en rojo los que quedan a menos del pasillo. 4) Con el layout se dibujan la elevación
+y rota (doble clic o R) los equipos; el plano marca en rojo los que quedan a menos del pasillo. 4) Con el *layout* se dibujan la elevación
 frontal (desde el sur), la lateral izquierda (desde el oeste) y el corte A-A, con cotas. 5) Cada corriente se lleva en recorrido
-ortogonal de puerto a puerto: horizontal |Δx| + |Δy|, subida y bajada al rack de cañerías (5 m, Supuesto) y 20 % por codos, válvulas y
-liras (Supuesto); los transportadores de biomasa van sin rack.
+ortogonal de puerto a puerto: horizontal |Δx| + |Δy|, subida y bajada al *rack* de cañerías (5 m, Supuesto) y 20 % por codos, válvulas y
+liras (Supuesto); los transportadores de biomasa van sin *rack*.
 
 **Para qué sirve.** Ubicar los equipos en planta, ver alturas y despejes, y obtener la longitud de cada cañería, que con el diámetro de la
 red hidráulica alimenta el costeo de la planta (las longitudes quedan en la sesión para la evaluación económica).
 
-**Por qué importa.** En la etapa de diseño solo se conocen los diámetros; el profesor Torres pidió sacar las longitudes del layout
+**Por qué importa.** En la etapa de diseño solo se conocen los diámetros; el profesor Torres pidió sacar las longitudes del *layout*
 (04-11-2026). Una cañería más larga cuesta más, pierde más calor y más carga, y eso cambia la inversión y el ahorro de la recuperación
 de calor en la planta de tomate y en las de biomasa."""
 
@@ -90,9 +90,12 @@ def _datos_componente(pl, lay: dict, y_corte) -> dict:
 
 def mostrar():
     ss = st.session_state; pl = C.planta()
-    st.subheader("Layout de planta")
-    with st.expander("? Layout: cómo se hace, para qué sirve y por qué importa"):
+    st.subheader("*Layout* de planta")
+    with st.expander("? *Layout*: cómo se hace, para qué sirve y por qué importa"):
         st.markdown(AYUDA)
+    if not pl.equipos:       # PAT 135: planta vacía (desafío en blanco)
+        st.info("La planta está vacía: agregue equipos en Diseño.")
+        return
     if not C.exigir_resuelta():
         return
     lay = _estado(pl)

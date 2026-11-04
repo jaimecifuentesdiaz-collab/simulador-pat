@@ -15,6 +15,7 @@ from ui import comun as C                                   # noqa: E402  (agreg
 from ui import p_escenario, p_diseno, p_operacion, p_calidad, p_instrumentacion, p_balances, p_calor, p_alternativas, p_economia, p_calculadoras, p_evaluacion, p_informe   # noqa: E402
 from ui import p_temporada, p_dinamico, p_curso   # noqa: E402  (PAT 133, mejoras 6, 7, 16 y 20)
 from ui import p_tablero, p_datos_entrada, p_linea, p_experimentos   # noqa: E402  (PAT 134: tableros, ajuste de distribuciones y Excel como FlexSim)
+from ui import p_desafio, p_mantenedor, p_layout, p_costeo, p_riesgo_economico   # noqa: E402  (PAT 135: indicaciones del profesor del 04-11-2026)
 from pat_sim.motor.resumen import resumen_planta             # noqa: E402
 import importlib, os, ui                                     # noqa: E402
 
@@ -41,6 +42,13 @@ _recargar_interfaz()
 st.html(C.ESTILO)
 C.iniciar_estado()
 bd = C.obtener_bd(); ss = st.session_state; pl = C.planta()
+if not ss.get("_mant_sembrado"):                              # PAT 135: catálogos, símbolos, parámetros y desafíos en la base
+    try:
+        from pat_sim.datos import mantenedor as MANT
+        MANT.sembrar(bd)
+    except Exception as e:
+        st.warning(f"No se pudo preparar el mantenedor: {e}")
+    ss._mant_sembrado = True
 
 # PAT 134: la barra lateral es el índice de pantallas (antes eran pestañas arriba). Lo que tenía la barra lateral pasó
 # a Escenario (proyecto, versión, base y coma decimal, ui/s_proyecto.py) y a Curso (itinerario, ui/s_itinerario.py).
@@ -48,13 +56,13 @@ bd = C.obtener_bd(); ss = st.session_state; pl = C.planta()
 # de pruebas o con PAT_TODAS_LAS_PAGINAS=1 (probador AppTest) se ejecutan todas, como antes con las pestañas.
 GRUPOS = [
     # PAT 135: Recuperación de calor y Alternativas pasan al grupo Planta (apuntes de la reunión del 04-11-2026).
-    ("Planta", [("Escenario", p_escenario), ("Diseño", p_diseno), ("Instrumentación", p_instrumentacion), ("Balances", p_balances),
-                ("Recuperación de calor", p_calor), ("Alternativas", p_alternativas)]),
-    ("Energía y economía", [("Economía", p_economia)]),
+    ("Planta", [("Desafío", p_desafio), ("Escenario", p_escenario), ("Diseño", p_diseno), ("Instrumentación", p_instrumentacion),
+                ("Balances", p_balances), ("Recuperación de calor", p_calor), ("Alternativas", p_alternativas), ("Layout", p_layout)]),
+    ("Energía y economía", [("Costeo", p_costeo), ("Economía", p_economia), ("Riesgo económico", p_riesgo_economico)]),
     ("Operación", [("Operación", p_operacion), ("Calidad SPC", p_calidad), ("Temporada", p_temporada), ("Dinámica", p_dinamico),
                    ("Línea", p_linea)]),
     ("Análisis como FlexSim", [("Experimentos", p_experimentos), ("Tableros", p_tablero), ("Datos de entrada", p_datos_entrada)]),
-    ("Herramientas y curso", [("Calculadoras", p_calculadoras), ("Evaluación", p_evaluacion), ("Curso", p_curso), ("Informe", p_informe)]),
+    ("Herramientas y curso", [("Calculadoras", p_calculadoras), ("Evaluación", p_evaluacion), ("Curso", p_curso), ("Informe", p_informe), ("Mantenedor", p_mantenedor)]),
 ]
 PAGINAS = {n: m for _, g in GRUPOS for n, m in g}
 GRUPO_DE = {n: gr for gr, g in GRUPOS for n, _ in g}
@@ -93,7 +101,7 @@ if ss.get("pagina") not in PAGINAS:                           # al abrir: la de 
         _p = st.query_params.get("p")
     except Exception:
         _p = None
-    ss.pagina = _p if _p in PAGINAS else "Escenario"
+    ss.pagina = _p if _p in PAGINAS else "Desafío"   # PAT 135: la puerta de entrada es el desafío
 
 with st.sidebar:
     st.markdown("### Simulador PAT")

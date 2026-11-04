@@ -38,7 +38,7 @@ DIM_MIN = 0.3          # m; ningún lado menor que esto
 
 URL_API = "https://api.anthropic.com/v1/messages"
 VERSION_API = "2023-06-01"
-MODELO_LLM = "claude-sonnet-4-5"   # configurable en la interfaz o con la variable ANTHROPIC_MODEL; verificar que siga vigente
+MODELO_LLM = "claude-sonnet-5-5"   # PAT 135: modelo vigente a noviembre de 2026; configurable en la interfaz o con ANTHROPIC_MODEL
 
 FUENTE_CRAFT = "Armour y Buffa (1963), Management Science 9(2), 294-309 (CRAFT); Muther (1973), Systematic Layout Planning"
 _JUST_GEOM = ("Supuesto: dimensiones de partida del orden de catálogos de fabricantes para ese tamaño (sin fuente segura); "

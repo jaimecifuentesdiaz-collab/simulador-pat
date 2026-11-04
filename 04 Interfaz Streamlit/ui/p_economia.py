@@ -42,9 +42,36 @@ def _riesgo(pl, r, E, inv_eval):
     s_optimizacion.mostrar(pl, r, dict(E, inversion=inv_casc))
 
 
+def _partir_de_base(ss) -> None:
+    """PAT 135, sin valores fijos: la primera vez en la sesión, los parámetros económicos de partida salen del mantenedor
+    (con respaldo a los valores de comun.py). El precio del gas usa la clave del gas natural industrial en Chile; si no hay
+    un valor con fuente segura en la base, queda el Henry Hub como «Supuesto: Henry Hub, revisar»."""
+    if ss.get("_eco_desde_base"):
+        return
+    ss._eco_desde_base = True
+    E = ss.economia
+    try:
+        from pat_sim.datos import mantenedor as M
+        bd = C.obtener_bd()
+        gas_chile = M.parametro(M.CLAVE_GAS_CHILE, None, bd=bd)
+        E["precio_gas"] = gas_chile if gas_chile is not None else M.parametro("henry_hub", C.HENRY_HUB, bd=bd)
+        E["gas_supuesto"] = gas_chile is None
+        E["dolar"] = M.parametro("dolar", C.DOLAR, bd=bd)
+        E["tasa"] = M.parametro("tasa_descuento", E["tasa"], bd=bd)
+        E["anios"] = int(M.parametro("anios_evaluacion", E["anios"], bd=bd))
+        E["precio_biomasa"] = M.parametro("precio_biomasa", C.PRECIO_BIOMASA, bd=bd)
+        E["cepci"] = M.parametro("cepci", None, bd=bd)
+    except Exception:                                    # sin base, quedan los valores de comun.py
+        E["gas_supuesto"] = True
+
+
 def mostrar():
-    ss = st.session_state; pl = C.planta(); E = ss.economia
+    ss = st.session_state; pl = C.planta()
+    _partir_de_base(ss); E = ss.economia
     st.subheader("Economía")
+    if not pl.equipos:       # PAT 135: planta vacía (desafío en blanco)
+        st.info("La planta está vacía: agregue equipos en Diseño.")
+        return
     if not C.exigir_resuelta():
         return
     r = C.resumen_actual()
@@ -61,7 +88,8 @@ def mostrar():
     with st.form("form_eco"):
         a, b, c = st.columns(3)
         pg = a.number_input(C.esc("Precio del gas (US$/MMBtu)"), 0.0, 100.0, float(E["precio_gas"]), 0.1,
-                            help=C.esc(f"Por defecto, el Henry Hub de agosto de 2026: {C.fmt(C.HENRY_HUB, 2)} US$/MMBtu ({C.FUENTE_HH}). Es un piso: no incluye licuefacción, transporte ni regasificación."))
+                            help=C.esc(f"Por defecto, el Henry Hub de agosto de 2026: {C.fmt(C.HENRY_HUB, 2)} US$/MMBtu ({C.FUENTE_HH}). Es un piso: no incluye licuefacción, transporte ni regasificación."
+                                 + (" Supuesto: Henry Hub, revisar. Agregue el parámetro precio_gas_industrial_chile en el Mantenedor con su fuente." if E.get("gas_supuesto", True) else "")))
         dl = b.number_input(C.esc("Dólar observado ($/US$)"), 1.0, 5000.0, float(E["dolar"]), 1.0, help=C.FUENTE_DOLAR)
         tasa = c.number_input("Tasa de descuento (%)", 0.0, 50.0, E["tasa"] * 100, 0.5) / 100
         d, e, f = st.columns(3)

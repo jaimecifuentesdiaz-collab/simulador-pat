@@ -47,6 +47,14 @@ def mostrar():
                 st.error(str(e))
 
 
+def _horas_planta(pl) -> float:
+    """PAT 135: horas de operación del primer equipo que las declara; 8.000 h (supuesto) si la planta está vacía."""
+    for e in pl.equipos.values():
+        if hasattr(e, "horas"):
+            return float(e.horas())
+    return 8000.0
+
+
 def _hx(pl):
     snk = pl.sumideros()[0] if pl.resuelta and pl.sumideros() else None
     res = sorted([r for r in (pl.residuales() if pl.resuelta else []) if r.CP], key=lambda r: -r.Q)
@@ -157,7 +165,7 @@ def _caldera(pl):
     Tw = _n(b, "Agua de alimentación (°C)", 80.0, 1.0, "%.1f", key="k_cal_Tw")
     eta = _n(c, "Rendimiento de la caldera (PCI)", 0.85 if comb in PCI else 0.78, 0.01, key="k_cal_eta", help="0,80 a 0,90 con gas y 0,70 a 0,85 con biomasa (Van Loo y Koppejan, 2008)")
     precio = _n(c, "Precio del combustible ($ por GJ)", 0.0, 100.0, "%.0f", key="k_cal_precio")
-    horas = _n(c, "Horas de operación al año", float(pl.equipos[next(iter(pl.equipos))].horas()) if hasattr(pl.equipos[next(iter(pl.equipos))], "horas") else 8000.0, 100.0, "%.0f", key="k_cal_h")
+    horas = _n(c, "Horas de operación al año", _horas_planta(pl), 100.0, "%.0f", key="k_cal_h")
     f_co2 = K.FACTOR_CO2_KG_TJ[comb]
     r = K.caldera(vap, Ts, Tw, eta, pci, precio, f_co2)
     x = st.columns(4)

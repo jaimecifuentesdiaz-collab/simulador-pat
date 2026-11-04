@@ -11,6 +11,9 @@ def mostrar():
     if not C.exigir_resuelta():
         return
     cierres = pl.cierres()
+    if not pl.equipos or not cierres:   # PAT 135: planta vacía (desafío en blanco)
+        st.info("La planta está vacía: agregue equipos en Diseño.")
+        return
     AT.tabla("bal_cierre", "Cierre por equipo", 4)   # PAT 134: «?» de la tabla
     tol = st.number_input("Tolerancia de cierre (kg/h o kW)", value=1e-6, format="%g", min_value=0.0)
     filas = []
