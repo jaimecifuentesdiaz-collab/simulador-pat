@@ -1,0 +1,11 @@
+{
+  "_nota": "PAT 133, mejora 15: ejemplo sin secretos. Copie este archivo, complete el sitio y los identificadores de las listas que cree TI de la UTAL y entregue el token en la variable de entorno PAT_SP_TOKEN (no lo escriba aquí). Las variables PAT_SP_SITIO, PAT_SP_LISTA_PROYECTOS, PAT_SP_LISTA_VERSIONES y PAT_SP_LISTA_CORRIDAS reemplazan a los valores de este archivo.",
+  "graph": "https://graph.microsoft.com/v1.0",
+  "sitio": "utalca.sharepoint.com,<id-de-la-coleccion>,<id-del-sitio>",
+  "listas": {
+    "proyectos": "<id-de-la-lista-PAT_Proyectos>",
+    "versiones": "<id-de-la-lista-PAT_Versiones>",
+    "corridas": "<id-de-la-lista-PAT_Corridas>"
+  },
+  "token": ""
+}

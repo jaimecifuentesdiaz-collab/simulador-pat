@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.streamlit/secrets.toml
+**/.streamlit/secrets.toml
+_to_delete/
+*.db-journal
+*.db-wal
+*.db-shm
+*.log

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Layout de planta</title>
+<!-- PAT 135 (T7.3): plano en planta del layout. Un solo archivo, sin internet: HTML, CSS y JavaScript con SVG nativo, mismo
+     mecanismo que el lienzo de Diseño (componente bidireccional de Streamlit, apiVersion 1, por postMessage).
+     Recibe {equipos: [{id, nombre, largo, ancho, alto}], posiciones: {id: [x, y, rot]}, corrientes: [...], pasillo, version,
+     ultimo_seq, y_corte} y devuelve {posiciones, seq, version}: la posición de todos los equipos cada vez que el usuario
+     suelta o rota uno. Coordenadas en m: x al este, y al norte; rot en grados antihorario. -->
+<style>
+:root{--tinta:#173243;--suave:#5b7280;--borde:#d6e3e8;--verde:#1b7a5a;--rojo:#bd4b40}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:transparent}
+body{font-family:"Source Sans Pro","Segoe UI",system-ui,Arial,sans-serif;font-size:14px;color:var(--tinta)}
+button{font:inherit;font-size:13px;cursor:pointer;border:1px solid #c9dbe1;border-radius:6px;padding:3px 8px;background:#eef5f7;color:#16485a;font-weight:600}
+button:hover{background:#dfeef2}
+button:disabled{opacity:.45;cursor:default}
+.barra{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px}
+.barra .nota{color:var(--suave);font-size:12.5px;margin-left:6px}
+.plano{position:relative;height:520px;border:1px solid #c7dbe1;border-radius:8px;overflow:hidden;background:#fbfdfd}
+.plano svg{display:block;width:100%;height:100%;touch-action:none;user-select:none}
+.eq{cursor:grab}
+.eq.sel rect.cuerpo{stroke:#2563eb;stroke-width:3}
+.eq.mal rect.cuerpo{fill:#fbe3e0;stroke:var(--rojo)}
+.estado{position:absolute;left:8px;top:8px;font-size:12.5px;padding:3px 8px;border-radius:12px;background:#e3f3ec;color:#145e45;border:1px solid #b9dccc;pointer-events:none;max-width:75%}
+.estado.mal{background:#fbe9e7;color:#9c3329;border-color:#efc4be}
+svg text{font-family:"Source Sans Pro","Segoe UI",Arial,sans-serif}
+</style>
+</head>
+<body>
+<div class="barra">
+  <button id="b-rot" title="Rota 90° el equipo seleccionado (tecla R o doble clic)" disabled>Rotar 90°</button>
+  <button id="b-ajustar" title="Ajusta la vista a la planta">Ajustar vista</button>
+  <button id="z-menos" title="Alejar">−</button><button id="z-mas" title="Acercar">+</button>
+  <span class="nota" id="nota">Arrastre un equipo para moverlo (se ajusta a 0,5 m); doble clic o R para rotarlo; rueda: zoom; arrastrar el fondo: mover la vista.</span>
+</div>
+<div class="plano" id="plano"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="estado" class="estado"></div></div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const PASO = 0.5;                 // m; ajuste de la posición al soltar
+const COLOR = {producto: "#1b7a5a", subproducto: "#7a5a1b", vapor: "#c0392b", condensado: "#2e6db4", agua: "#2e86c1", gas: "#8e44ad",
+  aire: "#5dade2", humos: "#7f8c8d", electricidad: "#d4ac0d", calor: "#e67e22", biomasa: "#6e8b3d"};
+let D = null, POS = {}, seq = 0, version = null, sel = null, drag = null, altoPrevio = 0;
+let vista = {k: 10, tx: 40, ty: 40}, vistaManual = false;
+
+function aST(type, data) { window.parent.postMessage(Object.assign({isStreamlitMessage: true, type}, data || {}), "*"); }
+function fmt(v, d) { return new Intl.NumberFormat("es-CL", {minimumFractionDigits: d, maximumFractionDigits: d}).format(v); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c])); }
+const eqPor = id => D.equipos.find(e => e.id === id);
+
+window.addEventListener("message", e => {
+  const m = e.data;
+  if (m && m.type === "streamlit:render" && m.args && m.args.datos) recibir(m.args.datos);
+});
+
+function recibir(datos) {
+  const primera = D === null;
+  D = JSON.parse(JSON.stringify(datos));
+  // Se adoptan las posiciones de Python cuando cambió la versión (propuesta nueva o vuelta a la propuesta) o cuando Python ya
+  // aplicó el último movimiento; si no, se mantienen las locales para no deshacer un arrastre que todavía viaja.
+  const nuevaVersion = version !== D.version;
+  if (primera || nuevaVersion || (D.ultimo_seq || 0) >= seq) {
+    POS = {};
+    for (const [k, v] of Object.entries(D.posiciones || {})) POS[k] = [Number(v[0]), Number(v[1]), Number(v[2] || 0)];
+    if (nuevaVersion) vistaManual = false;
+  }
+  for (const e of D.equipos) if (!POS[e.id]) POS[e.id] = [e.largo / 2 + D.pasillo, e.ancho / 2 + D.pasillo, 0];
+  for (const k of Object.keys(POS)) if (!eqPor(k)) delete POS[k];
+  version = D.version; seq = Math.max(seq, D.ultimo_seq || 0);
+  if (sel && !eqPor(sel)) sel = null;
+  if (!vistaManual) ajustar(); else pintar();
+  altura();
+}
+
+function enviar() {
+  seq += 1;
+  const p = {};
+  for (const [k, v] of Object.entries(POS)) p[k] = [Math.round(v[0] * 100) / 100, Math.round(v[1] * 100) / 100, v[2]];
+  aST("streamlit:setComponentValue", {value: {posiciones: p, seq, version}, dataType: "json"});
+}
+
+function altura() {
+  const h = Math.ceil(document.body.getBoundingClientRect().height) + 6;
+  if (Math.abs(h - altoPrevio) > 2) { altoPrevio = h; aST("streamlit:setFrameHeight", {height: h}); }
+}
+
+// ------------------------------------------------------------------ geometría (igual que motor/layout.py)
+function huella(id) {
+  const e = eqPor(id), p = POS[id], r = ((Math.round(p[2] / 90) % 4) + 4) % 4 * 90;
+  const L = (r === 0 || r === 180) ? e.largo : e.ancho, W = (r === 0 || r === 180) ? e.ancho : e.largo;
+  return [p[0] - L / 2, p[1] - W / 2, p[0] + L / 2, p[1] + W / 2];
+}
+function conflictos() {
+  const ids = Object.keys(POS), malos = new Set(), pares = [], pas = D.pasillo || 0;
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+    const A = huella(ids[i]), B = huella(ids[j]);
+    const sx = Math.max(B[0] - A[2], A[0] - B[2]), sy = Math.max(B[1] - A[3], A[1] - B[3]);
+    if (Math.max(sx, sy) < pas - 1e-6) { malos.add(ids[i]); malos.add(ids[j]); pares.push(ids[i] + " con " + ids[j]); }
+  }
+  return {malos, pares};
+}
+function limites() {
+  let x1 = 0, y1 = 0, x2 = 10, y2 = 10;
+  for (const id of Object.keys(POS)) { const h = huella(id); x1 = Math.min(x1, h[0]); y1 = Math.min(y1, h[1]); x2 = Math.max(x2, h[2]); y2 = Math.max(y2, h[3]); }
+  return [x1 - 2, y1 - 2, x2 + 2, y2 + 2];
+}
+// pantalla: X = tx + x·k ; Y = ty + (Ytop − y)·k  (el norte hacia arriba)
+let YTOP = 0;
+const SX = x => vista.tx + x * vista.k, SY = y => vista.ty + (YTOP - y) * vista.k;
+const MX = px => (px - vista.tx) / vista.k, MY = py => YTOP - (py - vista.ty) / vista.k;
+
+function ajustar() {
+  if (!D) return;
+  const b = limites(), r = $("plano").getBoundingClientRect(), w = Math.max(r.width, 300), h = Math.max(r.height, 200);
+  YTOP = b[3];
+  const k = Math.min((w - 70) / (b[2] - b[0]), (h - 70) / (b[3] - b[1]));
+  vista = {k: Math.max(1, k), tx: 35 - b[0] * Math.max(1, k), ty: 35};
+  pintar();
+}
+
+// ------------------------------------------------------------------ dibujo
+function pintar() {
+  if (!D) return;
+  const r = $("plano").getBoundingClientRect(), W = r.width || 800, H = r.height || 520;
+  const o = [];
+  o.push('<defs><marker id="fl" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0 1 L8 4 L0 7 Z" fill="#34495e"/></marker></defs>');
+  // cuadrícula de 1 m (más marcada cada 5 m) con rótulos cada 5 m
+  const x0 = Math.floor(MX(0)), x1 = Math.ceil(MX(W)), y0 = Math.floor(MY(H)), y1 = Math.ceil(MY(0));
+  const paso = vista.k < 4 ? 5 : 1;
+  for (let x = Math.ceil(x0 / paso) * paso; x <= x1; x += paso) {
+    const fuerte = x % 5 === 0;
+    o.push(`<line x1="${SX(x)}" y1="0" x2="${SX(x)}" y2="${H}" stroke="${fuerte ? "#c7d6dc" : "#eaf0f2"}"/>`);
+    if (fuerte) o.push(`<text x="${SX(x) + 2}" y="${H - 4}" font-size="10" fill="#7b8c95">${x}</text>`);
+  }
+  for (let y = Math.ceil(y0 / paso) * paso; y <= y1; y += paso) {
+    const fuerte = y % 5 === 0;
+    o.push(`<line x1="0" y1="${SY(y)}" x2="${W}" y2="${SY(y)}" stroke="${fuerte ? "#c7d6dc" : "#eaf0f2"}"/>`);
+    if (fuerte) o.push(`<text x="3" y="${SY(y) - 2}" font-size="10" fill="#7b8c95">${y}</text>`);
+  }
+  // corrientes: recorrido ortogonal entre centros (el largo exacto de puerto a puerto lo calcula Python)
+  for (const c of D.corrientes || []) {
+    const a = POS[c.origen], b = POS[c.destino];
+    if (!a || !b) continue;
+    o.push(`<path d="M${SX(a[0])} ${SY(a[1])} H${SX(b[0])} V${SY(b[1])}" fill="none" stroke="${COLOR[c.tipo] || "#555"}" stroke-width="2"${c.servicio ? ' stroke-dasharray="7 4"' : ""} opacity=".75"><title>${esc(c.id)}: ${esc(c.origen)} → ${esc(c.destino)}</title></path>`);
+  }
+  // línea de corte A-A
+  if (D.y_corte != null) {
+    o.push(`<line x1="0" y1="${SY(D.y_corte)}" x2="${W}" y2="${SY(D.y_corte)}" stroke="#bd4b40" stroke-width="1.5" stroke-dasharray="14 4 2 4"/>`);
+    o.push(`<text x="6" y="${SY(D.y_corte) - 4}" font-size="12" font-weight="700" fill="#bd4b40">A</text><text x="${W - 16}" y="${SY(D.y_corte) - 4}" font-size="12" font-weight="700" fill="#bd4b40">A</text>`);
+  }
+  const {malos, pares} = conflictos();
+  for (const e of D.equipos) {
+    if (!POS[e.id]) continue;
+    const h = huella(e.id), x = SX(h[0]), y = SY(h[3]), w = (h[2] - h[0]) * vista.k, hh = (h[3] - h[1]) * vista.k;
+    const p = POS[e.id], cx = SX(p[0]), cy = SY(p[1]), r90 = ((Math.round(p[2] / 90) % 4) + 4) % 4 * 90;
+    // flecha de la salida (lado x+ local) para ver la orientación
+    const ang = r90 * Math.PI / 180, lx = (e.largo / 2) * vista.k, ex = cx + lx * Math.cos(ang), ey = cy - lx * Math.sin(ang);
+    const fs = Math.max(9, Math.min(13, vista.k * 1.1));
+    o.push(`<g class="eq${sel === e.id ? " sel" : ""}${malos.has(e.id) ? " mal" : ""}" data-id="${esc(e.id)}">`
+      + `<rect class="cuerpo" x="${x}" y="${y}" width="${w}" height="${hh}" rx="2" fill="#dcebe6" stroke="#1b7a5a" stroke-width="1.6"/>`
+      + `<line x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" stroke="#1b7a5a" stroke-width="1.2" marker-end="url(#fl)" opacity=".6"/>`
+      + `<text x="${cx}" y="${cy - 2}" font-size="${fs}" font-weight="700" text-anchor="middle" fill="#173243">${esc(e.id)}</text>`
+      + `<text x="${cx}" y="${cy + fs}" font-size="${fs - 2}" text-anchor="middle" fill="#3b5562">${esc(e.nombre.length > 24 ? e.nombre.slice(0, 23) + "…" : e.nombre)}</text>`
+      + `<title>${esc(e.id)} · ${esc(e.nombre)}: ${fmt(e.largo, 1)} × ${fmt(e.ancho, 1)} × ${fmt(e.alto, 1)} m (largo × ancho × alto); centro (${fmt(p[0], 1)}; ${fmt(p[1], 1)}) m; rotación ${r90}°</title></g>`);
+  }
+  // escala de 10 m (o 5 m si no cabe) y norte
+  const L = vista.k * 10 > W / 3 ? 5 : 10, bx = 14, by = H - 22;
+  o.push(`<g stroke="#34495e" fill="#34495e"><line x1="${bx}" y1="${by}" x2="${bx + L * vista.k}" y2="${by}" stroke-width="2" marker-start="url(#fl)" marker-end="url(#fl)"/>`
+    + `<rect x="${bx + L * vista.k / 2 - 18}" y="${by - 16}" width="36" height="13" fill="#ffffffd0" stroke="none"/><text x="${bx + L * vista.k / 2}" y="${by - 5}" font-size="11" text-anchor="middle" stroke="none">${L} m</text></g>`);
+  o.push(`<g transform="translate(${W - 28},34)"><circle r="17" fill="#ffffffd0" stroke="#c7d6dc"/><path d="M0 -13 L6 7 L0 3 L-6 7 Z" fill="#173243"/><text y="-19" font-size="12" font-weight="700" text-anchor="middle" fill="#173243">N</text></g>`);
+  $("svg").innerHTML = o.join("");
+  const est = $("estado");
+  est.className = "estado" + (pares.length ? " mal" : "");
+  est.textContent = pares.length ? `Superposición o pasillo menor que ${fmt(D.pasillo, 1)} m: ${pares.slice(0, 4).join("; ")}${pares.length > 4 ? "…" : ""}`
+    : `Sin superposiciones; pasillo mínimo ${fmt(D.pasillo, 1)} m` + (sel ? ` · seleccionado ${sel}` : "");
+  $("b-rot").disabled = !sel;
+}
+
+// ------------------------------------------------------------------ interacción
+function punto(ev) { const r = $("svg").getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; }
+$("svg").addEventListener("pointerdown", ev => {
+  const g = ev.target.closest(".eq"), [px, py] = punto(ev);
+  if (g) {
+    const id = g.dataset.id; sel = id;
+    drag = {t: "eq", id, dx: MX(px) - POS[id][0], dy: MY(py) - POS[id][1], movio: false};
+  } else { sel = null; drag = {t: "vista", px, py, tx: vista.tx, ty: vista.ty}; }
+  $("svg").setPointerCapture(ev.pointerId);
+  pintar();
+});
+$("svg").addEventListener("pointermove", ev => {
+  if (!drag) return;
+  const [px, py] = punto(ev);
+  if (drag.t === "eq") { POS[drag.id][0] = MX(px) - drag.dx; POS[drag.id][1] = MY(py) - drag.dy; drag.movio = true; }
+  else { vista.tx = drag.tx + px - drag.px; vista.ty = drag.ty + py - drag.py; vistaManual = true; }
+  pintar();
+});
+function soltar() {
+  if (drag && drag.t === "eq" && drag.movio) {
+    const p = POS[drag.id]; p[0] = Math.round(p[0] / PASO) * PASO; p[1] = Math.round(p[1] / PASO) * PASO;
+    pintar(); enviar();
+  }
+  drag = null;
+}
+$("svg").addEventListener("pointerup", soltar);
+$("svg").addEventListener("pointercancel", soltar);
+$("svg").addEventListener("dblclick", ev => { const g = ev.target.closest(".eq"); if (g) { sel = g.dataset.id; rotar(); } });
+$("svg").addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const [px, py] = punto(ev), mx = MX(px), my = MY(py), f = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
+  zoom(f, px, py, mx, my);
+}, {passive: false});
+function zoom(f, px, py, mx, my) {
+  vista.k = Math.max(0.5, Math.min(120, vista.k * f));
+  vista.tx = px - mx * vista.k; vista.ty = py - (YTOP - my) * vista.k; vistaManual = true; pintar();
+}
+function rotar() {
+  if (!sel || !POS[sel]) return;
+  POS[sel][2] = (Math.round(POS[sel][2] / 90) * 90 + 90) % 360; pintar(); enviar();
+}
+$("b-rot").onclick = rotar;
+$("b-ajustar").onclick = () => { vistaManual = false; ajustar(); };
+$("z-mas").onclick = () => { const r = $("plano").getBoundingClientRect(), px = r.width / 2, py = r.height / 2; zoom(1.25, px, py, MX(px), MY(py)); };
+$("z-menos").onclick = () => { const r = $("plano").getBoundingClientRect(), px = r.width / 2, py = r.height / 2; zoom(0.8, px, py, MX(px), MY(py)); };
+document.addEventListener("keydown", ev => {
+  if (ev.target && /input|select|textarea/i.test(ev.target.tagName)) return;
+  if ((ev.key === "r" || ev.key === "R") && sel) { ev.preventDefault(); rotar(); }
+  if (ev.key === "Escape") { sel = null; pintar(); }
+  const paso = ev.shiftKey ? 5 * PASO : PASO, mov = {ArrowLeft: [-paso, 0], ArrowRight: [paso, 0], ArrowUp: [0, paso], ArrowDown: [0, -paso]}[ev.key];
+  if (mov && sel) { ev.preventDefault(); POS[sel][0] += mov[0]; POS[sel][1] += mov[1]; pintar(); enviar(); }
+});
+new ResizeObserver(() => { if (D) { if (!vistaManual) ajustar(); else pintar(); altura(); } }).observe($("plano"));
+aST("streamlit:componentReady", {apiVersion: 1});
+</script>
+</body>
+</html>

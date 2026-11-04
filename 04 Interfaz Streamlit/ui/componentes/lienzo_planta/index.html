@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Simulador de planta</title>
+<!-- Lienzo del simulador de planta (pestaña Diseño, PAT 128). Un solo archivo, sin internet: HTML, CSS y JavaScript con SVG nativo.
+     Reproduce y amplía el «Diseño libre» del simulador del profesor (Scorm_pellet_profesor.html): catálogo, conexiones con reparto,
+     diagrama arrastrable, capacidad efectiva, recurso crítico, sobrecarga, diagnóstico, pistas, secuencia sugerida, curva de desempeño,
+     variables de planta, vista por etapas y exportación. Habla con Streamlit por postMessage (componente bidireccional, apiVersion 1). -->
+<style>
+:root{--tinta:#173243;--suave:#5b7280;--borde:#d6e3e8;--fondo:#f4f8f9;--panel:#fff;--verde:#1b7a5a;--dorado:#c98c31;--rojo:#bd4b40;--azul:#2563eb}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:transparent}
+/* PAT 134 (04-11-2026): letra más grande en paneles, listas y etiquetas; el texto del diagrama SVG no cambia */
+body{font-family:"Source Sans Pro","Segoe UI",system-ui,Arial,sans-serif;font-size:14px;color:var(--tinta)}
+button{font:inherit;font-size:13px;cursor:pointer;border:1px solid #c9dbe1;border-radius:6px;padding:3px 6px;background:#eef5f7;color:#16485a;font-weight:600;white-space:nowrap}
+button:hover{background:#dfeef2}
+button.prim{background:var(--verde);border-color:var(--verde);color:#fff}
+button.prim:hover{background:#156649}
+button.peligro{background:#fbeceb;border-color:#e8c2bd;color:#9c3329}
+button.activo{background:#16485a;color:#fff;border-color:#16485a}
+button:disabled{opacity:.45;cursor:default;background:#eef5f7}
+input,select{font:inherit;color:var(--tinta);border:1px solid #c5d8df;border-radius:5px;padding:3px 6px;background:#fff;min-width:0}
+input[type=range]{padding:0;accent-color:var(--verde)}
+input[type=number]{width:92px}
+input:disabled{background:#f1f4f5;color:#7b8c95}
+label.chk{display:inline-flex;gap:4px;align-items:center;font-size:15px;color:var(--suave);margin-left:4px;white-space:nowrap}
+h3{font-size:15.5px;margin:0 0 6px}
+h4{font-size:14px;margin:10px 0 5px;color:#25485a}
+.nota{color:var(--suave);font-size:12.5px;line-height:1.35}
+/* PAT 134: ayudas desplegables «?» (pedido de Jaime, 04-11-2026): clic despliega, otro clic oculta, sin JavaScript */
+details.ayuda{margin:2px 0}
+details.ayuda.tit{margin:10px 0 5px}
+details.ayuda.tit3{margin:0 0 6px}
+details.ayuda>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px;width:fit-content;max-width:100%;outline:none}
+details.ayuda>summary::-webkit-details-marker{display:none}
+details.ayuda>summary::marker{content:""}
+details.ayuda>summary>h3,details.ayuda>summary>h4{margin:0}
+details.ayuda .q{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:0 0 18px;border:1.5px solid #9aaab2;
+  border-radius:50%;color:#6f8691;background:#fff;font:700 11px/1 "Source Sans Pro","Segoe UI",sans-serif;user-select:none;transition:color .15s,border-color .15s,background .15s}
+details.ayuda>summary:hover .q{border-color:var(--verde);color:var(--verde)}
+details.ayuda[open]>summary .q{background:var(--verde);border-color:var(--verde);color:#fff}
+details.ayuda .ayuda-txt{background:#f1f7f5;border:1px solid #d7e7e0;border-left:3px solid var(--verde);border-radius:6px;padding:5px 8px;margin:4px 0;
+  font-size:12.5px;line-height:1.45;color:#3b5562}
+details.ayuda .ayuda-txt ol{margin:3px 0 0 16px;padding:0}
+details.ayuda.sin-ayuda>summary{pointer-events:none;cursor:default}
+details.ayuda.sin-ayuda .q,details.ayuda.sin-ayuda .ayuda-txt{display:none}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:5px;margin:0 0 6px}
+.kpi{border:1px solid var(--borde);background:var(--fondo);border-radius:8px;padding:6px 8px;min-width:0}
+.kpi b{display:block;font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi span{font-size:11.5px;color:var(--suave);display:block;line-height:1.2}
+.kpi.critico{border-color:#e6c27e;background:#fdf6e7}
+.kpi.malo{border-color:#ebc0ba;background:#fcefed}
+.kpi.bien{border-color:#b6dfc6;background:#ecf8f0}
+.cols{display:grid;grid-template-columns:264px minmax(0,1fr);gap:8px;align-items:start}
+.bajo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:6px}
+.bajo .ancho{grid-column:1/-1}
+details.exp{border:1px solid var(--borde);border-radius:8px;background:var(--panel);padding:6px 10px;margin:8px 0}
+details.exp>summary{cursor:pointer;font-weight:600;color:#25485a}
+details.exp>summary h4{display:inline;margin:0}
+.cajon{position:absolute;right:216px;top:60px;bottom:6px;width:284px;background:#fffffff5;border:1px solid var(--borde);border-radius:9px;box-shadow:0 6px 20px #12344922;padding:8px;overflow:auto;z-index:4}
+.cajon-cab{display:flex;justify-content:space-between;align-items:center}
+.cajon-cab button{padding:0 8px;font-size:16px;line-height:20px}
+.panel{background:var(--panel);border:1px solid var(--borde);border-radius:9px;padding:8px;min-width:0}
+.cat-lista{max-height:420px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding-right:2px}
+.item{display:flex;gap:8px;align-items:center;padding:6px 7px;border:1px solid #cfe2e6;border-radius:7px;background:#f2f8f8;margin:0 0 5px;cursor:grab;user-select:none;touch-action:none}
+.cat-grupo{font-size:12px;font-weight:700;color:#125d72;margin:8px 0 4px;padding-bottom:2px;border-bottom:1px solid #cfe2e6}
+.item:hover{background:#e2f2f0;border-color:#9ccbc4}
+.item svg{flex:0 0 36px}
+.item .tx{font-size:13.5px;line-height:1.25}
+.item .tx b{font-weight:600}
+.item .tx i{font-style:normal;color:var(--suave);font-size:12px}
+.fantasma{position:fixed;pointer-events:none;z-index:50;opacity:.85;background:#fff;border:2px dashed var(--verde);border-radius:8px;padding:2px}
+.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.barra button,.zoom button{font-size:15px;padding:7px 13px;border-radius:7px}
+.barra select,.zoom select{font-size:15px;padding:5px 7px}
+.barra .sep{display:none}
+.lienzo{position:relative;height:720px;display:grid;grid-template-columns:minmax(0,1fr) 210px;border:1px solid #c7dbe1;border-radius:8px;overflow:hidden;background-color:#f8fbfc;
+  background-image:radial-gradient(#d6e4e9 1px,transparent 1px);background-size:19px 19px}
+.lienzo svg{grid-column:1;grid-row:1;display:block;width:100%;height:100%;touch-action:none;user-select:none}
+.lienzo.arrastrando-cat{outline:3px solid #9ccbc4;outline-offset:-3px}
+.estado{position:absolute;left:8px;top:9px;font-size:14px;padding:3px 8px;border-radius:12px;background:#e3f3ec;color:#145e45;border:1px solid #b9dccc;pointer-events:none;max-width:70%}
+.estado.mal{background:#fbe9e7;color:#9c3329;border-color:#efc4be}
+.leyenda{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:9px;align-content:flex-start;font-size:13.5px;color:var(--suave);background:#ffffffe8;padding:12px 10px 10px;border-left:1px solid #c7dbe1;overflow:auto;z-index:3}
+.leyenda span{display:flex;align-items:center;line-height:1.25}
+.leyenda b{color:var(--tinta);font-size:13px;margin-top:4px}
+.leyenda i{display:inline-block;flex:0 0 16px;width:16px;height:4px;margin-right:6px;border-radius:2px}
+.zoom{position:absolute;right:218px;top:7px;max-width:calc(100% - 232px);flex-wrap:wrap;justify-content:flex-end;z-index:4;display:flex;gap:5px;align-items:center;background:#ffffffd0;border-radius:7px;padding:2px}
+.toast{position:absolute;left:calc((100% - 210px) / 2);top:40px;transform:translateX(-50%);max-width:82%;padding:7px 12px;border-radius:7px;font-size:12px;
+  background:#16485a;color:#fff;box-shadow:0 4px 14px #0003;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:5}
+.toast.ver{opacity:1}
+.toast.error{background:#a8392f}
+.caja{margin:8px 0 0;padding:8px 10px;border-radius:6px;background:#eef7f9;border-left:4px solid #258a9b;font-size:13px}
+.caja ul{margin:4px 0 0;padding-left:18px}
+.caja li{margin:2px 0;cursor:default}
+.caja li.error{color:#9c3329}
+.caja li.ok{color:#145e45}
+.caja li[data-eq]{cursor:pointer;text-decoration:underline dotted}
+.cap-lista{display:grid;gap:4px;margin:5px 0}
+.cap{display:grid;grid-template-columns:136px minmax(0,1fr) 100px;gap:1px 7px;font-size:12px;align-items:center;cursor:pointer;padding:1px 2px}
+.cap .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cap .vl{text-align:right;font-variant-numeric:tabular-nums;color:#30505f;white-space:nowrap}
+.cap .pista{height:14px;background:#e6eef2;border-radius:8px;overflow:hidden;position:relative}
+.cap .pct{position:absolute;right:5px;top:-1px;font-size:10.5px;color:#173243}
+.cap .lleno{height:100%;background:#258c7d;border-radius:8px;transition:width .2s}
+.cap .lleno.critico{background:#d1922b}
+.cap .lleno.sobre{background:#bd4b40}
+.cap .lleno.sin{background:repeating-linear-gradient(45deg,#d9e3e7,#d9e3e7 5px,#eef3f5 5px,#eef3f5 10px);width:100%}
+.cap .meta{grid-column:1/-1;font-size:11.5px;color:var(--suave)}
+.cap .meta.sobre{color:#9c3329}
+.cap .meta.critico{color:#173243;font-weight:600}
+.cap.sel{outline:2px solid #93b4f5;border-radius:6px}
+.fila{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:2px 6px;align-items:center;margin:0 0 7px}
+.fila .et{grid-column:1/-1;font-size:12.5px;color:#30505f;line-height:1.25}
+.fila .et small{color:#7a8f99}
+.fila input[type=range]{width:100%}
+.fila.solo{grid-template-columns:1fr}
+.info{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:50%;background:#e1eef3;color:#125d72;font-size:10px;font-weight:700;cursor:help;margin-left:3px}
+.res{display:grid;grid-template-columns:auto auto;gap:1px 8px;font-size:12.5px;margin:4px 0 8px;background:var(--fondo);border-radius:6px;padding:5px 7px}
+.res span:nth-child(odd){color:var(--suave)}
+.res span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+.res .malo{color:#9c3329;font-weight:600}
+.cab{display:flex;gap:7px;align-items:center;margin-bottom:6px}
+.cab svg{flex:0 0 38px;background:#f5f9fa;border-radius:6px}
+.cab b{display:block;font-size:14.5px}
+.cab span{font-size:12px;color:var(--suave)}
+svg text{font-family:"Source Sans Pro","Segoe UI",Arial,sans-serif}
+.eq{cursor:grab}
+.eq .pto{transition:r .1s}
+.eq:hover .pto{stroke:#16485a;stroke-width:2.5}
+.pto{cursor:crosshair}
+.pto.compat{stroke:#1b7a5a;stroke-width:3}
+.pto.incompat{opacity:.25}
+.pto.destino{stroke:#2563eb;stroke-width:4}
+.flujo{animation:avanza var(--dur,1.4s) linear infinite}
+.quieto .flujo{animation:none;opacity:0}
+@keyframes avanza{to{stroke-dashoffset:-20}}
+.hit{cursor:pointer}
+/* PAT 134: instrumentos ISA-5.1 y elementos de lazo ISA-5.4 */
+.ins{cursor:grab}
+.asa{cursor:crosshair}
+.ins:hover .asa{stroke:#16485a;stroke-width:2.5}
+.lim{color:#9c3329;font-weight:700;margin-left:4px}
+.item.isa svg{flex:0 0 40px}
+.senlista{font-size:12px;margin:3px 0 6px}
+.senlista div{display:flex;gap:4px;align-items:center;justify-content:space-between;padding:2px 0}
+.senlista select{font-size:12px;max-width:128px}
+.senlista button{padding:0 6px;font-size:12px}
+#prop select{max-width:100%}
+@media (max-width:760px){.bajo{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="kpis" class="kpis"></div>
+<div class="cols">
+  <aside class="panel izq">
+    <details class="ayuda tit3"><summary><h3>Catálogo de equipos</h3><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt">Arrastre un equipo al lienzo o haga clic. Varias unidades = líneas en paralelo.</div></details>
+    <select id="rubro" style="width:100%"></select>
+    <div id="catalogo" class="cat-lista"></div>
+  </aside>
+  <section class="centro">
+    <div class="barra" id="barra">
+      <button id="b-deshacer" title="Deshacer el último cambio (Ctrl+Z)" disabled>↶ Deshacer</button>
+      <button id="b-rehacer" title="Rehacer (Ctrl+Y o Ctrl+Mayús+Z)" disabled>↷ Rehacer</button>
+      <button id="b-duplicar" title="Duplicar el equipo seleccionado con sus parámetros, sin sus conexiones (Ctrl+C y Ctrl+V; Mayús+clic para elegir varios)" disabled>Duplicar</button>
+      <button id="b-layout" class="activo" title="Diagrama con las posiciones que usted define">Layout</button>
+      <button id="b-etapas" title="Ordena los equipos por etapa del proceso (no cambia sus posiciones guardadas)">Por etapas</button>
+      <span class="sep"></span>
+      <button id="b-diag" title="Revisa alimentación, repartos, sobrecargas y servicios">Diagnóstico</button>
+      <button id="b-pista" title="Una orientación según la situación actual; no cambia el diseño">Solicitar pista</button>
+      <button id="b-sec" title="Conecta las entradas libres con el equipo anterior y la caldera">Secuencia sugerida</button>
+      <button id="b-cap" title="Capacidad nominal = carga actual + holgura, en los equipos que no la tienen (supuesto del diseñador)">Asignar capacidades</button><select id="b-holg" title="Holgura de diseño de las capacidades asignadas"><option value="10">+10 %</option><option value="25">+25 %</option><option value="50" selected>+50 %</option><option value="100">+100 %</option></select>
+      <button id="b-guardar" class="prim" title="Guarda una versión de la planta en la base de datos (como el botón de la barra lateral)">Guardar</button>
+    </div>
+    <div id="lienzo" class="lienzo">
+      <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="estado" class="estado"></div>
+      <div class="zoom">
+        <label class="chk"><input type="checkbox" id="o-etq" checked>Etiquetas</label>
+        <label class="chk"><input type="checkbox" id="o-flujo" checked>Flujos</label>
+        <label class="chk" title="Muestra u oculta los instrumentos ISA-5.1, los elementos de lazo ISA-5.4 y sus líneas de señal"><input type="checkbox" id="o-ins" checked>Instrumentos</label>
+        <select id="o-senal" title="Tipo de señal ISA-5.1 de la próxima línea que arrastre desde un instrumento"></select>
+        <select id="b-exp" title="Exportar el diagrama"><option value="">Exportar…</option><option value="svg">SVG</option><option value="png">PNG</option><option value="jpg">JPG</option><option value="mmd">Mermaid</option></select>
+        <button id="z-menos" title="Alejar">−</button><button id="z-mas" title="Acercar">+</button><button id="z-ajustar" title="Ajustar a la vista">Ajustar</button>
+      </div>
+      <div id="leyenda" class="leyenda"></div>
+      <div id="toast" class="toast"></div>
+      <aside id="cajon" class="cajon" hidden>
+        <div class="cajon-cab"><h3>Propiedades</h3><button id="cerrar" title="Cerrar (Esc)">×</button></div>
+        <div id="prop"></div>
+      </aside>
+    </div>
+    <div class="bajo">
+      <div class="ancho">
+        <div id="caja" class="caja">Trabaje libremente. El diagnóstico y las pistas aparecen cuando los pida.</div>
+        <details class="exp" id="cap-exp"><summary><h4>Capacidad efectiva y utilización · teoría de restricciones</h4></summary>
+        <details class="ayuda tit"><summary><b>Cómo se lee</b><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt">Largo de la barra = utilización de la capacidad efectiva (nominal × estado). Semáforo de cuellos de botella: <b style="color:#2e9e5b">verde hasta 50 %</b>, <b style="color:#e0891a">naranjo de 50 a 80 %</b>, <b style="color:#d43a2c">rojo de 80 a 100 %</b> y <b style="color:#8f1d14">rojo oscuro sobre 100 %</b> (sobrecarga: el material se acumula antes del equipo). ★ = recurso crítico, el equipo más exigido de la línea.</div></details>
+        <div id="barras" class="cap-lista"></div>
+        </details>
+      </div>
+      <div class="ancho">
+        <details class="ayuda tit sin-ayuda" id="curva-det" style="margin-top:0"><summary><h4 id="curva-tit">Curva de desempeño</h4><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt" id="curva-ayuda"></div></details>
+        <div id="curva"></div>
+        <details class="ayuda tit"><summary><h4>Variables de planta</h4><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt"><b>Cómo se usa:</b> arrastre equipos desde el catálogo; conecte arrastrando de un puerto de salida (círculo de color) a uno de entrada; haga clic en un equipo o una línea para editar capacidad, estado, repartos y parámetros, que se recalculan al instante. Rueda: zoom; arrastrar el fondo: mover la vista; Supr: quitar lo seleccionado; Esc: cerrar; Ctrl+Z: deshacer; Ctrl+Y o Ctrl+Mayús+Z: rehacer; Ctrl+C y Ctrl+V: copiar y pegar el equipo seleccionado (Mayús+clic para elegir varios).</div></details>
+        <div id="vars"></div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+"use strict";
+// ------------------------------------------------------------------ utilidades
+const $ = id => document.getElementById(id);
+const NF = {};
+function fmt(v, d = 1) {
+  if (v === null || v === undefined || !isFinite(v)) return "—";
+  if (!NF[d]) NF[d] = new Intl.NumberFormat("es-CL", {minimumFractionDigits: d, maximumFractionDigits: d});
+  return NF[d].format(v);
+}
+// PAT 134: ayuda desplegable «?» para el HTML que arma el script (details y summary: el navegador la abre y la cierra)
+// PAT 134 (04-11-2026): «?» de las tablas de resultados del panel de propiedades: cómo se hace, para qué sirve y por qué importa
+const AYUDA_RES_EQ = "<b>Cómo se hace.</b> Resultados del equipo en la planta resuelta: carga demandada y procesada (t/h), salida de proceso, "
+  + "capacidad efectiva = capacidad nominal × estado, utilización = carga / capacidad efectiva, lo que se acumula sobre la capacidad efectiva, "
+  + "servicios que consume (vapor, electricidad, calor, aire) y cierre de energía = energía que entra − energía que sale (kW).<br>"
+  + "<b>Para qué sirve.</b> Ver al instante el efecto de cambiar la capacidad, el estado o un parámetro del equipo.<br>"
+  + "<b>Por qué importa.</b> El vapor o el calor que consume el equipo es lo que la recuperación de calor puede reemplazar, y su "
+  + "utilización dice si la línea produce las horas que necesita el ahorro de gas o de biomasa.";
+const AYUDA_RES_CON = "<b>Cómo se hace.</b> Resultados de la corriente en la planta resuelta: caudal planificado = caudal de salida del "
+  + "puerto de origen × reparto (kg/h); caudal real limitado por las capacidades efectivas (t/h); temperatura; °Brix en el jugo y la pasta o "
+  + "humedad en base húmeda en la biomasa; calor de las corrientes de servicio (kW) y reparto total del puerto, que debe sumar 100 %.<br>"
+  + "<b>Para qué sirve.</b> Revisar una corriente sin buscarla en la tabla de corrientes.<br>"
+  + "<b>Por qué importa.</b> Caudal y temperatura de las corrientes calientes fijan el calor residual disponible para el sumidero.";
+function ayudaHTML(texto, estilo, titulo) {
+  return `<details class="ayuda"${estilo ? ` style="${estilo}"` : ""}><summary>${titulo ? `<b>${titulo}</b>` : ""}<span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt">${texto}</div></details>`;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c])); }
+function compatibles(a, b) { return a === b || (a === "subproducto" && (b === "producto" || b === "biomasa")); }
+const corto = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+const r20 = v => Math.round(v / 20) * 20;
+
+// ------------------------------------------------------------------ Streamlit (componente bidireccional v1)
+function aST(type, data) { window.parent.postMessage(Object.assign({isStreamlitMessage: true, type}, data || {}), "*"); }
+let D = null, seq = 0, pend = [], primera = true, plantaNombre = null, sel = null, modo = "layout";
+let vista = {k: 0.6, tx: 20, ty: 20}, ops = {etq: true, flujo: true, ins: true}, ultimoMsg = 0, pistaN = 0, caja = null;
+// PAT 134: posiciones de los instrumentos, rutas de las corrientes (para unir señales) y avisos de rango de los parámetros
+let INS = {}, RUTAS = {}, LIM = {};
+const R_INS = 16, COLOR_SENAL = "#1f2f3a";
+let drag = null, rubro = null, timers = {}, altoPrevio = 0, firmaProp = "", firmaVars = "";
+let FL = {}, PM = {}, POS = {}, ajustePendiente = false, vistaManual = false, rubroPlanta = null;
+// PAT 133: selección múltiple (Mayús+clic) y portapapeles interno de equipos para copiar y pegar
+let multi = new Set(), portapapeles = null;
+
+window.addEventListener("message", e => {
+  const m = e.data;
+  if (m && m.type === "streamlit:render" && m.args && m.args.datos) recibir(m.args.datos);
+});
+
+function emitir(evento, datos) {
+  seq += 1;
+  pend.push({evento, datos, seq});
+  aST("streamlit:setComponentValue", {value: {eventos: pend, seq}, dataType: "json"});
+}
+function diferido(clave, evento, datos, ms = 300) {
+  if (timers[clave]) clearTimeout(timers[clave].t);
+  timers[clave] = {evento, datos, t: setTimeout(() => { delete timers[clave]; emitir(evento, datos); }, ms)};
+}
+function vaciarDiferidos() {          // PAT 133: antes de deshacer se envía lo que estaba esperando, para no perder el orden
+  for (const [k, v] of Object.entries(timers)) { clearTimeout(v.t); delete timers[k]; emitir(v.evento, v.datos); }
+}
+function altura() {
+  const h = Math.ceil(document.body.getBoundingClientRect().height) + 6;
+  if (Math.abs(h - altoPrevio) > 2) { altoPrevio = h; aST("streamlit:setFrameHeight", {height: h}); }
+}
+
+const eqPor = id => D.equipos.find(e => e.id === id);
+const conPor = clave => D.conexiones.find(c => c.clave === clave);
+const insLista = () => (D && D.instrumentos) || [];
+const insPor = id => insLista().find(i => i.id === id);
+function senPor(clave) { for (const i of insLista()) for (const s of i.conexiones) if (s.clave === clave) return [i, s]; return [null, null]; }
+
+function optimista(e) {
+  const d = e.datos || {};
+  if (e.evento === "mover") { const q = eqPor(d.id); if (q) { q.x = d.x; q.y = d.y; } }
+  else if (e.evento === "parametro") { const q = eqPor(d.id); const p = q && q.params.find(p => p.clave === d.clave); if (p) p.valor = d.valor; }
+  else if (e.evento === "renombrar") { const q = eqPor(d.id); if (q) q.nombre = d.nombre; }
+  else if (e.evento === "reparto") { const c = conPor(d.clave); if (c) { if (d.reparto != null) c.reparto = d.reparto; if (d.nombre != null) c.nombre = d.nombre; } }
+  else if (e.evento === "mover_instrumento") { const i = insPor(d.id); if (i) moverInsLocal(i, d.x, d.y); }
+}
+function moverInsLocal(i, x, y) {          // PAT 134: posición absoluta y relativa a su equipo (para que lo siga)
+  i.x = x; i.y = y; i.auto = false;
+  const e = i.equipo && eqPor(i.equipo);
+  if (e) { i.dx = x - e.x; i.dy = y - e.y; }
+}
+
+function recibir(datos) {
+  D = JSON.parse(JSON.stringify(datos));
+  seq = Math.max(seq, D.ultimo_seq || 0);
+  pend = pend.filter(e => e.seq > (D.ultimo_seq || 0));
+  pend.forEach(optimista);
+  if (primera) {
+    ultimoMsg = Math.max(0, ...D.mensajes.map(m => m.seq));
+    rubro = D.catalogo[D.rubro] ? D.rubro : Object.keys(D.catalogo)[0];
+    $("rubro").innerHTML = Object.entries(D.catalogo).map(([k, v]) => `<option value="${k}">${esc(v.nombre)}</option>`).join("");
+    $("rubro").value = rubro;
+    pintarCatalogo();
+    pintarLeyenda();
+    rubroPlanta = D.rubro;
+    const sen = (D.isa && D.isa.senales) || {electrica: "Señal eléctrica"};
+    $("o-senal").innerHTML = Object.entries(sen).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+    $("o-senal").value = sen.electrica ? "electrica" : Object.keys(sen)[0];
+  } else {
+    if (D.rubro !== rubroPlanta && D.catalogo[D.rubro]) {   // cambió el rubro en Escenario: el catálogo lo sigue (PAT 132)
+      rubroPlanta = D.rubro; rubro = D.rubro; $("rubro").value = rubro; pintarCatalogo(); pintarLeyenda();
+    }
+    for (const m of D.mensajes) if (m.seq > ultimoMsg) { ultimoMsg = m.seq; aviso(m.texto, m.tipo); if (m.id) sel = m.sel === "ins" ? {t: "ins", id: m.id} : {t: "eq", id: m.id}; }
+  }
+  if (sel && sel.t === "eq" && !eqPor(sel.id)) sel = null;
+  if (sel && sel.t === "con" && !conPor(sel.clave)) sel = null;
+  if (sel && sel.t === "ins" && !insPor(sel.id)) sel = null;
+  if (sel && sel.t === "sen" && !senPor(sel.clave)[0]) sel = null;
+  // PAT 134: con todos los eventos ya aplicados, los campos muestran el valor que usó el motor (por ejemplo el mínimo)
+  if (!pend.length) document.querySelectorAll("[data-editando]").forEach(x => { delete x.dataset.editando; clearTimeout(x._t); });
+  for (const id of [...multi]) if (!eqPor(id)) multi.delete(id);
+  pintarTodo();
+  if (primera || D.nombre !== plantaNombre) { plantaNombre = D.nombre; vistaManual = false; requestAnimationFrame(() => { ajustar(); altura(); }); }
+  primera = false;
+}
+
+// ------------------------------------------------------------------ geometría
+const T = () => (D && D.tam) || 64;
+function calcularPosiciones() {
+  POS = {};
+  if (modo === "etapas") {
+    const proc = D.conexiones.filter(c => !c.servicio), nivel = {};
+    const ids = D.equipos.map(e => e.id);
+    for (let it = 0; it < ids.length + 1; it++)
+      for (const id of ids) {
+        const pad = proc.filter(c => c.destino === id && c.origen !== id).map(c => (nivel[c.origen] ?? 0) + 1);
+        nivel[id] = Math.min(20, pad.length ? Math.max(...pad) : 0);
+      }
+    for (const e of D.equipos) if (e.tipo.startsWith("caldera")) {
+      const dest = D.conexiones.filter(c => c.origen === e.id).map(c => nivel[c.destino] ?? 0);
+      nivel[e.id] = dest.length ? Math.min(...dest) : 0;
+    }
+    const col = {};
+    for (const e of D.equipos) { const n = nivel[e.id] || 0; (col[n] = col[n] || []).push(e); }
+    const POR_FILA = 6, filas = Math.max(...Object.values(col).map(l => l.length));   // más de 6 etapas: siguen en otra banda
+    for (const [n, lst] of Object.entries(col)) {
+      lst.sort((a, b) => (a.tipo.startsWith("caldera") ? 1 : 0) - (b.tipo.startsWith("caldera") ? 1 : 0) || a.y - b.y);
+      const banda = Math.floor(Number(n) / POR_FILA), c = Number(n) % POR_FILA;
+      lst.forEach((e, i) => { POS[e.id] = {x: 40 + c * 200, y: 80 + banda * (filas * 175 + 70) + i * 175}; });
+    }
+  } else for (const e of D.equipos) POS[e.id] = {x: e.x, y: e.y};
+  FL = {};
+  for (const e of D.equipos) {
+    let s = 0;
+    for (const c of D.conexiones) {
+      if (c.servicio || !POS[c.origen] || !POS[c.destino]) continue;
+      if (c.destino === e.id) s += POS[c.origen].x - POS[e.id].x;
+      if (c.origen === e.id) s += POS[e.id].x - POS[c.destino].x;
+    }
+    FL[e.id] = s > 0;           // espejo: la corriente principal viene de la derecha
+  }
+  PM = {};
+  for (const e of D.equipos) for (const g of puertos(e)) PM[g.clave] = g;
+  RUTAS = {};
+  for (const c of D.conexiones) {
+    const a = PM[`${c.origen}|out|${c.puerto_origen}`], b = PM[`${c.destino}|in|${c.puerto_destino}`];
+    if (a && b) RUTAS[c.clave] = ruta(a, b);
+  }
+  INS = {};
+  for (const i of insLista()) INS[i.id] = posIns(i);
+}
+function posIns(i) {                       // PAT 134: los instrumentos de un equipo lo siguen (también en la vista por etapas)
+  const P = i.equipo && POS[i.equipo];
+  if (P && i.dx != null && i.dy != null) return {x: P.x + i.dx, y: P.y + i.dy};
+  return {x: i.x, y: i.y};
+}
+function puertos(e) {
+  const t = T(), fl = FL[e.id], P = POS[e.id], r = [];
+  const hor = (lst, lado) => lst.forEach((p, i) => {
+    const der = (lado === "out") !== fl;
+    r.push({clave: `${e.id}|${lado}|${p.nombre}`, eq: e.id, lado, p, x: der ? P.x + t : P.x, y: P.y + t * (i + 1) / (lst.length + 1), dx: der ? 1 : -1, dy: 0});
+  });
+  const ver = (lst, lado) => lst.forEach((p, i) => {
+    const abajo = lado === "in";
+    r.push({clave: `${e.id}|${lado}|${p.nombre}`, eq: e.id, lado, p, x: P.x + t * (i + 1) / (lst.length + 1), y: abajo ? P.y + t : P.y, dx: 0, dy: abajo ? 1 : -1});
+  });
+  hor(e.entradas.filter(p => !p.servicio), "in"); ver(e.entradas.filter(p => p.servicio), "in");
+  hor(e.salidas.filter(p => !p.servicio), "out"); ver(e.salidas.filter(p => p.servicio), "out");
+  return r;
+}
+function ruta(p1, p2) {
+  const s = 18, a = {x: p1.x + p1.dx * s, y: p1.y + p1.dy * s}, b = {x: p2.x + p2.dx * s, y: p2.y + p2.dy * s};
+  const pts = [p1, a], t = T();
+  if (p1.dx && p2.dx) {
+    if (p1.dx === -p2.dx) {
+      if ((b.x - a.x) * p1.dx >= 0) { const mx = (a.x + b.x) / 2; pts.push({x: mx, y: a.y}, {x: mx, y: b.y}); }
+      else { const my = Math.abs(a.y - b.y) > t + 40 ? (a.y + b.y) / 2 : Math.max(a.y, b.y) + t / 2 + 58; pts.push({x: a.x, y: my}, {x: b.x, y: my}); }
+    } else { const x = p1.dx > 0 ? Math.max(a.x, b.x) : Math.min(a.x, b.x); pts.push({x, y: a.y}, {x, y: b.y}); }
+  } else if (p1.dy && p2.dy) {
+    if (p1.dy === -p2.dy) {
+      if ((b.y - a.y) * p1.dy >= 0) { const my = (a.y + b.y) / 2; pts.push({x: a.x, y: my}, {x: b.x, y: my}); }
+      else { const mx = Math.abs(a.x - b.x) > t + 40 ? (a.x + b.x) / 2 : Math.max(a.x, b.x) + t / 2 + 50; pts.push({x: mx, y: a.y}, {x: mx, y: b.y}); }
+    } else { const y = p1.dy > 0 ? Math.max(a.y, b.y) : Math.min(a.y, b.y); pts.push({x: a.x, y}, {x: b.x, y}); }
+  } else if (p1.dx) pts.push({x: b.x, y: a.y});
+  else pts.push({x: a.x, y: b.y});
+  pts.push(b, p2);
+  return pts;
+}
+const dPath = pts => "M" + pts.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" L");
+function medio(pts) {
+  let mejor = null, L = -1;
+  for (let i = 1; i < pts.length; i++) {
+    const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (l > L) { L = l; mejor = {x: (pts[i].x + pts[i - 1].x) / 2, y: (pts[i].y + pts[i - 1].y) / 2, h: Math.abs(pts[i].y - pts[i - 1].y) < 1}; }
+  }
+  return mejor || pts[0];
+}
+function aMundo(ev) {
+  const r = $("svg").getBoundingClientRect();
+  return {x: (ev.clientX - r.left - vista.tx) / vista.k, y: (ev.clientY - r.top - vista.ty) / vista.k};
+}
+
+// ------------------------------------------------------------------ dibujo del diagrama
+// Semáforo de cuellos de botella (pedido de Jaime, 02-11-2026): hasta 50 % verde, de 50 a 80 % naranjo, de 80 a 100 % rojo;
+// sobre 100 % rojo oscuro (sobrecarga: el material se acumula antes del equipo). Sin capacidad nominal: gris.
+const SEMAFORO = [
+  {hasta: 0.5, fondo: "#e3f5ea", borde: "#2e9e5b", barra: "#2e9e5b", txt: "verde: hasta 50 %"},
+  {hasta: 0.8, fondo: "#fff0dc", borde: "#e0891a", barra: "#e8900f", txt: "naranjo: 50 a 80 %"},
+  {hasta: 1.0001, fondo: "#fde3e0", borde: "#d43a2c", barra: "#d43a2c", txt: "rojo: 80 a 100 %"},
+  {hasta: Infinity, fondo: "#f6c9c3", borde: "#8f1d14", barra: "#8f1d14", txt: "rojo oscuro: sobrecarga"}];
+const semaforo = u => SEMAFORO.find(s => u < s.hasta) || SEMAFORO[3];
+function colorEq(e) {
+  const u = e.util_demanda ?? e.utilizacion;
+  if (!e.resuelto && !e.tipo.startsWith("caldera")) return ["#fff5f4", "#c0473c", "5 3"];
+  if (u == null) return ["#ffffff", "#bfd2da", ""];
+  const s = semaforo(u);
+  return [s.fondo, s.borde, ""];
+}
+function etiquetaCorriente(c, completo) {
+  if (c.servicio) return c.q != null ? `${fmt(c.q, 0)} kW` : (c.tipo_txt || "");
+  if (c.m == null) return "";
+  let s = `${fmt(c.m / 1000, 1)} t/h`;
+  if (c.m_real != null && c.m_real < c.m * 0.999) s = `${fmt(c.m_real / 1000, 1)} de ${fmt(c.m / 1000, 1)} t/h`;
+  if (completo && c.T != null) s += ` · ${fmt(c.T, 0)} °C`;
+  if (c.reparto < 99.95) s += ` (${fmt(c.reparto, 0)} %)`;
+  return s;
+}
+function mundo(exportar) {
+  const t = T(), k = exportar ? 1 : vista.k, fs = Math.max(11, 9.5 / k), fsP = Math.max(10, 8.5 / k), o = [];
+  const restr = D.kpis.restrictivo, lim = new Set(D.kpis.limitantes || []);
+  // corrientes
+  for (const c of D.conexiones) {
+    const a = PM[`${c.origen}|out|${c.puerto_origen}`], b = PM[`${c.destino}|in|${c.puerto_destino}`];
+    if (!a || !b) continue;
+    const pts = ruta(a, b), d = dPath(pts), w = 1.1 + (c.grosor || 2) * 0.55, seleccionada = sel && sel.t === "con" && sel.clave === c.clave;
+    const dash = c.tipo === "vapor" ? ' stroke-dasharray="9 5"' : "";
+    o.push(`<g data-con="${esc(c.clave)}">`);
+    if (seleccionada) o.push(`<path d="${d}" fill="none" stroke="#93b4f5" stroke-width="${w + 6}" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`);
+    o.push(`<path d="${d}" fill="none" stroke="${c.color}" stroke-width="${w}"${dash} vector-effect="non-scaling-stroke" stroke-linejoin="round" marker-end="url(#fl_${c.tipo})"/>`);
+    const m = c.m_real ?? c.m;
+    if (!exportar && ((m != null && m > 0) || (c.q != null && c.q > 0))) {
+      const dur = c.servicio ? 1.3 : Math.max(0.45, Math.min(2.6, 2.9 - 0.42 * Math.log10(Math.max(1, m))));
+      o.push(`<path class="flujo" d="${d}" fill="none" stroke="#ffffff" stroke-opacity=".75" stroke-width="${Math.max(1.2, w * 0.55)}" stroke-dasharray="6 14" vector-effect="non-scaling-stroke" style="--dur:${dur.toFixed(2)}s"/>`);
+    }
+    if (!exportar) o.push(`<path class="hit" d="${d}" fill="none" stroke="transparent" stroke-width="14" vector-effect="non-scaling-stroke"/>`);
+    const mm = medio(pts);
+    if (c.nombre) o.push(`<path d="M${mm.x} ${mm.y - 8} L${mm.x + 10} ${mm.y} L${mm.x} ${mm.y + 8} L${mm.x - 10} ${mm.y} Z" transform="translate(${mm.x} ${mm.y}) scale(${fs / 11}) translate(${-mm.x} ${-mm.y})" fill="#fff" stroke="${c.color}"/>`
+      + `<text x="${mm.x}" y="${mm.y + fsP * 0.35}" font-size="${fsP * 0.85}" text-anchor="middle" fill="#1b2f3a">${esc(c.nombre)}</text>`);
+    if (ops.etq || exportar || seleccionada) {
+      const tx = etiquetaCorriente(c, exportar || seleccionada || k >= 1.1);
+      if (tx) o.push(`<text x="${mm.x + (mm.h ? 0 : 13 * fs / 11)}" y="${mm.y - (mm.h ? 13 * fs / 11 : -fsP * 0.35)}" font-size="${fsP}" text-anchor="${mm.h ? "middle" : "start"}" fill="${c.m_real != null && c.m_real < c.m * 0.999 ? "#9c3329" : "#2c4a58"}" paint-order="stroke" stroke="#fff" stroke-width="${3 / k}">${esc(tx)}</text>`);
+    }
+    o.push("</g>");
+  }
+  // equipos
+  for (const e of D.equipos) {
+    const P = POS[e.id], [fondo, borde, dsh] = colorEq(e), crit = e.id === restr, s = (sel && sel.t === "eq" && sel.id === e.id) || multi.has(e.id);
+    o.push(`<g class="eq" data-eq="${e.id}"><title>${esc(`${e.id} · ${e.nombre} (${e.simbolo_nombre}; ISO 10628, categoría ${e.categoria}, letra ${e.letra})`)}</title>`);
+    if (s) o.push(`<rect x="${P.x - 12}" y="${P.y - 12}" width="${t + 24}" height="${t + 24}" rx="12" fill="none" stroke="${"#2563eb"}" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`);
+    o.push(`<rect x="${P.x - 7}" y="${P.y - 7}" width="${t + 14}" height="${t + 14}" rx="10" fill="${fondo}" stroke="${borde}" stroke-width="${crit ? 4 : (e.efectiva != null ? 2.2 : 1.4)}"${dsh ? ` stroke-dasharray="${dsh}"` : ""} vector-effect="non-scaling-stroke"/>`);
+    o.push(`<g transform="translate(${P.x},${P.y}) scale(${t / 60})">${e.simbolo}</g>`);
+    const u = e.util_demanda ?? e.utilizacion;
+    if (u != null) o.push(`<g><rect x="${P.x + t - 16 * fs / 11}" y="${P.y - 16 * fs / 11}" width="${34 * fs / 11}" height="${14 * fs / 11}" rx="${6 * fs / 11}" fill="${semaforo(u).barra}"/>`
+      + `<text x="${P.x + t + 1 * fs / 11}" y="${P.y - 5.5 * fs / 11}" font-size="${fsP * 0.85}" text-anchor="middle" fill="#fff" font-weight="700">${fmt(100 * u, 0)} %</text></g>`);
+    const y0 = P.y + t + 7 + fs, cx = P.x + t / 2, halo = `paint-order="stroke" stroke="#fff" stroke-width="${3.5 / k}"`;
+    o.push(`<text x="${cx}" y="${y0}" font-size="${fs}" text-anchor="middle" ${halo}><tspan font-weight="700">${esc(e.id)}</tspan> ${esc(corto(e.nombre, k >= 1 ? 26 : 13))}</text>`);
+    let l2 = "";
+    const d0 = v => fmt(v, v >= 100 ? 0 : 1);
+    if (e.demanda != null) l2 = `E ${d0(e.demanda)} · S ${d0(e.sale)} t/h`;
+    else if (!e.resuelto && !e.tipo.startsWith("caldera")) l2 = "sin alimentación";
+    else if (e.servicios && (e.servicios.vapor_kW || e.servicios.calor_kW)) l2 = `${fmt((e.servicios.vapor_kW || 0) + (e.servicios.calor_kW || 0), 0)} kW`;
+    if (l2) o.push(`<text x="${cx}" y="${y0 + fsP * 1.2}" font-size="${fsP}" text-anchor="middle" fill="${!e.resuelto ? "#9c3329" : "#406273"}" ${halo}>${esc(l2)}</text>`);
+    if (e.efectiva != null) o.push(`<text x="${cx}" y="${y0 + fsP * 2.35}" font-size="${fsP}" text-anchor="middle" fill="#406273" ${halo}>cap. ef. ${fmt(e.efectiva, 1)} t/h</text>`);
+    if (crit) o.push(`<text x="${cx}" y="${y0 + fsP * (e.efectiva != null ? 3.5 : 2.35)}" font-size="${fsP}" font-weight="700" text-anchor="middle" fill="${lim.has(e.id) ? "#8f1d14" : "#173243"}" ${halo}>${lim.has(e.id) ? "★ Recurso crítico · sobrecarga" : "★ Recurso crítico"}</text>`);
+    else if (lim.has(e.id)) o.push(`<text x="${cx}" y="${y0 + fsP * 3.5}" font-size="${fsP}" font-weight="700" text-anchor="middle" fill="#9c3329" ${halo}>Sobrecarga</text>`);
+    if (!exportar) for (const g of puertos(e)) {
+      let cls = "pto";
+      if (drag && drag.m === "con") {
+        const ok = drag.desde.lado !== g.lado && drag.desde.eq !== g.eq && (drag.desde.lado === "out" ? compatibles(drag.desde.p.tipo, g.p.tipo) : compatibles(g.p.tipo, drag.desde.p.tipo));
+        cls += ok ? " compat" : " incompat";
+        if (drag.destino && drag.destino.clave === g.clave) cls += " destino";
+      }
+      const rr = Math.max(4.5, 5.2 / k);
+      o.push(`<circle class="${cls}" data-puerto="${esc(g.clave)}" cx="${g.x}" cy="${g.y}" r="${rr.toFixed(1)}" fill="${g.p.color}" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"><title>${esc(`${g.lado === "in" ? "Entrada" : "Salida"} ${g.p.nombre}: ${g.p.tipo_txt}${g.p.descripcion ? " (" + g.p.descripcion + ")" : ""}`)}</title></circle>`);
+    }
+    o.push("</g>");
+  }
+  if (ops.ins) o.push(dibujarInstrumentos(exportar, k, fsP));          // PAT 134
+  if (!exportar && drag && drag.m === "sen") {
+    const c = INS[drag.id], b = drag.obj ? drag.obj.p : {x: drag.x, y: drag.y};
+    if (c) o.push(`<g opacity=".85">${lineaSenal(recorte(c, b, R_INS), b, $("o-senal").value, k)}</g>`);
+    if (drag.obj) o.push(`<circle cx="${f1(b.x)}" cy="${f1(b.y)}" r="${f1(7 / k)}" fill="none" stroke="#2563eb" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`);
+  }
+  if (!exportar && drag && drag.m === "con") {
+    const a = drag.desde, b = drag.destino || {x: drag.x, y: drag.y};
+    o.push(`<path d="M${a.x} ${a.y} L${b.x} ${b.y}" stroke="${a.p.color}" stroke-width="2.2" stroke-dasharray="6 4" fill="none" vector-effect="non-scaling-stroke"/>`);
+  }
+  return o.join("");
+}
+// ------------------------------------------------------------------ PAT 134: instrumentos ISA-5.1 y líneas de señal
+const f1 = v => (+v).toFixed(1);
+function recorte(a, b, r) { const L = Math.hypot(b.x - a.x, b.y - a.y) || 1; return {x: a.x + (b.x - a.x) * r / L, y: a.y + (b.y - a.y) * r / L}; }
+function bordeEq(e, q) {                  // punto del borde del recuadro del equipo en dirección a q
+  const t = T(), P = POS[e.id], cx = P.x + t / 2, cy = P.y + t / 2, h = t / 2 + 7, dx = q.x - cx, dy = q.y - cy;
+  if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return {x: cx, y: cy - h};
+  const f = h / Math.max(Math.abs(dx), Math.abs(dy));
+  return {x: cx + dx * f, y: cy + dy * f};
+}
+function cercaRuta(pts, q) {              // punto de la ruta de una corriente más cercano a q, con su distancia
+  let mejor = {x: pts[0].x, y: pts[0].y, d: Infinity};
+  for (let j = 1; j < pts.length; j++) {
+    const a = pts[j - 1], b = pts[j], vx = b.x - a.x, vy = b.y - a.y, L2 = vx * vx + vy * vy;
+    const t = L2 ? Math.max(0, Math.min(1, ((q.x - a.x) * vx + (q.y - a.y) * vy) / L2)) : 0;
+    const x = a.x + vx * t, y = a.y + vy * t, d = Math.hypot(q.x - x, q.y - y);
+    if (d < mejor.d) mejor = {x, y, d};
+  }
+  return mejor;
+}
+function onda(a, b, paso, amp) {           // trazo sinusoidal de la señal electromagnética o sónica
+  const L = Math.hypot(b.x - a.x, b.y - a.y);
+  if (L < 1e-9) return `M${f1(a.x)} ${f1(a.y)}`;
+  const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, nx = -uy, ny = ux, n = Math.max(1, Math.round(L / paso)), h = L / n, d = [`M${f1(a.x)} ${f1(a.y)}`];
+  for (let i = 0; i < n; i++) {
+    const m = h * (i + 0.5), e = h * (i + 1), sg = i % 2 ? -1 : 1;
+    d.push(`Q${f1(a.x + ux * m + nx * amp * 2 * sg)} ${f1(a.y + uy * m + ny * amp * 2 * sg)} ${f1(a.x + ux * e)} ${f1(a.y + uy * e)}`);
+  }
+  return d.join(" ");
+}
+// Trazo de cada señal como pat_sim.simbolos.isa51.linea (Tabla 15 del tutorial de Carballo y Romero, 2011; la electromagnética,
+// ISA-5.1 sin número de tabla): eléctrica discontinua, neumática con dos barras, datos con círculos, capilar con equis,
+// hidráulica con marcas en L, electromagnética sinusoidal y conexión a proceso continua.
+function lineaSenal(a, b, tipo, k) {
+  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, nx = -uy, ny = ux, z = Math.max(4, 3.2 / k);
+  const st = `stroke="${COLOR_SENAL}" stroke-width="1.3" fill="none" vector-effect="non-scaling-stroke"`, o = [];
+  if (tipo === "electromagnetica") o.push(`<path d="${onda(a, b, 2.5 * z, 0.9 * z)}" ${st}/>`);
+  else o.push(`<path d="M${f1(a.x)} ${f1(a.y)} L${f1(b.x)} ${f1(b.y)}" ${st}${tipo === "electrica" ? ' stroke-dasharray="7 4"' : ""}/>`);
+  for (const t of [0.3, 0.7]) {
+    const cx = a.x + (b.x - a.x) * t, cy = a.y + (b.y - a.y) * t;
+    if (tipo === "neumatica") for (const off of [-0.62, 0.62]) {
+      const px = cx + ux * off * z, py = cy + uy * off * z;
+      o.push(`<path d="M${f1(px - nx * z + ux * z / 2)} ${f1(py - ny * z + uy * z / 2)} L${f1(px + nx * z - ux * z / 2)} ${f1(py + ny * z - uy * z / 2)}" ${st}/>`);
+    }
+    else if (tipo === "datos") o.push(`<circle cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(0.62 * z)}" fill="#fff" stroke="${COLOR_SENAL}" stroke-width="1.2" vector-effect="non-scaling-stroke"/>`);
+    else if (tipo === "capilar") o.push(`<path d="M${f1(cx - 0.75 * z)} ${f1(cy - 0.75 * z)} L${f1(cx + 0.75 * z)} ${f1(cy + 0.75 * z)} M${f1(cx + 0.75 * z)} ${f1(cy - 0.75 * z)} L${f1(cx - 0.75 * z)} ${f1(cy + 0.75 * z)}" ${st}/>`);
+    else if (tipo === "hidraulica") o.push(`<path d="M${f1(cx - nx * z)} ${f1(cy - ny * z)} L${f1(cx + nx * z)} ${f1(cy + ny * z)} L${f1(cx + nx * z + ux * z)} ${f1(cy + ny * z + uy * z)}" ${st}/>`);
+  }
+  return o.join("");
+}
+function extremoSenal(i, s) {
+  const c = INS[i.id]; let b = null;
+  if (!c) return null;
+  if (s.tipo === "equipo") { const e = eqPor(s.destino); if (e && POS[e.id]) b = bordeEq(e, c); }
+  else if (s.tipo === "corriente") { const r = RUTAS[s.destino]; if (r) b = cercaRuta(r, c); }
+  else if (s.tipo === "instrumento") { const q = INS[s.destino]; if (q) b = recorte(q, c, R_INS); }
+  return b ? {a: recorte(c, b, R_INS), b: {x: b.x, y: b.y}} : null;
+}
+function dibujarInstrumentos(exportar, k, fsP) {
+  const L = [], S = [];
+  for (const i of insLista()) {
+    const c = INS[i.id]; if (!c) continue;
+    // un lazo sin líneas propias (los de la planta basada en Agrozzi) mantiene una línea eléctrica tenue a su equipo
+    const lst = i.conexiones.length ? i.conexiones : (i.equipo && eqPor(i.equipo) ? [{clave: "", tipo: "equipo", destino: i.equipo, senal: "electrica", implicita: true}] : []);
+    for (const s of lst) {
+      const ex = extremoSenal(i, s); if (!ex) continue;
+      const ss = !!s.clave && sel && sel.t === "sen" && sel.clave === s.clave, d = `M${f1(ex.a.x)} ${f1(ex.a.y)} L${f1(ex.b.x)} ${f1(ex.b.y)}`;
+      L.push(`<g${s.clave ? ` data-sen="${esc(s.clave)}"` : ""}${s.implicita ? ' opacity=".45"' : ""}><title>${esc(`${i.id} → ${s.destino}: ${s.implicita ? "línea de referencia al equipo (sin líneas propias)" : s.senal_nombre}`)}</title>`);
+      if (ss) L.push(`<path d="${d}" stroke="#93b4f5" stroke-width="8" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"/>`);
+      L.push(lineaSenal(ex.a, ex.b, s.senal, k));
+      if (s.parametro_nombre && (ops.etq || exportar || ss)) L.push(`<text x="${f1(ex.b.x + 4)}" y="${f1(ex.b.y - 4)}" font-size="${f1(fsP * 0.85)}" fill="#33508f" paint-order="stroke" stroke="#fff" stroke-width="${f1(3 / k)}">${esc(corto(s.parametro_nombre, 24))}</text>`);
+      if (!exportar && s.clave) L.push(`<path class="hit" d="${d}" fill="none" stroke="transparent" stroke-width="12" vector-effect="non-scaling-stroke"/>`);
+      L.push("</g>");
+    }
+    const si = sel && sel.t === "ins" && sel.id === i.id;
+    S.push(`<g class="ins" data-ins="${esc(i.id)}">`);
+    if (si) S.push(`<circle cx="${f1(c.x)}" cy="${f1(c.y)}" r="${R_INS + 8}" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`);
+    S.push(`<g transform="translate(${f1(c.x)} ${f1(c.y)})">${i.svg}</g>`);
+    if (!exportar) S.push(`<circle class="asa" data-asa="${esc(i.id)}" cx="${f1(c.x + R_INS + 5)}" cy="${f1(c.y)}" r="${f1(Math.max(3.5, 4.6 / k))}" fill="#2563eb" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"><title>Arrastre hasta un equipo, una corriente u otro instrumento para unirlo con una línea de señal</title></circle>`);
+    S.push("</g>");
+  }
+  return L.join("") + S.join("");
+}
+function objetivoSenal(pt, desde) {        // destino de una línea de señal bajo el puntero
+  const c0 = INS[desde];
+  for (const i of insLista()) {
+    if (i.id === desde) continue;
+    const c = INS[i.id];
+    if (c && Math.hypot(c.x - pt.x, c.y - pt.y) <= R_INS + 6) return {tipo: "instrumento", destino: i.id, p: recorte(c, c0 || pt, R_INS)};
+  }
+  const e = equipoEn(pt);
+  if (e) return {tipo: "equipo", destino: e.id, p: bordeEq(e, c0 || pt)};
+  let mejor = null;
+  for (const [cl, r] of Object.entries(RUTAS)) {
+    const q = cercaRuta(r, pt);
+    if (q.d <= 12 / vista.k && (!mejor || q.d < mejor.d)) mejor = {tipo: "corriente", destino: cl, p: {x: q.x, y: q.y}, d: q.d};
+  }
+  return mejor;
+}
+function defs() {
+  return "<defs>" + Object.entries(D.tipos).map(([k, v]) => `<marker id="fl_${k}" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0 0 L12 5 L0 10 Z" fill="${v.color}"/></marker>`).join("") + "</defs>";
+}
+function pintarSVG() {
+  if (!D) return;
+  calcularPosiciones();
+  const svg = $("svg");
+  svg.classList.toggle("quieto", !ops.flujo);
+  svg.innerHTML = defs() + `<g transform="translate(${vista.tx.toFixed(2)},${vista.ty.toFixed(2)}) scale(${vista.k.toFixed(4)})">${mundo(false)}</g>`;
+  const est = $("estado");
+  if (!D.equipos.length) { est.textContent = "Planta vacía: arrastre equipos desde el catálogo"; est.className = "estado mal"; }
+  else if (D.resuelta) { est.textContent = `Planta resuelta · ${D.equipos.length} equipos · ${D.conexiones.length} corrientes${insLista().length ? ` · ${insLista().length} instrumentos` : ""}${modo === "etapas" ? " · vista por etapas" : ""}`; est.className = "estado"; }
+  else { est.textContent = `Sin resolver: ${D.motivo || "revise el diagnóstico"}`; est.className = "estado mal"; }
+}
+function caja_bbox() {
+  const t = T(); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const e of D.equipos) { const P = POS[e.id]; x0 = Math.min(x0, P.x - 40); y0 = Math.min(y0, P.y - 30); x1 = Math.max(x1, P.x + t + 60); y1 = Math.max(y1, P.y + t + 75); }
+  if (ops.ins) for (const i of insLista()) { const c = INS[i.id]; if (!c) continue; x0 = Math.min(x0, c.x - 34); y0 = Math.min(y0, c.y - 30); x1 = Math.max(x1, c.x + 40); y1 = Math.max(y1, c.y + 40); }
+  if (!isFinite(x0)) return {x0: 0, y0: 0, x1: 800, y1: 400};
+  return {x0, y0, x1, y1};
+}
+function ajustar() {
+  if (!D) return;
+  calcularPosiciones();
+  const r = $("svg").getBoundingClientRect(), b = caja_bbox();
+  if (r.width < 60 || r.height < 60) { ajustePendiente = true; return; }
+  ajustePendiente = false;
+  const k = Math.max(0.15, Math.min(1.4, Math.min((r.width - 20) / (b.x1 - b.x0), (r.height - 50) / (b.y1 - b.y0))));
+  vista = {k, tx: (r.width - k * (b.x1 + b.x0)) / 2, ty: (r.height - k * (b.y1 + b.y0)) / 2 + 10};
+  pintarSVG();
+}
+function zoom(f, cx, cy) {
+  vistaManual = true;
+  const r = $("svg").getBoundingClientRect();
+  if (cx === undefined) { cx = r.width / 2; cy = r.height / 2; }
+  const k = Math.max(0.15, Math.min(3, vista.k * f));
+  vista.tx = cx - (cx - vista.tx) * k / vista.k; vista.ty = cy - (cy - vista.ty) * k / vista.k; vista.k = k;
+  pintarSVG();
+}
+function pintarLeyenda() {
+  const usar = ["producto", "biomasa", "subproducto", "vapor", "condensado", "aire", "calor", "electricidad"];
+  $("leyenda").innerHTML = "<b>Utilización</b>" + SEMAFORO.map(x => `<span><i style="background:${x.barra};height:11px;width:11px;flex-basis:11px;border-radius:50%"></i>${x.txt}</span>`).join("") + "<b>Tipos de corriente</b>" + usar.filter(k => D.tipos[k]).map(k => `<span><i style="background:${D.tipos[k].color}"></i>${esc(D.tipos[k].nombre)}</span>`).join("") + '<b>Equipo</b><span><i style="background:none;height:auto;width:auto;flex-basis:16px;color:#c98c31;font-size:15px;line-height:1">★</i>recurso crítico</span>';
+}
+
+// ------------------------------------------------------------------ interacción con el diagrama
+const svgEl = $("svg");
+function puertoCercano(pt, filtro) {
+  let mejor = null, dmin = 16 / vista.k;
+  for (const g of Object.values(PM)) { if (!filtro(g)) continue; const d = Math.hypot(g.x - pt.x, g.y - pt.y); if (d < dmin) { dmin = d; mejor = g; } }
+  return mejor;
+}
+function equipoEn(pt) {
+  const t = T();
+  return D.equipos.find(e => { const P = POS[e.id]; return pt.x >= P.x - 8 && pt.x <= P.x + t + 8 && pt.y >= P.y - 8 && pt.y <= P.y + t + 8; });
+}
+function filtroDestino(desde) {
+  return g => g.lado !== desde.lado && g.eq !== desde.eq &&
+    (desde.lado === "out" ? compatibles(desde.p.tipo, g.p.tipo) : compatibles(g.p.tipo, desde.p.tipo));
+}
+svgEl.addEventListener("pointerdown", ev => {
+  if (ev.button !== 0 || !D) return;
+  const pt = aMundo(ev);
+  const as = ev.target.closest("[data-asa]");              // PAT 134: arrastrar una línea de señal desde un instrumento
+  if (as && insPor(as.dataset.asa)) {
+    drag = {m: "sen", id: as.dataset.asa, x: pt.x, y: pt.y, x0: pt.x, y0: pt.y, obj: null};
+    svgEl.setPointerCapture(ev.pointerId); pintarSVG(); ev.preventDefault(); return;
+  }
+  const ie = ev.target.closest("[data-ins]");
+  if (ie && insPor(ie.dataset.ins)) {
+    const c = INS[ie.dataset.ins];
+    drag = {m: "ins", id: ie.dataset.ins, x0: pt.x, y0: pt.y, cx: c.x, cy: c.y, movido: false};
+    svgEl.setPointerCapture(ev.pointerId); ev.preventDefault(); return;
+  }
+  const sg = ev.target.closest("[data-sen]");
+  if (sg) { sel = {t: "sen", clave: sg.dataset.sen}; multi.clear(); pintarTodo(); return; }
+  const pe = ev.target.closest("[data-puerto]");
+  if (pe && PM[pe.dataset.puerto]) {
+    drag = {m: "con", desde: PM[pe.dataset.puerto], x: pt.x, y: pt.y, destino: null};
+    svgEl.setPointerCapture(ev.pointerId); pintarSVG(); ev.preventDefault(); return;
+  }
+  const ee = ev.target.closest("[data-eq]");
+  if (ee) {
+    const e = eqPor(ee.dataset.eq);
+    drag = {m: "eq", id: e.id, x0: pt.x, y0: pt.y, ex: POS[e.id].x, ey: POS[e.id].y, movido: false, shift: ev.shiftKey};
+    svgEl.setPointerCapture(ev.pointerId); ev.preventDefault(); return;
+  }
+  const ce = ev.target.closest("[data-con]");
+  if (ce) { sel = {t: "con", clave: ce.dataset.con}; pintarTodo(); return; }
+  drag = {m: "pan", sx: ev.clientX, sy: ev.clientY, tx: vista.tx, ty: vista.ty, movido: false};
+  svgEl.setPointerCapture(ev.pointerId);
+});
+svgEl.addEventListener("pointermove", ev => {
+  if (!drag) return;
+  const pt = aMundo(ev);
+  if (drag.m === "con") {
+    drag.x = pt.x; drag.y = pt.y;
+    drag.destino = puertoCercano(pt, filtroDestino(drag.desde));
+    if (!drag.destino) { const e = equipoEn(pt); if (e) drag.destino = puertos(e).find(filtroDestino(drag.desde)) || null; }
+    pintarSVG();
+  } else if (drag.m === "eq") {
+    const dx = pt.x - drag.x0, dy = pt.y - drag.y0;
+    if (Math.abs(dx) + Math.abs(dy) > 4 / vista.k) drag.movido = true;
+    if (!drag.movido) return;
+    if (modo === "etapas") return;
+    const e = eqPor(drag.id); e.x = r20(Math.max(0, drag.ex + dx)); e.y = r20(Math.max(0, drag.ey + dy));
+    pintarSVG();
+  } else if (drag.m === "sen") {
+    drag.x = pt.x; drag.y = pt.y; drag.obj = objetivoSenal(pt, drag.id); pintarSVG();
+  } else if (drag.m === "ins") {
+    const dx = pt.x - drag.x0, dy = pt.y - drag.y0;
+    if (Math.abs(dx) + Math.abs(dy) > 4 / vista.k) drag.movido = true;
+    if (!drag.movido || modo === "etapas") return;
+    moverInsLocal(insPor(drag.id), Math.max(0, Math.round((drag.cx + dx) / 10) * 10), Math.max(0, Math.round((drag.cy + dy) / 10) * 10));
+    pintarSVG();
+  } else if (drag.m === "pan") {
+    const dx = ev.clientX - drag.sx, dy = ev.clientY - drag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.movido = true;
+    vista.tx = drag.tx + dx; vista.ty = drag.ty + dy; vistaManual = true; pintarSVG();
+  }
+});
+function finArrastre(ev) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.m === "con") {
+    if (d.destino) {
+      const [a, b] = d.desde.lado === "out" ? [d.desde, d.destino] : [d.destino, d.desde];
+      conectar(a.eq, a.p, b.eq, b.p, null);
+    } else {
+      const e = equipoEn({x: d.x, y: d.y});
+      if (e && e.id !== d.desde.eq) aviso(`${e.id} no tiene un puerto ${d.desde.lado === "out" ? "de entrada" : "de salida"} compatible con ${d.desde.p.tipo_txt.toLowerCase()}.`, "error");
+    }
+    pintarSVG();
+  } else if (d.m === "eq") {
+    if (d.movido && modo === "layout") { const e = eqPor(d.id); emitir("mover", {id: e.id, x: e.x, y: e.y}); }
+    else if (d.movido && modo === "etapas") aviso("En la vista por etapas los equipos no se mueven: vuelva a «Layout».", "error");
+    if (d.shift && !d.movido) {            // PAT 133: Mayús+clic arma una selección de varios equipos
+      if (sel && sel.t === "eq" && sel.id !== d.id) multi.add(sel.id);
+      if (multi.has(d.id)) { multi.delete(d.id); sel = multi.size ? {t: "eq", id: [...multi].pop()} : null; }
+      else { multi.add(d.id); sel = {t: "eq", id: d.id}; }
+      if (multi.size === 1 && sel && multi.has(sel.id)) multi.clear();
+    } else { if (!multi.has(d.id)) multi.clear(); sel = {t: "eq", id: d.id}; }
+    pintarTodo();
+  } else if (d.m === "sen") {            // PAT 134
+    if (d.obj) emitir("conectar_senal", {origen: d.id, tipo: d.obj.tipo, destino: d.obj.destino, senal: $("o-senal").value});
+    else if (Math.hypot(d.x - d.x0, d.y - d.y0) > 8 / vista.k) aviso("Suelte la línea de señal sobre un equipo, una corriente u otro instrumento.", "error");
+    multi.clear(); sel = {t: "ins", id: d.id}; pintarTodo();
+  } else if (d.m === "ins") {
+    const i = insPor(d.id);
+    if (d.movido && modo === "layout" && i) emitir("mover_instrumento", {id: i.id, x: i.x, y: i.y});
+    else if (d.movido && modo === "etapas") aviso("En la vista por etapas los instrumentos no se mueven: vuelva a «Layout».", "error");
+    multi.clear(); sel = {t: "ins", id: d.id}; pintarTodo();
+  } else if (d.m === "pan" && !d.movido) { sel = null; multi.clear(); pintarTodo(); }
+}
+svgEl.addEventListener("pointerup", finArrastre);
+svgEl.addEventListener("pointercancel", finArrastre);
+svgEl.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const r = svgEl.getBoundingClientRect();
+  zoom(Math.exp(-ev.deltaY * 0.0015), ev.clientX - r.left, ev.clientY - r.top);
+}, {passive: false});
+function enCampoDeTexto() {             // PAT 133: con el foco en un campo, los atajos son los del navegador
+  const a = document.activeElement;
+  return !!a && (["INPUT", "SELECT", "TEXTAREA"].includes(a.tagName) || a.isContentEditable);
+}
+document.addEventListener("keydown", ev => {
+  if (!D || enCampoDeTexto()) return;
+  const ctrl = ev.ctrlKey || ev.metaKey, k = (ev.key || "").toLowerCase();
+  if (ctrl && !ev.altKey) {
+    if (k === "z" && !ev.shiftKey) { ev.preventDefault(); deshacer(); return; }
+    if (k === "y" || (k === "z" && ev.shiftKey)) { ev.preventDefault(); rehacer(); return; }
+    if (k === "c") { if (String(window.getSelection?.() || "")) return; if (copiar()) ev.preventDefault(); return; }
+    if (k === "v") { ev.preventDefault(); pegar(); return; }
+    if (k === "d") { ev.preventDefault(); duplicar(); return; }
+  }
+  if ((ev.key === "Delete" || ev.key === "Supr") && sel) { ev.preventDefault(); quitarSel(); }
+  if (ev.key === "Escape") { sel = null; multi.clear(); pintarTodo(); }
+});
+const seleccionados = () => { const s = new Set(multi); if (sel && sel.t === "eq") s.add(sel.id); return [...s].filter(id => eqPor(id)); };
+function deshacer() {
+  if (!D.historial || !D.historial.deshacer) { aviso("No hay cambios que deshacer.", "error"); return; }
+  vaciarDiferidos(); emitir("deshacer", {});
+}
+function rehacer() {
+  if (!D.historial || !D.historial.rehacer) { aviso("No hay cambios que rehacer.", "error"); return; }
+  vaciarDiferidos(); emitir("rehacer", {});
+}
+function copiar() {
+  const ids = seleccionados();
+  if (!ids.length) { aviso("Seleccione un equipo (o varios con Mayús+clic) para copiarlo.", "error"); return false; }
+  portapapeles = {ids, n: 0};
+  aviso(`Copiado ${ids.join(", ")}. Ctrl+V lo pega con sus parámetros y sin sus conexiones externas.`);
+  return true;
+}
+function pegar() {
+  if (!portapapeles) { aviso("Primero copie un equipo con Ctrl+C.", "error"); return; }
+  const ids = portapapeles.ids.filter(id => eqPor(id));
+  if (!ids.length) { aviso("Los equipos copiados ya no están en la planta.", "error"); return; }
+  if (modo === "etapas") { modo = "layout"; botonesVista(); }
+  portapapeles.n += 1; const d = 100 * portapapeles.n;
+  multi.clear();
+  emitir("duplicar", {ids, dx: d, dy: d});
+}
+function duplicar() {
+  const ids = seleccionados();
+  if (!ids.length) { aviso("Seleccione un equipo para duplicarlo.", "error"); return; }
+  if (modo === "etapas") { modo = "layout"; botonesVista(); }
+  multi.clear();
+  emitir("duplicar", {ids, dx: 100, dy: 100});
+}
+function botonesHistorial() {
+  const h = D.historial || {};
+  $("b-deshacer").disabled = !h.deshacer; $("b-rehacer").disabled = !h.rehacer;
+  $("b-deshacer").title = h.deshacer ? `Deshacer: ${h.etiqueta_deshacer} (Ctrl+Z; ${h.deshacer} paso(s) guardados)` : "No hay cambios que deshacer (Ctrl+Z)";
+  $("b-rehacer").title = h.rehacer ? `Rehacer: ${h.etiqueta_rehacer} (Ctrl+Y o Ctrl+Mayús+Z)` : "No hay cambios que rehacer (Ctrl+Y o Ctrl+Mayús+Z)";
+  const n = seleccionados().length;
+  $("b-duplicar").disabled = !n; $("b-duplicar").textContent = n > 1 ? `Duplicar (${n})` : "Duplicar";
+}
+function quitarSel() {
+  if (!sel) return;
+  multi.clear();
+  if (sel.t === "eq") emitir("quitar_equipo", {id: sel.id});
+  else if (sel.t === "ins") emitir("quitar_instrumento", {id: sel.id});           // PAT 134
+  else if (sel.t === "sen") emitir("quitar_senal", {clave: sel.clave});
+  else emitir("quitar_conexion", {clave: sel.clave});
+  sel = null;
+}
+function conectar(o, ps, d, pe, reparto) {
+  if (o === d) { aviso("Un equipo no se puede conectar consigo mismo.", "error"); return; }
+  if (!compatibles(ps.tipo, pe.tipo)) { aviso(`Tipos incompatibles: ${o}.${ps.nombre} entrega ${ps.tipo_txt.toLowerCase()} y ${d}.${pe.nombre} espera ${pe.tipo_txt.toLowerCase()}.`, "error"); return; }
+  if (D.conexiones.some(c => c.origen === o && c.puerto_origen === ps.nombre && c.destino === d && c.puerto_destino === pe.nombre)) { aviso("Esa conexión ya existe.", "error"); return; }
+  emitir("conectar", {origen: o, puerto_origen: ps.nombre, destino: d, puerto_destino: pe.nombre, reparto});
+}
+
+// ------------------------------------------------------------------ catálogo (arrastrar al lienzo)
+function pintarCatalogo() {
+  const cat = D.catalogo[rubro];
+  if (cat.instrumentos) {                 // PAT 134: puntos de control de ISA-5.1 y elementos de lazo de ISA-5.4
+    let g0 = null;
+    $("catalogo").innerHTML = cat.instrumentos.map(c => (c.grupo !== g0 ? (g0 = c.grupo, `<div class="cat-grupo">${esc(c.grupo)}</div>`) : "")
+      + `<div class="item isa" data-isa="${esc(c.clave)}" title="${esc(`${c.nombre}. ${c.isa51 ? "Letras ISA-5.1" : "Código ISA-5.4"} por defecto: ${c.letras} (se cambian en Propiedades). Fuente: ${c.fuente}. Suéltelo sobre un equipo para unirlo a él.`)}">`
+      + `<svg width="40" height="40" viewBox="-26 -24 52 60">${c.svg}</svg><div class="tx"><b>＋ ${esc(c.letras)} · ${esc(c.nombre)}</b><br><i>${c.isa51 ? "ISA-5.1" : "ISA-5.4"}</i></div></div>`).join("");
+    return;
+  }
+  let catPrev = null;   // PAT 132: en «Todos los equipos» se agrupan por categoría de la Tabla C.1 de la ISO 10628
+  const cabecera = c => { if (rubro !== "todos" || c.categoria === catPrev) return ""; catPrev = c.categoria; return `<div class="cat-grupo">${c.categoria} · ${esc(c.categoria_nombre || "")}</div>`; };
+  $("catalogo").innerHTML = cat.equipos.map(c => cabecera(c) + `<div class="item" data-tipo="${c.tipo}" title="${esc(`${c.simbolo_nombre}. ISO 10628: categoría ${c.categoria}, letra ${c.letra}. Entradas: ${c.entradas.map(p => p.nombre).join(", ") || "ninguna"}; salidas: ${c.salidas.map(p => p.nombre).join(", ")}`)}">`
+    + `<svg width="36" height="36" viewBox="0 0 60 60">${c.simbolo}</svg><div class="tx"><b>＋ ${esc(c.letra)} · ${esc(c.nombre)}</b><br><i>${esc((c.entradas.map(p => p.nombre).join("/") || "—") + " → " + c.salidas.map(p => p.nombre).join("/"))}</i></div></div>`).join("");
+}
+$("rubro").addEventListener("change", () => { rubro = $("rubro").value; pintarCatalogo(); altura(); });
+$("catalogo").addEventListener("pointerdown", ev => {
+  const it = ev.target.closest(".item"); if (!it || ev.button !== 0) return;
+  ev.preventDefault();
+  const esIsa = !!it.dataset.isa;          // PAT 134
+  const c = esIsa ? D.catalogo[rubro].instrumentos.find(x => x.clave === it.dataset.isa) : D.catalogo[rubro].equipos.find(x => x.tipo === it.dataset.tipo);
+  if (!c) return;
+  const f = document.createElement("div"); f.className = "fantasma"; f.style.display = "none";
+  f.innerHTML = esIsa ? `<svg width="46" height="46" viewBox="-26 -24 52 60">${c.svg}</svg>` : `<svg width="46" height="46" viewBox="0 0 60 60">${c.simbolo}</svg>`; document.body.appendChild(f);
+  const cd = {tipo: c.tipo, sx: ev.clientX, sy: ev.clientY, movido: false, f};
+  it.setPointerCapture(ev.pointerId);
+  const mover = e => {
+    if (Math.abs(e.clientX - cd.sx) + Math.abs(e.clientY - cd.sy) > 5) cd.movido = true;
+    if (!cd.movido) return;
+    f.style.display = "block"; f.style.left = (e.clientX - 25) + "px"; f.style.top = (e.clientY - 25) + "px";
+    const r = svgEl.getBoundingClientRect();
+    $("lienzo").classList.toggle("arrastrando-cat", e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+  };
+  const soltar = e => {
+    it.removeEventListener("pointermove", mover); it.removeEventListener("pointerup", soltar); it.removeEventListener("pointercancel", soltar);
+    f.remove(); $("lienzo").classList.remove("arrastrando-cat");
+    const r = svgEl.getBoundingClientRect(), t = T();
+    if (esIsa) { soltarInstrumento(c, cd.movido && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom ? aMundo(e) : null); return; }
+    if (cd.movido && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+      if (modo === "etapas") { modo = "layout"; botonesVista(); }
+      const pt = aMundo(e);
+      emitir("agregar", {tipo: cd.tipo, x: r20(pt.x - t / 2), y: r20(pt.y - t / 2)});
+    } else if (!cd.movido) {
+      const p = lugarLibre(); emitir("agregar", {tipo: cd.tipo, x: p.x, y: p.y});
+    }
+  };
+  it.addEventListener("pointermove", mover); it.addEventListener("pointerup", soltar); it.addEventListener("pointercancel", soltar);
+});
+function soltarInstrumento(c, pt) {       // PAT 134: agrega el símbolo; sobre un equipo queda unido a él y junto a él
+  if (modo === "etapas") { modo = "layout"; botonesVista(); calcularPosiciones(); }
+  if (!ops.ins) { ops.ins = true; $("o-ins").checked = true; }
+  let d;
+  if (pt) {
+    const e = equipoEn(pt), enLinea = c.isa51 && !["discreto", "compartido", "computador", "plc", "convertidor"].includes(c.simbolo);
+    let cor = null;
+    if (!e && enLinea) { let dm = 14 / vista.k; for (const [cl, rr] of Object.entries(RUTAS)) { const q = cercaRuta(rr, pt); if (q.d < dm) { dm = q.d; cor = cl; } } }
+    d = e ? {clave: c.clave, x: null, y: null, equipo: e.id} : {clave: c.clave, x: pt.x, y: pt.y, equipo: null, corriente: cor};
+  } else if (sel && sel.t === "eq") d = {clave: c.clave, x: null, y: null, equipo: sel.id};
+  else { const rr = svgEl.getBoundingClientRect(); d = {clave: c.clave, x: (rr.width / 2 - vista.tx) / vista.k, y: (rr.height / 3 - vista.ty) / vista.k, equipo: null}; }
+  emitir("agregar_instrumento", d);
+}
+function lugarLibre() {
+  const r = svgEl.getBoundingClientRect(), t = T();
+  let x = r20((r.width / 2 - vista.tx) / vista.k - t / 2), y = r20((r.height / 2 - vista.ty) / vista.k - t / 2);
+  for (let i = 0; i < 60; i++) {
+    if (!D.equipos.some(e => Math.abs(e.x - x) < 120 && Math.abs(e.y - y) < 150)) break;
+    x += 160; if (i % 6 === 5) { x -= 960; y += 180; }
+  }
+  return {x: Math.max(0, x), y: Math.max(0, y)};
+}
+
+// ------------------------------------------------------------------ paneles
+function kpi(t, v, cls = "", tip = "") { return `<div class="kpi ${cls}" title="${esc(tip)}"><b>${esc(v)}</b><span>${esc(t)}</span></div>`; }
+function pintarKPIs() {
+  const k = D.kpis, r = k.restrictivo ? eqPor(k.restrictivo) : null, lim = (k.limitantes || []).length > 0;
+  const perdida = k.produccion_t_h != null && k.produccion_real_t_h != null ? k.produccion_t_h - k.produccion_real_t_h : null;
+  let h = kpi("Producción planificada", k.produccion_t_h != null ? fmt(k.produccion_t_h, 2) + " t/h" : "—", "", "Salida de producto final con la alimentación planificada");
+  h += kpi("Producción real", k.produccion_real_t_h != null ? fmt(k.produccion_real_t_h, 2) + " t/h" : "—", lim ? "malo" : "",
+    perdida > 1e-6 ? `La restricción deja de producir ${fmt(perdida, 2)} t/h` : "Limitada por la capacidad efectiva de cada equipo");
+  const ur_ = r ? (r.util_demanda ?? 0) : null;
+  h += kpi("Recurso crítico", r ? `★ ${r.id} · ${fmt(100 * ur_, 0)} %` : "—", r ? (ur_ >= 0.8 ? "malo" : ur_ >= 0.5 ? "critico" : "bien") : "", r ? r.nombre : "Ningún equipo tiene capacidad nominal: use «Asignar capacidades» o declárela en Propiedades");
+  h += kpi("Vapor y calor de servicio", k.vapor_kW != null ? fmt(k.vapor_kW, 0) + " kW" : "—");
+  h += kpi("Electricidad", k.electricidad_kW != null ? fmt(k.electricidad_kW, 0) + " kW" : "—");
+  h += kpi("Calor recuperable (cascada)", k.cascada_kW != null ? fmt(k.cascada_kW, 0) + " kW" : (k.sin_sumidero ? "sin sumidero" : "—"), "",
+    k.cascada_kW != null ? `${fmt(100 * k.cobertura, 1)} % del sumidero ${k.sumidero} (${fmt(k.sumidero_kW, 0)} kW)` : "");
+  h += kpi("Inversión declarada", k.inversion_declarada ? "$" + fmt(k.inversion_declarada / 1e6, 0) + " M" : "—", "", "Suma del costo declarado en cada equipo");
+  h += kpi("Conexiones", String(k.conexiones ?? D.conexiones.length));
+  $("kpis").innerHTML = h;
+}
+function pintarBarras() {
+  const lst = D.equipos.filter(e => e.tiene_capacidad && (e.demanda != null || e.efectiva != null));
+  if (!lst.length) { $("barras").innerHTML = '<span class="nota">Resuelva la planta para ver la carga de cada equipo.</span>'; return; }
+  const restr = D.kpis.restrictivo;
+  $("barras").innerHTML = lst.map(e => {
+    const s = sel && sel.t === "eq" && sel.id === e.id ? " sel" : "";
+    const nom = `<span class="nm"><b>${esc(e.id)}</b> ${esc(corto(e.nombre, 22))}</span>`;
+    if (e.efectiva == null) return `<div class="cap${s}" data-eq="${e.id}" title="Sin capacidad nominal: haga clic y declárela en Propiedades">${nom}<div class="pista"><div class="lleno sin"></div></div><span class="vl">${fmt(e.demanda, 1)} t/h · sin cap.</span></div>`;
+    const ur = e.util_real ?? 0, ud = e.util_demanda ?? 0, sobre = (e.sobrecarga || 0) > 1e-6, crit = e.id === restr;
+    const meta = sobre ? `<span class="meta sobre">Sobrecarga: llegan ${fmt(e.demanda, 1)} t/h, se acumulan ${fmt(e.sobrecarga, 1)} t/h${crit ? " · recurso crítico" : ""}</span>` : crit ? `<span class="meta critico">Recurso crítico: el equipo más exigido de la línea</span>` : "";
+    return `<div class="cap${s}" data-eq="${e.id}" title="Utilización ${fmt(100 * ud, 1)} %; nominal ${fmt(e.capacidad, 1)} t/h × estado ${fmt(e.estado ?? 1, 2)}; demanda ${fmt(e.demanda, 1)} t/h">${nom}`
+      + `<div class="pista"><div class="lleno" style="width:${Math.min(100, 100 * ur).toFixed(1)}%;background:${semaforo(ud).barra}"></div><span class="pct">${fmt(100 * ud, 0)} %${crit ? " ★" : ""}</span></div>`
+      + `<span class="vl">${fmt(e.procesado, 1)} / ${fmt(e.efectiva, 1)} t/h</span>${meta}</div>`;
+  }).join("");
+}
+$("barras").addEventListener("click", ev => {
+  const c = ev.target.closest("[data-eq]"); if (!c) return;
+  sel = {t: "eq", id: c.dataset.eq}; pintarTodo();
+  const inp = document.querySelector('#prop input[data-clave="capacidad"][type=number]'); if (inp && inp.value === "") inp.focus();
+});
+
+function filaParam(e, p) {
+  const k = `p:${e.id}:${p.clave}`, et = `${esc(p.nombre)}${p.unidad && p.unidad !== "—" ? ` [${esc(p.unidad)}]` : ""}`;
+  const tip = `Categoría: ${p.categoria}. Fuente: ${p.fuente || "—"}.${p.justificacion ? " " + p.justificacion : ""}`;
+  if (p.fijado) return `<div class="fila solo"><span class="et">${et} <span class="info" title="${esc(tip)}">i</span></span>`
+    + `<span class="nota">${fmt(p.valor, 4)} · lo ajusta la especificación «${esc(p.fijado)}» (Variables de planta)</span></div>`;
+  if (p.tipo === "bool") return `<div class="fila solo"><label class="chk" style="margin:0;color:#30505f"><input type="checkbox" data-k="${k}" data-ev="parametro" data-id="${e.id}" data-clave="${p.clave}" ${p.valor ? "checked" : ""}>${et}</label></div>`;
+  const val = p.valor == null ? "" : p.valor;
+  const rng = p.deslizador ? `<input type="range" data-k="${k}:r" data-ev="parametro" data-id="${e.id}" data-clave="${p.clave}" min="${p.min}" max="${p.max}" step="${p.paso}" value="${p.valor ?? p.min}">` : "<span></span>";
+  return `<div class="fila"><span class="et">${et} <span class="info" title="${esc(tip)}">i</span> <small>${esc(p.categoria)}</small><span class="lim" data-lim="${k}">${esc(LIM[k] || "")}</span></span>${rng}`
+    + `<input type="number" data-k="${k}" data-ev="parametro" data-id="${e.id}" data-clave="${p.clave}" step="any" value="${val}" placeholder="${p.opcional ? "vacío" : ""}"></div>`;
+}
+function resultadosEq(e) {
+  const r = [];
+  const add = (a, b, cls = "") => r.push(`<span>${a}</span><span class="${cls}">${b}</span>`);
+  if (!e.resuelto && !e.tipo.startsWith("caldera")) add("Estado", "sin alimentación", "malo");
+  if (e.demanda != null) { add("Carga demandada", fmt(e.demanda, 2) + " t/h"); add("Carga procesada", fmt(e.procesado, 2) + " t/h"); }
+  if (e.sale != null) add("Salida de proceso", fmt(e.sale, 2) + " t/h");
+  if (e.efectiva != null) { add("Capacidad efectiva", fmt(e.efectiva, 2) + " t/h"); add("Utilización", fmt(100 * (e.util_demanda ?? 0), 1) + " %", (e.util_demanda ?? 0) > 1 ? "malo" : ""); }
+  if ((e.sobrecarga || 0) > 1e-6) add("Se acumulan", fmt(e.sobrecarga, 2) + " t/h", "malo");
+  for (const [kk, v] of Object.entries(e.servicios || {})) {
+    const nom = {vapor_kW: "Vapor", vapor_kgh: "Vapor", electricidad_kW: "Electricidad", calor_kW: "Calor", aire_kgh: "Aire"}[kk] || kk;
+    add(nom, fmt(v, 0) + (kk.endsWith("kgh") ? " kg/h" : " kW"));
+  }
+  if (e.cierre) add("Cierre de energía", fmt(e.cierre.energia_kW, 3) + " kW");
+  return r.length ? `<div class="res">${r.join("")}</div>` : "";
+}
+function resultadosCon(c) {
+  const r = [], add = (a, b, cls = "") => r.push(`<span>${a}</span><span class="${cls}">${b}</span>`);
+  if (c.m != null) { add("Caudal planificado", fmt(c.m, 0) + " kg/h"); if (c.m_real != null) add("Caudal real", fmt(c.m_real / 1000, 2) + " t/h", c.m_real < c.m * 0.999 ? "malo" : ""); }
+  if (c.T != null) add("Temperatura", fmt(c.T, 1) + " °C");
+  if (c.brix != null) add("°Brix", fmt(c.brix, 2));
+  if (c.hum != null) add("Humedad (base húmeda)", fmt(c.hum, 1) + " %");
+  if (c.q != null) add("Calor", fmt(c.q, 0) + " kW");
+  const tot = D.conexiones.filter(x => x.origen === c.origen && x.puerto_origen === c.puerto_origen).reduce((a, x) => a + x.reparto, 0);
+  add(`Reparto total de ${c.origen}.${c.puerto_origen}`, fmt(tot, 1) + " %", Math.abs(tot - 100) > 0.01 && !c.servicio ? "malo" : "");
+  return `<div class="res">${r.join("")}</div>`;
+}
+function pintarProp() {
+  $("cajon").hidden = !sel;
+  let h = "", firma = "";
+  if (sel && sel.t === "eq") {
+    const e = eqPor(sel.id);
+    const cap = e.params.filter(p => ["capacidad", "estado", "costo", "consumo_especifico"].includes(p.clave));
+    const otros = e.params.filter(p => !cap.includes(p));
+    firma = "eq:" + e.id + ":" + e.params.map(p => p.clave + (p.fijado ? "f" : "") + p.tipo).join(",");
+    h = `<div class="cab"><svg width="38" height="38" viewBox="-4 -4 68 68">${e.simbolo}</svg><div><b>${esc(e.id)} · ${esc(e.nombre_tipo)}</b><span>${esc(e.simbolo_nombre)} · ISO 10628 cat. ${e.categoria}, letra ${e.letra}</span></div></div>`
+      + `<div class="fila solo"><span class="et">Nombre del equipo</span><input type="text" data-k="n:${e.id}" data-ev="renombrar" data-id="${e.id}" value="${esc(e.nombre)}"></div>`
+      + ayudaHTML(AYUDA_RES_EQ, "margin:2px 0 0", "Resultados del equipo")   // PAT 134: «?» de la tabla
+      + `<div id="res-sel">${resultadosEq(e)}</div>`
+      + (cap.length ? `<h4>Capacidad · teoría de restricciones</h4>${cap.map(p => filaParam(e, p)).join("")}` : "")
+      + (otros.length ? `<h4>Parámetros de proceso</h4>${otros.map(p => filaParam(e, p)).join("")}` : "")
+      + ayudaHTML("Las etiquetas de texto y la posición exacta se editan en el formulario de abajo.", "margin:4px 0 6px")
+      + `<button class="peligro" data-accion="quitar">Eliminar equipo (Supr)</button>`;
+  } else if (sel && sel.t === "con") {
+    const c = conPor(sel.clave);
+    firma = "con:" + c.clave;
+    h = `<div class="cab"><svg width="38" height="38" viewBox="0 0 38 38"><path d="M4 19 H30" stroke="${c.color}" stroke-width="4"${c.tipo === "vapor" ? ' stroke-dasharray="6 3"' : ""}/><path d="M28 13 L36 19 L28 25Z" fill="${c.color}"/></svg>`
+      + `<div><b>Corriente ${esc(c.nombre || "sin número")}</b><span>${esc(c.tipo_txt)} · ${esc(c.origen)}.${esc(c.puerto_origen)} → ${esc(c.destino)}.${esc(c.puerto_destino)}</span></div></div>`
+      + ayudaHTML(AYUDA_RES_CON, "margin:2px 0 0", "Resultados de la corriente")   // PAT 134: «?» de la tabla
+      + `<div id="res-sel">${resultadosCon(c)}</div>`
+      + `<div class="fila"><span class="et">Reparto del caudal de salida [%]</span><input type="range" data-k="c:${c.clave}:r" data-ev="reparto" data-clave="${esc(c.clave)}" min="0" max="100" step="1" value="${c.reparto}">`
+      + `<input type="number" data-k="c:${c.clave}" data-ev="reparto" data-clave="${esc(c.clave)}" min="0" max="100" step="any" value="${c.reparto}"></div>`
+      + `<div class="fila solo"><span class="et">Número de corriente (ISO 10628)</span><input type="text" data-k="cn:${c.clave}" data-ev="nombre_corriente" data-clave="${esc(c.clave)}" value="${esc(c.nombre)}"></div>`
+      + `<button class="peligro" data-accion="quitar">Quitar conexión (Supr)</button>`;
+  } else if (sel && sel.t === "ins") {    // PAT 134
+    const i = insPor(sel.id), {x, y, dx, dy, auto, ...resto} = i;
+    firma = "ins:" + JSON.stringify(resto) + "|" + D.equipos.map(q => q.id).join(",") + "|" + D.conexiones.map(c => c.clave).join(",") + "|" + insLista().map(q => q.id).join(",");
+    h = propIns(i);
+  } else if (sel && sel.t === "sen") {
+    const [i, sn] = senPor(sel.clave);
+    firma = "sen:" + JSON.stringify(sn);
+    h = propSen(i, sn);
+  } else {
+    firma = "nada";
+    h = `<div class="nota">Seleccione un equipo o una línea en el diagrama.</div>`
+      + ayudaHTML(`<ol><li>Arrastre equipos desde el catálogo.</li><li>Conecte arrastrando de un puerto de salida (círculo de color) a uno de entrada; el color es el tipo de corriente.</li><li>Haga clic en un equipo para cambiar su capacidad, su estado y sus parámetros: todo se recalcula al instante.</li><li>El recurso crítico queda en dorado y la sobrecarga en rojo.</li><li>Pida «Diagnóstico» o una «pista» cuando quiera.</li></ol>`, "margin-top:6px", "Cómo se juega");
+  }
+  if (firma === firmaProp) {                  // misma estructura: solo valores (no se interrumpe un deslizador en uso)
+    const rs = $("res-sel");
+    if (rs && sel && (sel.t === "eq" || sel.t === "con")) rs.innerHTML = sel.t === "eq" ? resultadosEq(eqPor(sel.id)) : resultadosCon(conPor(sel.clave));
+    actualizarValores($("prop"));
+  } else { $("prop").innerHTML = h; firmaProp = firma; }
+}
+function opciones(lst, val) {
+  return lst.map(([v, t]) => `<option value="${esc(v)}"${String(v) === String(val ?? "") ? " selected" : ""}>${esc(t)}</option>`).join("");
+}
+function nombreDestino(s) {
+  if (s.tipo === "corriente") { const c = conPor(s.destino); return c ? `corriente ${c.nombre || ""} (${c.origen} → ${c.destino})` : s.destino; }
+  return s.destino;
+}
+function propIns(i) {
+  const isa = D.isa || {}, e = i.equipo ? eqPor(i.equipo) : null, k = `i:${i.id}`;
+  const campo = (et, html) => `<div class="fila solo"><span class="et">${et}</span>${html}</div>`;
+  const txt = (c, ph = "") => `<input type="text" data-k="${esc(k)}:${c}" data-ev="ins" data-id="${esc(i.id)}" data-campo="${c}" value="${esc(i[c] ?? "")}" placeholder="${esc(ph)}">`;
+  const lista = (c, lst) => `<select data-k="${esc(k)}:${c}" data-ev="ins" data-id="${esc(i.id)}" data-campo="${c}">${opciones(lst, i[c])}</select>`;
+  const sen = Object.entries(isa.senales || {});
+  let h = `<div class="cab"><svg width="44" height="48" viewBox="-26 -24 52 60">${i.svg}</svg><div><b>${esc(i.id)} · ${esc(i.simbolo_nombre)}</b><span>${esc(i.lectura)}</span></div></div>`;
+  h += campo(i.isa51 ? "Letras de identificación ISA-5.1 (1 a 5: variable y funciones)" : "Código del elemento ISA-5.4 (1 a 6 letras o cifras)", txt("letras"));
+  h += `<div class="nota" style="margin:-4px 0 6px">Lectura: ${esc(i.lectura)}</div>`;
+  h += campo("Número de lazo", txt("numero"));
+  if (["", "discreto", "compartido", "computador", "plc"].includes(i.simbolo))
+    h += campo("Tipo de instrumento (forma de la burbuja)", lista("simbolo", (i.simbolo ? [] : [["", "Según la ubicación (lazo anterior)"]]).concat(Object.entries(isa.funciones || {}))));
+  h += campo("Ubicación", lista("ubicacion", i.ubicaciones.map(u => [u, (isa.ubicaciones || {})[u] || u])));
+  h += campo("Descripción", txt("descripcion", "Qué mide o controla"));
+  h += campo("Equipo", lista("equipo", [["", "Sin equipo"]].concat(D.equipos.map(q => [q.id, `${q.id} · ${q.nombre}`]))));
+  if (e) h += campo("Parámetro que mide o controla", lista("parametro", [["", "Ninguno"]].concat(e.params.map(p => [p.clave, p.nombre]))));
+  if (i.isa51) h += campo("Elemento final de control", txt("elemento_final", "Por ejemplo TV-101"));
+  h += `<h4>Líneas de señal ISA-5.1</h4><div class="senlista">` + (i.conexiones.map(s => `<div><span title="${esc(s.clave)}">→ ${esc(nombreDestino(s))}${s.parametro_nombre ? " · " + esc(corto(s.parametro_nombre, 22)) : ""}</span>`
+    + `<select data-k="sn:${esc(s.clave)}" data-ev="senal_ins" data-clave="${esc(s.clave)}">${opciones(sen, s.senal)}</select><button data-quitar-sen="${esc(s.clave)}" title="Quitar la línea">×</button></div>`).join("")
+    || `<span class="nota">Sin líneas propias${i.equipo ? `: se dibuja una línea de referencia tenue a ${esc(i.equipo)}` : ""}.</span>`) + "</div>";
+  const dests = [["", "Unir con…"]].concat(D.equipos.map(q => [`equipo|${q.id}`, `Equipo ${q.id} · ${q.nombre}`]),
+    D.conexiones.map(c => [`corriente|${c.clave}`, `Corriente ${c.nombre || "sin número"} · ${c.origen} → ${c.destino}`]),
+    insLista().filter(x => x.id !== i.id).map(x => [`instrumento|${x.id}`, `Instrumento ${x.id}`]));
+  h += `<div class="form-con"><select id="s-dest">${opciones(dests, "")}</select><select id="s-par" hidden></select>`
+    + `<select id="s-tipo">${opciones(sen, $("o-senal").value)}</select><button class="prim" data-accion="conectar-senal">Conectar señal</button></div>`
+    + ayudaHTML("O arrastre desde el punto azul del borde del símbolo hasta un equipo, una corriente u otro instrumento; el tipo de señal se elige sobre el lienzo.", "margin:3px 0 6px")
+    + `<button class="peligro" data-accion="quitar">Eliminar instrumento (Supr)</button>`;
+  return h;
+}
+function propSen(i, s) {
+  const isa = D.isa || {}, e = s.tipo === "equipo" ? eqPor(s.destino) : null;
+  let h = `<div class="cab"><svg width="38" height="38" viewBox="0 0 38 38">${lineaSenal({x: 3, y: 19}, {x: 35, y: 19}, s.senal, 1)}</svg><div><b>Señal ${esc(i.id)} → ${esc(nombreDestino(s))}</b><span>${esc(s.senal_nombre)} · ISA-5.1</span></div></div>`;
+  h += `<div class="fila solo"><span class="et">Tipo de señal</span><select data-k="sn:${esc(s.clave)}" data-ev="senal_ins" data-clave="${esc(s.clave)}">${opciones(Object.entries(isa.senales || {}), s.senal)}</select></div>`;
+  if (e) h += `<div class="fila solo"><span class="et">Parámetro de ${esc(e.id)} que mide o controla</span><select data-k="sp:${esc(s.clave)}" data-ev="senal_par" data-clave="${esc(s.clave)}">${opciones([["", "Ninguno"]].concat(e.params.map(p => [p.clave, p.nombre])), s.parametro)}</select></div>`;
+  h += `<button data-accion="ver-ins" data-id="${esc(i.id)}">Ver ${esc(i.id)}</button> <button class="peligro" data-accion="quitar">Quitar línea (Supr)</button>`;
+  return h;
+}
+function valorDe(inp) {
+  const d = inp.dataset;
+  if (d.ev === "ins") { const i = insPor(d.id); return i ? (i[d.campo] ?? "") : null; }          // PAT 134
+  if (d.ev === "senal_ins") { const s = senPor(d.clave)[1]; return s ? s.senal : null; }
+  if (d.ev === "senal_par") { const s = senPor(d.clave)[1]; return s ? s.parametro : null; }
+  if (d.ev === "parametro") { const p = eqPor(d.id)?.params.find(p => p.clave === d.clave); return p ? (p.tipo === "bool" ? p.valor : p.valor) : null; }
+  if (d.ev === "renombrar") return eqPor(d.id)?.nombre;
+  if (d.ev === "reparto") return conPor(d.clave)?.reparto;
+  if (d.ev === "nombre_corriente") return conPor(d.clave)?.nombre;
+  if (d.ev === "espec") { const s = D.especs[+d.indice]; return s ? s.valor : null; }
+  if (d.ev === "alimentacion") { const a = D.alimentaciones.find(a => a.id === d.id); return a ? a.valor : null; }
+  if (d.ev === "global") return D.globales[d.clave];
+  return null;
+}
+function actualizarValores(raiz) {
+  raiz.querySelectorAll("input[data-k]").forEach(inp => {
+    if (inp === document.activeElement || inp.dataset.editando) return;
+    const v = valorDe(inp);
+    if (inp.type === "checkbox") inp.checked = !!v;
+    else if (inp.type === "range") { if (v != null) inp.value = v; }
+    else if (inp.type === "number") inp.value = v == null ? "" : +(+v).toPrecision(6);
+    else inp.value = v ?? "";
+  });
+  raiz.querySelectorAll("select[data-k]").forEach(s => { if (s !== document.activeElement) { const v = valorDe(s); if (v != null) s.value = v; } });   // PAT 134
+}
+function manejarEntrada(ev, inmediato, ms = 300) {
+  const inp = ev.target; if (!inp.dataset || !inp.dataset.ev) return;
+  const d = inp.dataset;
+  if (d.ev === "ins" || d.ev === "senal_ins" || d.ev === "senal_par") {        // PAT 134: se envían al confirmar
+    if (!inmediato || String(valorDe(inp) ?? "") === inp.value) return;
+    if (d.ev === "ins") emitir("instrumento", {id: d.id, [d.campo]: inp.value});
+    else if (d.ev === "senal_ins") emitir("senal", {clave: d.clave, senal: inp.value});
+    else emitir("senal", {clave: d.clave, parametro: inp.value || null});
+    return;
+  }
+  let v = inp.type === "checkbox" ? inp.checked : (inp.type === "text" ? inp.value : (inp.value === "" ? null : +inp.value));
+  const par = inp.parentElement.querySelectorAll(`input[data-ev="${d.ev}"]`);
+  par.forEach(o => { if (o !== inp && o.type !== inp.type && v != null && o.type !== "checkbox") o.value = v; });
+  inp.dataset.editando = "1"; clearTimeout(inp._t); inp._t = setTimeout(() => { delete inp.dataset.editando; }, 900);
+  const clave = d.k.replace(/:r$/, "");
+  if (d.ev === "parametro" && typeof v === "number") avisoLimite(d.id, d.clave, v);   // PAT 134: «Mínimo 0,03»
+  if (d.ev === "parametro") { optimista({evento: "parametro", datos: {id: d.id, clave: d.clave, valor: v}}); diferido(clave, "parametro", {id: d.id, clave: d.clave, valor: v}, inmediato ? 0 : ms); }
+  else if (d.ev === "renombrar") { if (inmediato && v.trim()) emitir("renombrar", {id: d.id, nombre: v.trim()}); return; }
+  else if (d.ev === "reparto") { if (v == null) return; optimista({evento: "reparto", datos: {clave: d.clave, reparto: v}}); diferido(clave, "reparto", {clave: d.clave, reparto: v}, inmediato ? 0 : ms); }
+  else if (d.ev === "nombre_corriente") { if (inmediato) emitir("reparto", {clave: d.clave, nombre: v}); return; }
+  else if (d.ev === "espec") { if (v == null) return; D.especs[+d.indice].valor = v; diferido(clave, "espec", {indice: +d.indice, valor: v / +d.fac}, inmediato ? 0 : ms); }
+  else if (d.ev === "alimentacion") { if (v == null || v <= 0) return; diferido(clave, "alimentacion", {id: d.id, valor: v}, inmediato ? 0 : ms); }
+  else if (d.ev === "global") { if (v == null) return; D.globales[d.clave] = v; diferido(clave, "global", {clave: d.clave, valor: v}, inmediato ? 0 : ms); }
+  if (d.ev === "parametro" || d.ev === "reparto") { pintarSVG(); }
+}
+const NFG = new Intl.NumberFormat("es-CL", {maximumFractionDigits: 6});
+function avisoLimite(id, clave, v) {
+  const p = eqPor(id)?.params.find(q => q.clave === clave), k = `p:${id}:${clave}`;
+  if (!p) return;
+  LIM[k] = p.minimo != null && v < p.minimo ? `Mínimo ${NFG.format(p.minimo)}` : (p.maximo != null && v > p.maximo ? `Máximo ${NFG.format(p.maximo)}` : "");
+  document.querySelectorAll(`[data-lim="${k}"]`).forEach(x => { x.textContent = LIM[k]; });
+}
+for (const id of ["prop", "vars"]) {
+  $(id).addEventListener("input", ev => { if (ev.target.type === "range") manejarEntrada(ev, false, 300); else if (ev.target.type === "number") manejarEntrada(ev, false, 650); });
+  $(id).addEventListener("change", ev => manejarEntrada(ev, true));
+  $(id).addEventListener("keydown", ev => { if (ev.key === "Enter" && ev.target.tagName === "INPUT") ev.target.blur(); });
+}
+$("prop").addEventListener("click", ev => { if (ev.target.closest('[data-accion="quitar"]')) quitarSel(); });
+$("prop").addEventListener("click", ev => {                     // PAT 134: líneas de señal desde el panel
+  const q = ev.target.closest("[data-quitar-sen]"); if (q) { emitir("quitar_senal", {clave: q.dataset.quitarSen}); return; }
+  if (ev.target.closest('[data-accion="conectar-senal"]') && sel && sel.t === "ins") {
+    const [t, ...r] = ($("s-dest").value || "").split("|");
+    if (!t) { aviso("Elija con qué unir la línea de señal.", "error"); return; }
+    emitir("conectar_senal", {origen: sel.id, tipo: t, destino: r.join("|"), senal: $("s-tipo").value, parametro: $("s-par").hidden ? null : ($("s-par").value || null)});
+    return;
+  }
+  const v = ev.target.closest('[data-accion="ver-ins"]'); if (v) { sel = {t: "ins", id: v.dataset.id}; pintarTodo(); }
+});
+$("prop").addEventListener("change", ev => {
+  if (ev.target.id !== "s-dest") return;
+  const [t, ...r] = ev.target.value.split("|"), e = t === "equipo" ? eqPor(r.join("|")) : null, sp = $("s-par");
+  sp.hidden = !e; sp.innerHTML = e ? opciones([["", "Parámetro que mide o controla (opcional)"]].concat(e.params.map(p => [p.clave, p.nombre])), "") : "";
+});
+$("cerrar").onclick = () => { sel = null; pintarTodo(); };
+["pointerdown", "wheel"].forEach(t => $("cajon").addEventListener(t, ev => ev.stopPropagation(), {passive: true}));
+
+const NOMBRES_GLOBALES = {T_final_residual: ["Temperatura final del calor residual", "°C", 10, 80, 1], dT_min: ["Diferencia mínima de temperatura", "K", 1, 30, 0.5]};
+function pintarVars() {
+  let h = "", firma = "v:" + D.alimentaciones.map(a => a.id + a.editable).join(",") + "|" + D.especs.length + "|" + Object.keys(D.globales).join(",");
+  for (const a of D.alimentaciones) {
+    if (!a.editable) { h += `<div class="fila solo"><span class="et">Alimentación de ${esc(a.id)} [t/h]</span><span class="nota">${fmt(a.valor, 2)} t/h · la ajusta la especificación de producción</span></div>`; continue; }
+    h += `<div class="fila"><span class="et">Alimentación planificada de ${esc(a.id)} [t/h] <span class="info" title="${esc(a.nombre)}">i</span></span>`
+      + `<input type="range" data-k="a:${a.id}:r" data-ev="alimentacion" data-id="${a.id}" min="0" max="${a.max}" step="0.1" value="${a.valor}"><input type="number" data-k="a:${a.id}" data-ev="alimentacion" data-id="${a.id}" step="any" value="${+a.valor.toPrecision(6)}"></div>`;
+  }
+  for (const s of D.especs) h += `<div class="fila"><span class="et">${esc(s.descripcion)} [${esc(s.unidad)}] <span class="info" title="${esc(`Especificación de diseño: ${s.equipo_var}.${s.param} se ajusta para que la entrada de ${s.equipo_obj} alcance este valor`)}">i</span></span>`
+    + `<input type="range" data-k="s:${s.indice}:r" data-ev="espec" data-indice="${s.indice}" data-fac="${s.factor}" min="${s.min}" max="${s.max}" step="${s.unidad === "t/h" ? 0.01 : 0.1}" value="${s.valor}">`
+    + `<input type="number" data-k="s:${s.indice}" data-ev="espec" data-indice="${s.indice}" data-fac="${s.factor}" step="any" value="${+s.valor.toPrecision(6)}"></div>`;
+  for (const [k, v] of Object.entries(D.globales)) {
+    const [n, u, lo, hi, st] = NOMBRES_GLOBALES[k] || [k, "", 0, Math.max(1, 2 * v), 0.1];
+    h += `<div class="fila"><span class="et">${esc(n)} [${esc(u)}]</span><input type="range" data-k="g:${k}:r" data-ev="global" data-clave="${k}" min="${lo}" max="${hi}" step="${st}" value="${v}"><input type="number" data-k="g:${k}" data-ev="global" data-clave="${k}" step="any" value="${v}"></div>`;
+  }
+  if (firma === firmaVars) actualizarValores($("vars"));
+  else { $("vars").innerHTML = h || '<span class="nota">Sin variables de planta.</span>'; firmaVars = firma; }
+}
+
+function pintarCurva() {
+  const W = 260, H = 150, x0 = 34, y0 = 122, ww = 214, hh = 104, o = [];
+  const e = sel && sel.t === "eq" ? eqPor(sel.id) : null;
+  const ejes = (ymax, tity) => {
+    o.push(`<path d="M${x0} ${y0 - hh - 4} V${y0} H${x0 + ww + 4}" fill="none" stroke="#8099a5"/>`);
+    for (let i = 0; i <= 4; i++) { const x = x0 + ww * i / 4; o.push(`<text x="${x}" y="${y0 + 12}" font-size="9" text-anchor="middle" fill="#5b7280">${40 * i}</text>`); }
+    for (let i = 0; i <= 2; i++) { const y = y0 - hh * i / 2; o.push(`<text x="${x0 - 3}" y="${y + 3}" font-size="9" text-anchor="end" fill="#5b7280">${fmt(ymax * i / 2, ymax < 10 ? 1 : 0)}</text>`); }
+    o.push(`<text x="${x0 + ww / 2}" y="${y0 + 24}" font-size="9.5" text-anchor="middle" fill="#30505f">Alimentación de la planta (% de la planificada)</text>`);
+    o.push(`<text x="${x0}" y="${10}" font-size="9.5" fill="#30505f">${tity}</text>`);
+  };
+  const X = f => x0 + ww * f / 160;
+  if (e && e.demanda != null) {
+    $("curva-tit").textContent = `Curva de desempeño de ${e.id}`;
+    const ef = e.efectiva, base = e.demanda, ymax = Math.max(base * 1.6, ef || 0) * 1.08, Y = v => y0 - hh * v / ymax;
+    ejes(ymax, "Carga del equipo (t/h)");
+    o.push(`<path d="M${X(0)} ${Y(0)} L${X(160)} ${Y(base * 1.6)}" stroke="#7aa6c2" stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>`);
+    if (ef != null) {
+      const fl = 100 * ef / base;
+      o.push(`<path d="M${X(0)} ${Y(ef)} H${X(160)}" stroke="#d43a2c" stroke-width="1.5" fill="none"/><text x="${X(160)}" y="${Y(ef) - 3}" font-size="9" text-anchor="end" fill="#a3291e">capacidad efectiva ${fmt(ef, 1)}</text>`);
+      const pts = [[0, 0], [Math.min(160, fl), Math.min(ef, base * 1.6)], [160, Math.min(ef, base * 1.6)]];
+      o.push(`<polyline points="${pts.map(p => X(p[0]) + "," + Y(p[1])).join(" ")}" fill="none" stroke="#167a80" stroke-width="2.6"/>`);
+      if (fl <= 160) o.push(`<path d="M${X(fl)} ${Y(ef)} V${y0}" stroke="#c98c31" stroke-dasharray="2 2"/><text x="${X(fl) + 3}" y="${y0 - 4}" font-size="9" fill="#a46c20">límite ${fmt(fl, 0)} %</text>`);
+    } else o.push(`<text x="${x0 + 8}" y="${y0 - hh + 14}" font-size="9.5" fill="#9c3329">Sin capacidad nominal: no limita la línea</text>`);
+    o.push(`<circle cx="${X(100)}" cy="${Y(Math.min(base, ef ?? base))}" r="4.5" fill="#d48d28"/>`);
+    $("curva").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${o.join("")}</svg>`;
+    curvaAyuda("Línea azul: carga que le llega; verde: lo que procesa (hasta su capacidad efectiva). Punto: operación actual.");
+  } else if (D.curva) {
+    $("curva-tit").textContent = "Curva de capacidad de la línea";
+    const ymax = Math.max(...D.curva.map(p => p[1]), (D.kpis.produccion_t_h || 0) * 1.6, 0.001) * 1.08, Y = v => y0 - hh * v / ymax;
+    ejes(ymax, "Producción real (t/h)");
+    if (D.kpis.produccion_t_h != null) o.push(`<path d="M${X(0)} ${Y(0)} L${X(160)} ${Y(D.kpis.produccion_t_h * 1.6)}" stroke="#7aa6c2" stroke-dasharray="4 3" fill="none"/>`);
+    o.push(`<polyline points="${D.curva.map(p => X(p[0]) + "," + Y(p[1])).join(" ")}" fill="none" stroke="#167a80" stroke-width="2.6"/>`);
+    const act = D.curva.find(p => p[0] === 100);
+    if (act) o.push(`<circle cx="${X(100)}" cy="${Y(act[1])}" r="4.5" fill="#d48d28"/>`);
+    $("curva").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${o.join("")}</svg>`;
+    curvaAyuda("La producción sube con la alimentación hasta que el recurso crítico se satura; ahí la curva se aplana. Azul: sin restricciones.");
+  } else { $("curva-tit").textContent = "Curva de desempeño"; $("curva").innerHTML = '<span class="nota">Seleccione un equipo con carga.</span>'; curvaAyuda(""); }
+}
+function curvaAyuda(texto) {           // PAT 134: la lectura de la curva va en su «?»; sin curva no hay «?»
+  const d = $("curva-det"), t = $("curva-ayuda");
+  if (t.textContent !== texto) t.textContent = texto;
+  d.classList.toggle("sin-ayuda", !texto);
+  if (!texto) d.open = false;
+}
+
+// PAT 135 (04-11-2026): se quitó el panel «Conexiones de puertos»; las conexiones se hacen y se quitan en el lienzo.
+
+function pintarCaja() {
+  const c = $("caja");
+  if (!caja) return;
+  if (caja === "diag") c.innerHTML = "<b>Diagnóstico solicitado:</b><ul>" + D.diagnostico.map(x => `<li class="${x.nivel}"${x.equipo ? ` data-eq="${x.equipo}"` : ""}>${esc(x.texto)}</li>`).join("") + "</ul>";
+  else { const p = D.pistas, i = (pistaN - 1) % p.length; c.innerHTML = `<b>Pista ${pistaN} · situación actual</b><p style="margin:4px 0">${esc(p[i])}</p><span class="nota">Esta pista es una orientación; no realiza cambios en el diseño.</span>`; }
+}
+$("caja").addEventListener("click", ev => { const li = ev.target.closest("[data-eq]"); if (li && eqPor(li.dataset.eq)) { sel = {t: "eq", id: li.dataset.eq}; pintarTodo(); } });
+
+let toastT = null;
+function aviso(texto, tipo) {
+  const malo = tipo === "error" || tipo === "aviso";       // PAT 134: «aviso» = valor acotado por el motor
+  const t = $("toast"); t.textContent = texto; t.className = "toast ver" + (malo ? " error" : "");
+  clearTimeout(toastT); toastT = setTimeout(() => { t.className = "toast"; }, malo ? 5200 : 3600);
+}
+
+function pintarTodo() {
+  if (!D) return;
+  pintarKPIs(); pintarSVG(); pintarBarras(); pintarProp(); pintarVars(); pintarCurva(); pintarCaja(); botonesHistorial();
+  altura();
+}
+
+// ------------------------------------------------------------------ barra de herramientas
+function botonesVista() { $("b-layout").classList.toggle("activo", modo === "layout"); $("b-etapas").classList.toggle("activo", modo === "etapas"); }
+$("b-layout").onclick = () => { modo = "layout"; botonesVista(); ajustar(); };
+$("b-etapas").onclick = () => { modo = "etapas"; botonesVista(); ajustar(); };
+$("b-diag").onclick = () => { caja = "diag"; pintarCaja(); altura(); };
+$("b-pista").onclick = () => { pistaN += 1; caja = "pista"; pintarCaja(); altura(); };
+$("b-sec").onclick = () => emitir("secuencia", {});
+$("b-cap").onclick = () => emitir("capacidades", {holgura: +$("b-holg").value, solo_vacias: true});
+$("b-guardar").onclick = () => emitir("guardar", {});
+$("b-deshacer").onclick = () => deshacer(); $("b-rehacer").onclick = () => rehacer(); $("b-duplicar").onclick = () => duplicar();
+$("z-mas").onclick = () => zoom(1.25); $("z-menos").onclick = () => zoom(0.8); $("z-ajustar").onclick = () => { vistaManual = false; ajustar(); };
+$("o-etq").onchange = ev => { ops.etq = ev.target.checked; pintarSVG(); };
+$("o-flujo").onchange = ev => { ops.flujo = ev.target.checked; pintarSVG(); };
+$("o-ins").onchange = ev => { ops.ins = ev.target.checked; if (!ops.ins && sel && (sel.t === "ins" || sel.t === "sen")) sel = null; pintarTodo(); };   // PAT 134
+$("b-exp").onchange = ev => { const v = ev.target.value; ev.target.value = ""; if (v) exportar(v); };
+
+function svgExportable() {
+  calcularPosiciones();
+  const b = caja_bbox(), w = Math.ceil(b.x1 - b.x0), h = Math.ceil(b.y1 - b.y0 + 30);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${b.x0} ${b.y0 - 30} ${w} ${h}" font-family="Arial">`
+    + `<rect x="${b.x0}" y="${b.y0 - 30}" width="${w}" height="${h}" fill="#fff"/>${defs()}`
+    + `<text x="${b.x0 + 10}" y="${b.y0 - 12}" font-size="13" font-weight="700">${esc(D.nombre)} · diagrama del simulador de planta</text>${mundo(true)}</svg>`;
+}
+function bajar(nombre, blob) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function mermaid() {
+  const f = ["flowchart LR"];
+  for (const e of D.equipos) f.push(`  ${e.id}["${e.id} · ${e.nombre.replace(/"/g, "'")}<br/>${e.efectiva != null ? "Cap. ef. " + fmt(e.efectiva, 1) + " t/h<br/>" : ""}${e.demanda != null ? "E " + fmt(e.demanda, 1) + " · S " + fmt(e.sale, 1) + " t/h" : ""}"]`);
+  for (const c of D.conexiones) f.push(`  ${c.origen} -->|"${(c.nombre ? c.nombre + ": " : "") + etiquetaCorriente(c).replace(/"/g, "'")}"| ${c.destino}`);
+  if (D.kpis.restrictivo) f.push(`  style ${D.kpis.restrictivo} fill:#fff0d5,stroke:#d48d28,stroke-width:3px`);
+  return f.join("\n");
+}
+function exportar(tipo) {
+  if (!D || !D.equipos.length) { aviso("No hay equipos que exportar.", "error"); return; }
+  const base = "Diagrama_simulador_" + D.nombre.replace(/[^\wáéíóúñÁÉÍÓÚÑ-]+/g, "_");
+  if (tipo === "mmd") { bajar(base + ".mmd", new Blob([mermaid()], {type: "text/plain"})); return; }
+  const s = svgExportable();
+  if (tipo === "svg") { bajar(base + ".svg", new Blob([s], {type: "image/svg+xml"})); return; }
+  const img = new Image();
+  img.onload = () => {
+    const esc2 = 2, cv = document.createElement("canvas"); cv.width = img.width * esc2; cv.height = img.height * esc2;
+    const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); cx.scale(esc2, esc2); cx.drawImage(img, 0, 0);
+    cv.toBlob(b => bajar(base + (tipo === "png" ? ".png" : ".jpg"), b), tipo === "png" ? "image/png" : "image/jpeg", 0.95);
+  };
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
+}
+
+new ResizeObserver(() => { if (D) { if (ajustePendiente || !vistaManual) ajustar(); else pintarSVG(); altura(); } }).observe($("lienzo"));
+new ResizeObserver(() => altura()).observe(document.body);
+new ResizeObserver(() => altura()).observe(document.querySelector(".centro"));
+aST("streamlit:componentReady", {apiVersion: 1});
+</script>
+</body>
+</html>
