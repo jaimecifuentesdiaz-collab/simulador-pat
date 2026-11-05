@@ -132,7 +132,9 @@ def P(clave, nombre, valor, unidad="", categoria="Supuesto", fuente="", justific
 
 
 # Parámetros opcionales de capacidad (vacíos = no se usan), como en las propiedades del simulador del profesor
-OPCIONALES = ("capacidad", "costo", "consumo_especifico")
+# PAT 135, T14: la selección de equipos comerciales (motor/seleccion.py) guarda unidades, MTBF y MTTR; vacíos = sin selección
+SELECCION = ("unidades", "unidades_requeridas", "mtbf_h", "mttr_h")
+OPCIONALES = ("capacidad", "costo", "consumo_especifico") + SELECCION
 
 
 def params_restricciones() -> list[Parametro]:
@@ -142,7 +144,20 @@ def params_restricciones() -> list[Parametro]:
             P("costo", "Costo del equipo (inversión)", None, "$", "Usuario", "",
               "Lo declara el usuario; se suma en la inversión declarada del diseño"),
             P("consumo_especifico", "Consumo eléctrico específico adicional", None, "kWh/t", "Usuario", "",
-              "Se suma a la electricidad del equipo: consumo × carga de entrada", 0, 500)]
+              "Se suma a la electricidad del equipo: consumo × carga de entrada", 0, 500)] + params_seleccion()
+
+
+def params_seleccion() -> list[Parametro]:
+    """PAT 135, T14: lo que deja la selección de equipos comerciales. Vacíos mientras no se aplique una selección, así que no
+    cambian el balance ni las cifras de los escenarios base. La capacidad instalada total queda en «capacidad»."""
+    _f = "Selección de equipos (motor/seleccion.py)"
+    return [P("modelo", "Modelo comercial elegido", "", "—", "Usuario", _f, "Vacío = sin selección de equipos comerciales"),
+            P("unidades", "Unidades instaladas en paralelo", None, "—", "Usuario", _f,
+              "Unidades del mismo modelo, con la de redundancia si se agregó", 1, 50),
+            P("unidades_requeridas", "Unidades necesarias para la carga (k de n)", None, "—", "Usuario", _f,
+              "Menor número de unidades cuya capacidad suma al menos la requerida", 1, 50),
+            P("mtbf_h", "MTBF de una unidad", None, "h", "Usuario", _f, "Tiempo medio entre fallas del modelo elegido; lo usa la Línea"),
+            P("mttr_h", "MTTR de una unidad", None, "h", "Usuario", _f, "Tiempo medio de reparación del modelo elegido; lo usa la Línea")]
 
 
 def capacidad_param(valor=None, fuente="", categoria="Usuario"):

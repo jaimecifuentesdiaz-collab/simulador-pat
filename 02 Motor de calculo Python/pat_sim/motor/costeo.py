@@ -157,6 +157,11 @@ _LINEA = {
 for _t, (_k, _n, _q, _m, _u, _d, _s, _c) in _LINEA.items():
     REFERENCIAS.setdefault(_k, dict(nombre=_n, consulta=_q, magnitud=_m, unidad=_u, S=_s, C=_c, anio=2023, fuente=f"Supuesto: {J_SUP}",
                                     categoria=SUP))
+# PAT 135, T14: cable eléctrico de los alimentadores del layout (st.session_state["layout"]["cables_m"], equipo S)
+REFERENCIAS["cable_electrico"] = dict(nombre="Cable eléctrico de potencia", consulta="copper power cable 3x35 mm2 low voltage price per meter",
+                                      magnitud="Sección", unidad="mm2", S=35.0, C=25.0, anio=2023, por_metro=True,
+                                      fuente=("Supuesto: US$ por metro de cable de cobre de baja tensión de 3 × 35 mm², sección media de "
+                                              "partida para los alimentadores de motores; " + J_SUP), categoria=SUP)
 REFERENCIAS.setdefault("generico", dict(nombre="Equipo genérico", consulta="industrial process equipment price {s} t/h", magnitud="Capacidad",
                                         unidad="t/h", S=10.0, C=30000.0, anio=2023, fuente=f"Supuesto: {J_SUP}", categoria=SUP))
 
@@ -199,11 +204,36 @@ def _item(equipo, nombre, clave, tamano, unidad, cantidad=1.0, nota="", tipo=Non
                 tamano=tamano, unidad=unidad or ref["unidad"], cantidad=cantidad, nota=nota)
 
 
-def lista_equipos(pl, longitudes: dict | None = None, alternativa: str | None = None, X: dict | None = None) -> list[dict]:
+def _seleccion(eq, v, it):
+    """PAT 135, T14: con la selección de equipos comerciales aplicada (motor/seleccion.py), el ítem se costea por unidad del
+    modelo elegido (tamaño instalado total / n, en la magnitud del ítem) y se multiplica por las n unidades, con la redundancia."""
+    p = eq.params.get("unidades")
+    n = p.valor if p is not None else None
+    try:
+        n = int(n) if n else None
+    except (TypeError, ValueError):
+        n = None
+    if not n:
+        return it
+    cap = eq.params["capacidad"].valor if "capacidad" in eq.params else None
+    carga = _det(eq, "carga_t_h")
+    if cap and carga and v:
+        it["tamano"] = float(v) * float(cap) / float(carga) / n
+    k = eq.params["unidades_requeridas"].valor if "unidades_requeridas" in eq.params else None
+    modelo = eq.params["modelo"].valor if "modelo" in eq.params else ""
+    red = f", {n - int(k)} de redundancia" if k and n > int(k) else ""
+    it.update(cantidad=float(n), unidades=n, nota=(f"{n} unidades de {modelo or 'el modelo elegido'} en paralelo{red} "
+                                                   "(Selección de equipos). " + it.get("nota", "")).strip())
+    return it
+
+
+def lista_equipos(pl, longitudes: dict | None = None, alternativa: str | None = None, X: dict | None = None,
+                  cables_m: dict | None = None) -> list[dict]:
     """Lista completa de equipos de la planta resuelta: línea, recuperadores de calor (de la alternativa elegida o la ganadora),
     caldera o generador a biomasa, bombas (una por línea de líquido sin bomba dibujada, potencia de motor/hidraulica.py),
     válvulas de control (una por lazo con válvula como elemento final, Cv por ISA-75.01) y cañerías por diámetro nominal.
-    longitudes: {id de corriente: m} del layout; sin dato, L_LINEA de motor/hidraulica.py marcado «Supuesto: sin layout»."""
+    longitudes: {id de corriente: m} del layout; sin dato, L_LINEA de motor/hidraulica.py marcado «Supuesto: sin layout».
+    cables_m (PAT 135, T14): {alimentador: m} de la red eléctrica del layout; se agrega un ítem de cable por metro (Supuesto)."""
     if not pl.resuelta:
         raise ValueError("Resuelva la planta antes del costeo")
     items = []
@@ -223,9 +253,10 @@ def lista_equipos(pl, longitudes: dict | None = None, alternativa: str | None = 
             v = _det(eq, det)
             if v is None and det != "carga_t_h":
                 v = _det(eq, "carga_t_h"); unidad = "t/h"
-            items.append(_item(k, eq.nombre, clave, v or 0.0, unidad))
+            items.append(_seleccion(eq, v, _item(k, eq.nombre, clave, v or 0.0, unidad)))
         else:
-            items.append(_item(k, eq.nombre, "generico", _det(eq, "carga_t_h") or 0.0, "t/h", nota="Equipo sin referencia propia (Supuesto)"))
+            items.append(_seleccion(eq, _det(eq, "carga_t_h"), _item(k, eq.nombre, "generico", _det(eq, "carga_t_h") or 0.0, "t/h",
+                                                                     nota="Equipo sin referencia propia (Supuesto)")))
     # recuperadores de calor
     try:
         X = X if X is not None else _alternativas(pl)
@@ -275,6 +306,20 @@ def lista_equipos(pl, longitudes: dict | None = None, alternativa: str | None = 
             Cv = HID.cv_requerido(ln["Q_m3h"], 50.0, ln["rho"] / 1000.0)
             nota = f"Cv con {ln['Q_m3h']:.1f} m³/h de la línea {ln['linea']} y 50 kPa de caída (Supuesto de catalogos/iso_generico.py)".replace(".", ",")
         items.append(_item(ef, f"Válvula {ef} del lazo {ins.letras}-{ins.numero} ({ins.equipo})", "valvula_control", Cv, "Cv", nota=nota))
+    # PAT 135, T14: cable eléctrico de los alimentadores del layout
+    largos = {}
+    for a, L in (cables_m or {}).items():
+        try:
+            L = float(L)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(L) and L > 0:
+            largos[str(a)] = L
+    if largos:
+        ref = REFERENCIAS["cable_electrico"]
+        items.append(_item("CAB", f"Cable eléctrico de {len(largos)} alimentadores", "cable_electrico", ref["S"], "mm2", sum(largos.values()),
+                           f"Alimentadores {', '.join(sorted(largos))}; largo del layout eléctrico, sección supuesta de "
+                           f"{ref['S']:.0f} mm²".replace(".", ",")))
     return items
 
 
@@ -304,12 +349,12 @@ def precio_bibliografia(clave: str, tamano: float | None, exponentes: dict | Non
 def costear(pl, cepci_hoy: float = CEPCI_HOY, anio_cepci: int = ANIO_CEPCI_HOY, dolar: float = costos.DOLAR, euro: float = costos.EURO,
             bd=None, buscar: bool = False, clave: str | None = None, longitudes: dict | None = None, alternativa: str | None = None,
             X: dict | None = None, exponentes: dict | None = None, f_inst: float = costos.F_INSTALACION, items: list | None = None,
-            _abrir=None) -> dict:
+            _abrir=None, cables_m: dict | None = None) -> dict:
     """Costo de cada equipo y de la planta. Cada fila: equipo, tipo, tamaño requerido, tamaño y precio de referencia, año,
     exponente de Williams aplicado, factor CEPCI, costo actualizado en US$ y $, fuente, fecha, URL y origen (internet,
     guardado o bibliografía). Totales: equipos, instalación (factor f_inst de motor/costos.py) y total de la planta."""
     from ..datos import precios_web as PW
-    items = items if items is not None else lista_equipos(pl, longitudes, alternativa, X)
+    items = items if items is not None else lista_equipos(pl, longitudes, alternativa, X, cables_m)
     filas, avisos = [], []
     exps = dict(exponentes_profesor()); exps.pop("_pdf_encontrado", None); exps.update(exponentes or {})
     for it in items:
@@ -345,14 +390,15 @@ def costear(pl, cepci_hoy: float = CEPCI_HOY, anio_cepci: int = ANIO_CEPCI_HOY, 
         C_hoy, fc = actualizar(C2, cepci_ref, cepci_hoy)
         if not cepci_ref:
             avisos.append(f"{it['equipo']}: precio de {anio}, año sin CEPCI público; se usa sin actualizar")
-        cant = it["cantidad"] if it["clave"] == "caneria" else 1.0
+        # PAT 135, T14: también el cable (por metro) y las unidades en paralelo de la selección de equipos comerciales
+        cant = it["cantidad"] if it["clave"] in ("caneria", "cable_electrico") or it.get("unidades") else 1.0
         usd = float(C_hoy * cant)
         S2 = None if S2 is None else float(S2)
         filas.append(dict(equipo=it["equipo"], nombre=it["nombre"], tipo=it["tipo"], magnitud=it["magnitud"], tamano=S2, unidad=it["unidad"],
                           cantidad=float(cant), tamano_ref=None if S1 is None else float(S1), precio_ref_usd=float(C1), anio=anio, n=n_apl, fuente_n=f"{fuente_n} ({cat_n})",
                           cepci_ref=cepci_ref, factor_cepci=float(fc), costo_usd=usd, costo_clp=usd * dolar, fuente=p.get("fuente", ""),
                           fecha=p.get("fecha", ""), url=p.get("url", ""), origen=origen, categoria=p.get("categoria", "Internet"),
-                          nota=" ".join(x for x in (it.get("nota", ""), p.get("nota", "")) if x)))
+                          nota=" ".join(x for x in (it.get("nota", ""), p.get("nota", "")) if x), unidades=it.get("unidades")))
     eq_usd = float(sum(f["costo_usd"] for f in filas))
     rec_usd = float(sum(f["costo_usd"] for f in filas if f["tipo"] in (REFERENCIAS["intercambiador"]["nombre"], REFERENCIAS["bomba_calor"]["nombre"])))
     tot = dict(equipos_usd=eq_usd, instalacion_usd=eq_usd * (f_inst - 1), total_usd=eq_usd * f_inst, f_inst=f_inst,

@@ -6,6 +6,8 @@ todo se ve en solo lectura. La clave se compara por su SHA-256 con st.secrets["P
 entorno del mismo nombre; si ninguna existe (o está vacía), con el hash de respaldo del código (clave «torres2026»).
 PAT 135: pestaña Precedencia, con la cadena de estados del material por rubro, qué acepta y qué entrega cada tipo de equipo y
 la opción «Permitir conexiones libres» (tablas estados_material y precedencia, y la clave conexiones_libres de parametros).
+PAT 135, T14: pestaña Catálogo comercial (tabla catalogo_comercial): tamaños comerciales por tipo de equipo con MTBF, MTTR,
+precio y dimensiones, cada cifra con su fuente o Supuesto; la usa la pantalla Selección de equipos (motor/seleccion.py).
 """
 from __future__ import annotations
 import html, os, re
@@ -421,6 +423,67 @@ def _tab_precedencia(m, ok: bool):
         st.success(f"Estados y precedencia de {RUBROS.get(rubro, rubro)} guardados. El lienzo de Diseño los usa desde la próxima acción.")
 
 
+# ---------------------------------------------------------------- PAT 135, T14: catálogo comercial
+_COLS_COM = [("modelo", "Modelo", "txt", 0), ("capacidad", "Capacidad nominal", "num", 1), ("unidad", "Unidad", "txt", 0),
+             ("fuente_capacidad", "Fuente de la capacidad", "txt", 0), ("mtbf_h", "MTBF (h)", "num", 0), ("mttr_h", "MTTR (h)", "num", 1),
+             ("fuente_confiabilidad", "Fuente del MTBF y el MTTR", "txt", 0), ("precio_usd", "Precio (US$)", "clp", 0),
+             ("anio_precio", "Año del precio", "num", 0), ("fuente_precio", "Fuente del precio", "txt", 0),
+             ("largo_m", "Largo (m)", "num", 1), ("ancho_m", "Ancho (m)", "num", 1), ("alto_m", "Alto (m)", "num", 1),
+             ("fuente_dimensiones", "Fuente de las dimensiones", "txt", 0), ("categoria", "Categoría", "txt", 0)]
+
+
+def _tab_comercial(m, ok: bool):
+    from pat_sim.motor import costeo as CO, seleccion as SEL
+    from pat_sim.datos import precios_web as PW
+    st.caption("Tamaños comerciales discretos por tipo de equipo para la pantalla Selección de equipos. Cada cifra lleva su fuente "
+               "o «Supuesto» con su justificación; el catálogo de partida no viene de fabricantes.")
+    filas = m.listar_comercial()
+    tipos = sorted({f["tipo"] for f in filas} | set(M.TAMANOS_COMERCIALES))
+    _valida("man_com_tipo", tipos)
+    tipo = st.selectbox("Tipo de equipo", tipos, key="man_com_tipo",
+                        format_func=lambda t: f"{TIPOS[t].nombre_tipo} ({t})" if t in TIPOS else ("Genérico en t/h de carga" if t == "generico" else t))
+    ft = [f for f in filas if f["tipo"] == tipo]
+    C.mostrar_tabla(ft, _COLS_COM)
+    if not ok:
+        return
+    st.markdown("##### Editar")
+    nombres = [c for c, *_ in _COLS_COM]
+    num = {"capacidad", "mtbf_h", "mttr_h", "precio_usd", "anio_precio", "largo_m", "ancho_m", "alto_m"}
+    cfg = {c: (_col("NumberColumn", t, "right" if c == "precio_usd" else "center") if c in num else _col("TextColumn", t, "left"))
+           for c, t, *_ in _COLS_COM}
+    ed = _editor([{c: f.get(c) for c in nombres} for f in ft], nombres, f"man_com_ed_{tipo}", cfg)
+    if st.button("Guardar catálogo comercial", type="primary", key=f"man_com_guardar_{tipo}"):
+        err, vistos = [], set()
+        uni = CO._LINEA[tipo][4] if tipo in CO._LINEA else "t/h"
+        for r_ in ed:
+            if not r_.get("modelo"):
+                continue
+            vistos.add(str(r_["modelo"]).strip())
+            try:
+                m.guardar_comercial(dict(r_, tipo=tipo, unidad=r_.get("unidad") or uni,
+                                         magnitud=CO._LINEA[tipo][3] if tipo in CO._LINEA else "Capacidad"))
+            except ValueError as x:
+                err.append(str(x))
+        quitados = [f["modelo"] for f in ft if f["modelo"] not in vistos]
+        for mo in quitados:
+            m.eliminar_comercial(tipo, mo)
+        (st.error if err else st.success)("; ".join(err) if err else
+                                          f"Catálogo de {tipo} guardado{' y eliminados: ' + ', '.join(quitados) if quitados else ''}.")
+    clave = PW.obtener_clave()
+    if st.button("Buscar más tamaños en internet (Tavily)", key=f"man_com_web_{tipo}", disabled=not clave,
+                 help="Una búsqueda de Tavily; los candidatos se revisan antes de guardarlos. Sin MTBF ni MTTR: la selección usa el Supuesto por tipo."):
+        st.session_state["man_com_cand"] = SEL.tamanos_web(tipo, clave)
+    cand = [c for c in st.session_state.get("man_com_cand") or [] if c["tipo"] == tipo]
+    if cand:
+        st.markdown("##### Candidatos de internet")
+        C.mostrar_tabla(cand, _COLS_COM[:4] + _COLS_COM[7:10] + [("url", "URL", "txt", 0)])
+        if st.button("Guardar los candidatos", key=f"man_com_web_guardar_{tipo}"):
+            for c in cand:
+                m.guardar_comercial(c)
+            st.session_state["man_com_cand"] = []
+            st.success(f"{len(cand)} modelos de internet guardados con su URL y fecha.")
+
+
 # ---------------------------------------------------------------- pantalla
 def mostrar():
     st.subheader("Mantenedor")
@@ -433,10 +496,12 @@ def mostrar():
             m.sembrar()
         elif not m.contar()["estados_material"]:          # PAT 135: base sembrada antes de las tablas de precedencia
             m.sembrar_precedencia()
+        if not m.contar()["catalogo_comercial"]:          # PAT 135, T14: base sembrada antes del catálogo comercial
+            m.sembrar_comercial()
     except Exception as e:
         st.error(f"No se pudo abrir la base de datos del mantenedor: {e}")
         return
-    t1, t2, t3, t4, t5 = st.tabs(["Desafíos", "Parámetros", "Catálogo de equipos", "Símbolos", "Precedencia"])
+    t1, t2, t3, t4, t5, t6 = st.tabs(["Desafíos", "Parámetros", "Catálogo de equipos", "Símbolos", "Precedencia", "Catálogo comercial"])
     with t1:
         _tab_desafios(m, ok)
     with t2:
@@ -447,3 +512,5 @@ def mostrar():
         _tab_simbolos(m, ok)
     with t5:                                   # PAT 135
         _tab_precedencia(m, ok)
+    with t6:                                   # PAT 135, T14
+        _tab_comercial(m, ok)

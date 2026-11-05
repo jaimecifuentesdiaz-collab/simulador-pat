@@ -29,11 +29,11 @@ def test_cifras_del_capitulo_1(app):
     assert m["Gas desplazado por A3 (colector común de condensados)"] == "79.023 MMBtu" and m["CO2 evitado por temporada"] == "4.131 t"
 
 
-def test_veinticuatro_pantallas_sin_errores(app):
-    # PAT 135: veinticuatro pantallas en el índice lateral (se suman Desafío, Layout, Costeo, Riesgo económico y Mantenedor);
+def test_veinticinco_pantallas_sin_errores(app):
+    # PAT 135: veinticinco pantallas en el índice lateral (se suman Desafío, Selección de equipos, Layout, Costeo, Riesgo económico y Mantenedor);
     # las únicas pestañas que quedan son las diez de Calculadoras
     assert len(app.tabs) == 10 and not app.error
-    assert len(app.sidebar.radio(key="pagina").options) == 24
+    assert len(app.sidebar.radio(key="pagina").options) == 25
 
 
 def test_indice_lateral_muestra_solo_la_pantalla_elegida(tmp_path, monkeypatch):

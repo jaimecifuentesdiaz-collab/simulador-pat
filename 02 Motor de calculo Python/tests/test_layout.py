@@ -248,3 +248,106 @@ def test_estado_layout_en_los_cuatro_rubros():
         assert all(v > 0 for v in lay["longitudes_m"].values()) and lay["propuesta"] == lay["posiciones"]
         lay2 = LY.estado_layout(p, dict(posiciones={"B1": [100, 100, 90]}))
         assert lay2["posiciones"]["B1"] == [100, 100, 90] and set(lay2["posiciones"]) == set(p.equipos)
+
+
+# ------------------------------------------------------------------------------------------- red eléctrica (PAT 135, T15)
+class _P:                                     # parámetro mínimo con .valor
+    def __init__(self, v):
+        self.valor = v
+
+
+def test_potencia_electrica_resultado_detalle_y_parametro():
+    e = _Eq("bomba_centrifuga"); e.resultado.servicios = dict(electricidad_kW=12.5)
+    assert LY.potencia_electrica(e) == (12.5, "Resultado del equipo (servicio de electricidad)")
+    e2 = _Eq("bomba_centrifuga"); e2.resultado.detalle = dict(W_kW=3.0)
+    assert LY.potencia_electrica(e2)[0] == 3.0 and "punto de operación" in LY.potencia_electrica(e2)[1]
+    e3 = _Eq("molino_martillos"); e3.params = {"potencia_kW": _P(45)}
+    assert LY.potencia_electrica(e3) == (45.0, "Parámetro potencia_kW del equipo")
+    assert LY.potencia_electrica(_Eq("tolva")) == (None, "")          # sin potencia: no lleva alimentador
+
+
+def test_cargas_electricas_y_centro_de_carga(pl):
+    dims = LY.dimensiones_planta(pl); pos = LY.craft(pl, dims)["posiciones"]
+    cs = LY.cargas_electricas(pl, pos, dims)
+    eqs = {c["equipo"] for c in cs}
+    assert {"W2", "W3"} <= eqs and "B1" not in eqs                    # solo los equipos con potencia
+    from pat_sim.motor.hidraulica import red_hidraulica
+    n_bombas = sum(1 for ln in red_hidraulica(pl)["lineas"] if ln["bomba_diagrama"] is None and ln["potencia_kW"] > 0)
+    assert len(cs) == 2 + n_bombas and all(c["id"] == "AL-" + c["equipo"] for c in cs)
+    assert {c["equipo"] for c in LY.cargas_electricas(pl, pos, dims, bombas_linea=False)} == {"W2", "W3"}
+    c = LY.centro_de_carga([dict(P_kW=1, x=0, y=0), dict(P_kW=3, x=4, y=8)])
+    assert c == pytest.approx((3.0, 6.0)) and LY.centro_de_carga([]) is None
+
+
+def test_posicion_ccm_libre_y_cercana():
+    dims = _dims(("a", (4, 2, 1)))
+    p = LY.posicion_ccm({"a": [10, 10, 0]}, dims, [dict(P_kW=1, x=10, y=10)])
+    d = dict(dims, CCM=dict(LY.CCM_DIM))
+    assert LY.superposiciones({"a": [10, 10, 0], "CCM": p}, d) == []
+    assert abs(p[0] - 10) + abs(p[1] - 10) == pytest.approx(4.5)       # 1 + 1,5 + 2 m al norte o al sur
+    q = LY.posicion_ccm({"a": [10, 10, 0]}, dims, [])                  # sin cargas: junto al centro de la planta
+    assert LY.superposiciones({"a": [10, 10, 0], "CCM": q}, d) == []
+
+
+def test_corriente_resistencia_y_caida_a_mano():
+    assert LY.corriente_A(100, 380, 0.85) == pytest.approx(100000 / (3 ** 0.5 * 380 * 0.85))
+    assert LY.resistencia_ohm_m(10, 20) == pytest.approx(0.0017241)
+    assert LY.resistencia_ohm_m(10, 90) == pytest.approx(0.017241 * (1 + 0.00393 * 70) / 10)
+    R = 0.017241 * (1 + 0.00393 * 70) / 10; X = 0.08e-3; sen = (1 - 0.85 ** 2) ** 0.5
+    dU, pct = LY.caida_tension(100, 50, 10, 380, 0.85)
+    assert dU == pytest.approx(3 ** 0.5 * 100 * 50 * (R * 0.85 + X * sen)) and pct == pytest.approx(100 * dU / 380)
+    assert LY.caida_tension(100, 50, 10, paralelos=2)[0] == pytest.approx(dU / 2)
+
+
+def test_seleccionar_seccion_capacidad_caida_y_paralelos():
+    s = LY.seleccionar_seccion(100, 10)                 # diseño 125 A: 25 mm² (149 A)
+    assert s["seccion_mm2"] == 25 and s["paralelos"] == 1 and s["criterio"] == "capacidad de corriente" and s["cumple"]
+    s2 = LY.seleccionar_seccion(100, 300)               # 300 m: la caída obliga a 120 mm²
+    assert s2["seccion_mm2"] == 120 and s2["criterio"] == "caída de tensión" and s2["dU_pct"] <= 3.0
+    s3 = LY.seleccionar_seccion(1600, 10)               # diseño 2.000 A: tres de 300 mm² (3 × 741 A)
+    assert s3["paralelos"] == 3 and s3["seccion_mm2"] == 300 and s3["capacidad_A"] == 3 * 741
+
+
+def test_ruta_y_largo_de_cable_a_mano():
+    r = LY.ruta_cable((0, 0, 0), (10, 4, 0), 4.0, 2.3, 0.5)
+    assert r[0] == (0, 0, 2.3) and r[-1] == (10, 4, 0.5) and r[2] == (10, 0, 4.0)
+    lg = LY.largo_cable(r, 0.15)
+    assert lg["horizontal"] == pytest.approx(14) and lg["vertical"] == pytest.approx(1.7 + 3.5)
+    assert lg["total"] == pytest.approx(19.2 * 1.15) and lg["holgura"] == pytest.approx(19.2 * 0.15)
+
+
+def test_red_electrica_en_los_cuatro_rubros():
+    for m in (agrozzi, pellet, chip, lena):
+        p = m.crear().resolver(); dims = LY.dimensiones_planta(p); pos = LY.craft(p, dims)["posiciones"]
+        r = LY.red_electrica(p, pos, dims)
+        assert r["cables"] and r["cerca_ccm"] == [] and set(r["cables_m"]) == {c["id"] for c in r["cables"]}
+        assert r["P_total_kW"] == pytest.approx(sum(c["P_kW"] for c in r["cables"]))
+        assert all(c["dU_pct"] <= 3.0 and c["capacidad_A"] >= c["I_diseno_A"] for c in r["cables"])
+        assert LY.superposiciones(dict(pos, CCM=r["ccm"]), dict(dims, CCM=r["ccm_dim"])) == []
+        r2 = LY.red_electrica(p, pos, dims, ccm=[1, 2, 90])            # el usuario movió la sala eléctrica
+        assert r2["ccm"] == [1.0, 2.0, 90] and r2["ccm_propuesta"] == r["ccm"]
+    pa = agrozzi.crear().resolver(); d = LY.dimensiones_planta(pa); po = LY.craft(pa, d)["posiciones"]
+    ra = LY.red_electrica(pa, po, d)
+    assert any("media tensión" in a for a in ra["avisos"])             # W2 de 1 MW: aviso
+
+
+def test_cables_m():
+    assert LY.cables_m([dict(id="AL-A", total=12.345), dict(id="AL-B", total=1.0)]) == {"AL-A": 12.35, "AL-B": 1.0}
+
+
+def test_dibujos_con_red_electrica(pl):
+    lay = LY.estado_layout(pl)
+    fr = LY.elevacion_svg(lay["posiciones"], lay["dims"], "frontal", red=lay["red"])
+    la = LY.elevacion_svg(lay["posiciones"], lay["dims"], "lateral", red=lay["red"])
+    assert "bandeja eléctrica +4,00" in fr and ">CCM</text>" in fr and 'stroke-dasharray="2 3"' in la
+    pla = LY.plano_svg(lay["posiciones"], lay["dims"], lay["filas"], red=lay["red"])
+    assert ">CCM</text>" in pla and pla.count("<polyline") == len(lay["cables"])
+    assert "bandeja" not in LY.elevacion_svg(lay["posiciones"], lay["dims"], "frontal")   # sin red, como antes
+
+
+def test_estado_layout_con_red_electrica(pl):
+    lay = LY.estado_layout(pl)
+    assert lay["ccm"] == lay["red"]["ccm_propuesta"] and set(lay["cables_m"]) == {c["id"] for c in lay["cables"]}
+    lay2 = LY.estado_layout(pl, dict(lay, ccm=[2, 3, 0], tension=400.0, bombas_linea=False))
+    assert lay2["ccm"] == [2.0, 3.0, 0] and set(lay2["cables_m"]) == {"AL-W2", "AL-W3"}
+    assert all(c["U_V"] == 400.0 for c in lay2["cables"])

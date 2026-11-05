@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Vista isométrica</title>
+<!-- PAT 135 (T15): vista isométrica interactiva al estilo Anatomy. Un solo componente sin internet: el SVG de las cuatro
+     orientaciones lo genera Python (pat_sim/motor/isometrico.py) y este archivo, con isometrico.js, agrega girar la cámara,
+     zoom, arrastre, resaltar un equipo con sus conexiones al pasar el mouse, mostrar sus datos y descargar el SVG.
+     Recibe {vistas: {"0": svg, "90": svg, "180": svg, "270": svg}, info: {equipos, corrientes, cables}, rot, alto}. -->
+<style>
+:root{--tinta:#173243;--suave:#5b7280;--borde:#c7dbe1;--azul:#2563eb}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:transparent}
+body{font-family:"Source Sans Pro","Segoe UI",system-ui,Arial,sans-serif;font-size:14px;color:var(--tinta)}
+button{font:inherit;font-size:13px;cursor:pointer;border:1px solid #c9dbe1;border-radius:6px;padding:3px 9px;background:#eef5f7;color:#16485a;font-weight:600}
+button:hover{background:#dfeef2}
+button.activo{background:#16485a;color:#fff;border-color:#16485a}
+.barra{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px}
+.barra .sep{width:10px}
+.barra .nota{color:var(--suave);font-size:12.5px;margin-left:6px}
+.marco{display:flex;gap:8px;align-items:stretch}
+.vista{position:relative;flex:1 1 auto;min-width:0;border:1px solid var(--borde);border-radius:8px;overflow:hidden;background:#fff}
+.vista svg{display:block;width:100%;height:100%;touch-action:none;user-select:none;cursor:grab}
+.vista svg.arrastrando{cursor:grabbing}
+.panel{flex:0 0 250px;border:1px solid var(--borde);border-radius:8px;padding:8px 10px;background:#fbfdfd;font-size:13px;overflow:auto}
+.panel h4{margin:0 0 4px;font-size:14px}
+.panel table{border-collapse:collapse;width:100%}
+.panel td{padding:2px 0;vertical-align:top}
+.panel td.n{text-align:center;white-space:nowrap}
+.panel .suave{color:var(--suave)}
+@media (max-width:760px){.marco{flex-direction:column}.panel{flex-basis:auto}}
+.atenuado .it:not(.foco),.atenuado .rot:not(.foco){opacity:.16}
+.atenuado .rack,.atenuado .ba{opacity:.22}
+.eq.foco polygon,.eq.foco path,.eq.foco ellipse,.ccm.foco polygon{stroke:var(--azul);stroke-width:2.2}
+.co.foco polyline:first-child,.ca.foco polyline{stroke-width:4}
+.it{transition:opacity .12s}
+</style>
+</head>
+<body>
+<div class="barra">
+  <button id="g-izq" title="Girar la cámara 90° a la izquierda">⟲ Girar</button>
+  <button id="g-der" title="Girar la cámara 90° a la derecha">Girar ⟳</button>
+  <span class="sep"></span>
+  <button data-rot="0" title="Vista desde el sureste">SE</button><button data-rot="90" title="Vista desde el noreste">NE</button>
+  <button data-rot="180" title="Vista desde el noroeste">NO</button><button data-rot="270" title="Vista desde el suroeste">SO</button>
+  <span class="sep"></span>
+  <button id="z-menos" title="Alejar">−</button><button id="z-mas" title="Acercar">+</button><button id="ajustar" title="Ajustar la vista">Ajustar</button>
+  <button id="descargar" title="Descargar la orientación actual en SVG">Descargar SVG</button>
+  <span class="nota">Pase el mouse por un equipo o una cañería; clic para fijarlo; rueda: zoom; arrastrar: mover la vista.</span>
+</div>
+<div class="marco">
+  <div class="vista" id="vista"></div>
+  <div class="panel" id="panel"></div>
+</div>
+<script src="isometrico.js"></script>
+</body>
+</html>

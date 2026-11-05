@@ -11,6 +11,9 @@ El profesor Torres pidió (reunión del 04-11-2026, indicaciones 4 y 5) «una ba
 - estados_material y precedencia (PAT 135, pedida por Jaime): cadena ordenada de estados del material por rubro y, por tipo
   de equipo, qué estados acepta en su entrada de producto y qué estado entrega (motor/precedencia.py). La opción del profesor
   «Permitir conexiones libres» se guarda en parametros con la clave «conexiones_libres» (1 = libres).
+- catalogo_comercial (PAT 135, tarea T14, pedida por el profesor en el correo del 04-11-2026): tamaños comerciales discretos de
+  cada tipo de equipo (modelo, capacidad nominal con su unidad, MTBF y MTTR, precio de referencia con año y dimensiones), cada
+  cifra con su fuente o marcada Supuesto. La usa motor/seleccion.py para elegir un equipo más grande o varios en paralelo.
 
 sembrar() copia a la base lo que hoy está escrito en catalogos/, simbolos/, motor/calculadoras.py y ui/comun.py, sin borrar
 esos archivos (quedan como semilla), y crea dos desafíos de ejemplo. Es idempotente: solo agrega lo que falta y nunca pisa
@@ -35,7 +38,8 @@ CLAVE_GAS_IMPORTACION = "precio_gas_importacion"   # PAT 135: escenario de impor
 CLAVE_GAS_CHILE = "precio_gas_industrial_chile"   # PAT 135: US$/MMBtu del gas natural industrial en Chile (sin semilla: falta fuente segura)
 
 ROLES = ("profesor", "estudiante")
-TABLAS = ("simbolos", "catalogo_equipos", "parametros", "desafios", "usuarios_rol", "estados_material", "precedencia")
+TABLAS = ("simbolos", "catalogo_equipos", "parametros", "desafios", "usuarios_rol", "estados_material", "precedencia",
+          "catalogo_comercial")
 CLAVE_LIBRE = "conexiones_libres"               # PAT 135: opción del profesor «Permitir conexiones libres» (tabla parametros)
 
 ESQUEMA_MANTENEDOR = """
@@ -112,6 +116,28 @@ CREATE TABLE IF NOT EXISTS precedencia (
     fuente TEXT NOT NULL DEFAULT '',
     modificado TEXT NOT NULL,
     PRIMARY KEY (rubro, tipo)
+);
+CREATE TABLE IF NOT EXISTS catalogo_comercial (
+    tipo TEXT NOT NULL,
+    modelo TEXT NOT NULL,
+    magnitud TEXT NOT NULL DEFAULT '',
+    capacidad REAL NOT NULL,
+    unidad TEXT NOT NULL DEFAULT '',
+    fuente_capacidad TEXT NOT NULL DEFAULT '',
+    mtbf_h REAL,
+    mttr_h REAL,
+    fuente_confiabilidad TEXT NOT NULL DEFAULT '',
+    precio_usd REAL,
+    anio_precio INTEGER,
+    fuente_precio TEXT NOT NULL DEFAULT '',
+    largo_m REAL,
+    ancho_m REAL,
+    alto_m REAL,
+    fuente_dimensiones TEXT NOT NULL DEFAULT '',
+    categoria TEXT NOT NULL DEFAULT 'Supuesto',
+    url TEXT NOT NULL DEFAULT '',
+    modificado TEXT NOT NULL,
+    PRIMARY KEY (tipo, modelo)
 );
 CREATE INDEX IF NOT EXISTS ix_simbolos_norma ON simbolos (norma, codigo);
 CREATE INDEX IF NOT EXISTS ix_desafios_activo ON desafios (activo, titulo);
@@ -245,6 +271,72 @@ def semilla_catalogo() -> list[dict]:
                       iso_categoria=int(cls.iso_categoria), iso_letra=cls.iso_letra,
                       parametros=[p.a_dict() for p in cls.params_base], fuente=f"catalogos/{mod}.py (semilla del 04-11-2026)"))
     return F
+
+
+# ------------------------------------------------------------------ PAT 135, T14: catálogo comercial de tamaños discretos
+# tipo de equipo → tamaños comerciales en la magnitud y la unidad con que motor/costeo.py costea ese tipo (_LINEA): t/h de carga,
+# kg/h de agua evaporada o kW térmicos. «generico» sirve a los equipos sin tamaños propios (t/h de carga).
+TAMANOS_COMERCIALES = {
+    "recepcion_seleccion": (100, 200, 300, 400, 600),
+    "trituradora": (50, 100, 150, 200, 300),
+    "hot_break": (4000, 8000, 12000, 16000, 20000),
+    "refinadora": (50, 100, 150, 200, 300),
+    "evaporador_mvr": (10000, 20000, 40000, 60000, 90000),
+    "evaporador_multiefecto": (10000, 20000, 30000, 40000, 60000),
+    "esterilizador": (500, 1000, 1500, 2500, 4000),
+    "enfriamiento_flash": (10, 20, 40, 60, 80),
+    "llenadora_aseptica": (5, 10, 20, 30, 40),
+    "secador_biomasa": (1000, 2500, 5000, 7500, 10000),
+    "secador_banda": (1000, 2500, 5000, 7500, 10000),
+    "secador_lena": (250, 500, 1000, 1500, 2000),
+    "molino_martillos": (1, 2, 3, 5, 8),
+    "astilladora": (5, 10, 20, 30, 40),
+    "pelletizadora": (0.5, 1, 1.5, 2, 3),
+    "enfriador_pellet": (2, 4, 6, 8, 10),
+    "criba_biomasa": (5, 10, 20, 30, 40),
+    "sierra_lena": (1, 2, 3, 4, 6),
+    "generico": (1, 2, 5, 10, 20, 50, 100, 200, 500),
+}
+SUP_TAMANOS = ("Supuesto: tamaño comercial discreto escalonado alrededor de la carga de diseño de los escenarios base, para que haya "
+               "alternativas de un equipo más grande y de varios en paralelo; no hay catálogo de fabricante en la carpeta PAT/Fuentes. "
+               "Se reemplaza con el catálogo del proveedor o con la búsqueda en internet")
+SUP_DIMENSIONES = "Sin dato: no hay catálogo de fabricante en la carpeta PAT/Fuentes"
+
+
+def _fmt_cl(v: float) -> str:
+    return (f"{v:,.0f}" if float(v).is_integer() else f"{v:,.1f}").replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def semilla_catalogo_comercial() -> list[dict]:
+    """PAT 135, T14: tamaños comerciales de TAMANOS_COMERCIALES. Capacidad: Supuesto (SUP_TAMANOS). MTBF y MTTR: los de
+    motor/linea_fluida.FALLAS_TIPO por categoría (Supuesto PAT 134), iguales en todos los tamaños. Precio: la referencia de
+    motor/costeo.py (también Supuesto) escalada al tamaño con Williams y su exponente (regla de los seis décimos salvo dato).
+    Dimensiones: sin dato. Ninguna cifra es de un fabricante: todo va marcado Supuesto con su justificación."""
+    from ..motor import costeo as CO, linea_fluida as LF
+    out = []
+    for tipo, tamanos in TAMANOS_COMERCIALES.items():
+        if tipo == "generico":
+            clave, nombre, magnitud, unidad = "generico", "Equipo genérico", "Capacidad", "t/h"
+        else:
+            clave, nombre, _q, magnitud, unidad, _d, _s, _c = CO._LINEA[tipo]
+        ref = CO.REFERENCIAS[clave]
+        n, fuente_n, _cat = CO.exponente(clave)
+        cat = LF.categoria(tipo); mtbf, mttr = LF.FALLAS_TIPO[cat]
+        f_conf = (f"Supuesto PAT 134 de motor/linea_fluida.py (FALLAS_TIPO, {LF.NOMBRE_CATEGORIA[cat].lower()}): orden de magnitud del "
+                  "simulador del profesor, igual para todos los tamaños; sin dato de fabricante ni base de confiabilidad en la carpeta")
+        f_precio = (f"Supuesto: referencia de motor/costeo.py ({_fmt_cl(ref['S'])} {unidad}, US$ {_fmt_cl(ref['C'])} de {ref['anio']}, "
+                    f"también Supuesto) escalada a este tamaño con Williams, n = {str(n).replace('.', ',')} ({fuente_n})")
+        for S in tamanos:
+            precio = round(CO.williams(ref["C"], ref["S"], float(S), n), -2)
+            out.append(dict(tipo=tipo, modelo=f"{nombre} {_fmt_cl(S)} {unidad}", magnitud=magnitud, capacidad=float(S), unidad=unidad,
+                            fuente_capacidad=SUP_TAMANOS, mtbf_h=float(mtbf), mttr_h=float(mttr), fuente_confiabilidad=f_conf,
+                            precio_usd=float(precio), anio_precio=int(ref["anio"]), fuente_precio=f_precio, largo_m=None, ancho_m=None,
+                            alto_m=None, fuente_dimensiones=SUP_DIMENSIONES, categoria="Supuesto", url=""))
+    return out
+
+
+COLUMNAS_COMERCIAL = ("tipo", "modelo", "magnitud", "capacidad", "unidad", "fuente_capacidad", "mtbf_h", "mttr_h", "fuente_confiabilidad",
+                      "precio_usd", "anio_precio", "fuente_precio", "largo_m", "ancho_m", "alto_m", "fuente_dimensiones", "categoria", "url")
 
 
 # Desafío de ejemplo en blanco: secado de agar agar. Todas sus cifras son Supuesto ilustrativo (no hay fuente en la carpeta PAT).
@@ -687,6 +779,56 @@ class Mantenedor:
         """Lo que recibe el motor (motor/precedencia.Precedencia.desde): {estados, precedencia, libre}."""
         return dict(estados=self.listar_estados(), precedencia=self.listar_precedencia(), libre=self.conexiones_libres())
 
+    # ------------------------------------------------------------------ PAT 135, T14: catálogo comercial
+    def listar_comercial(self, tipo: str | None = None) -> list[dict]:
+        sql, args = "SELECT * FROM catalogo_comercial", ()
+        if tipo:
+            sql += " WHERE tipo = ?"; args = (tipo,)
+        with self._con() as con:
+            return [dict(f) for f in con.execute(sql + " ORDER BY tipo, capacidad, modelo", args)]
+
+    def guardar_comercial(self, fila: dict) -> None:
+        """Agrega o reemplaza un modelo (tipo, modelo). Exige capacidad positiva, MTBF positivo, MTTR no negativo y la fuente de
+        la capacidad y de la confiabilidad (o «Supuesto» con su justificación)."""
+        f = {c: fila.get(c) for c in COLUMNAS_COMERCIAL}
+        tipo, modelo = _txt(f["tipo"]), _txt(f["modelo"])
+        if not tipo or not modelo:
+            raise ValueError("El modelo comercial necesita tipo de equipo y nombre de modelo")
+        cap = _num(f["capacidad"])
+        if cap is None or cap <= 0:
+            raise ValueError(f"{modelo}: la capacidad debe ser un número positivo")
+        mtbf, mttr = _num(f["mtbf_h"]), _num(f["mttr_h"])
+        if mtbf is not None and mtbf <= 0 or mttr is not None and mttr < 0:
+            raise ValueError(f"{modelo}: MTBF debe ser positivo y MTTR no negativo")
+        if not _txt(f["fuente_capacidad"]):
+            raise ValueError(f"{modelo}: falta la fuente de la capacidad (o «Supuesto» con su justificación)")
+        if (mtbf is not None or mttr is not None) and not _txt(f["fuente_confiabilidad"]):
+            raise ValueError(f"{modelo}: falta la fuente del MTBF y el MTTR (o «Supuesto» con su justificación)")
+        precio = _num(f["precio_usd"])
+        if precio is not None and not _txt(f["fuente_precio"]):
+            raise ValueError(f"{modelo}: falta la fuente del precio (o «Supuesto» con su justificación)")
+        anio = _num(f["anio_precio"])
+        vals = (tipo, modelo, _txt(f["magnitud"]), cap, _txt(f["unidad"]), _txt(f["fuente_capacidad"]), mtbf, mttr,
+                _txt(f["fuente_confiabilidad"]), precio, None if anio is None else int(anio), _txt(f["fuente_precio"]), _num(f["largo_m"]),
+                _num(f["ancho_m"]), _num(f["alto_m"]), _txt(f["fuente_dimensiones"]), _txt(f["categoria"]) or "Supuesto", _txt(f["url"]), _ahora())
+        with self._con() as con:
+            con.execute("INSERT OR REPLACE INTO catalogo_comercial (" + ", ".join(COLUMNAS_COMERCIAL) + ", modificado) VALUES ("
+                        + ",".join("?" * (len(COLUMNAS_COMERCIAL) + 1)) + ")", vals)
+
+    def eliminar_comercial(self, tipo: str, modelo: str) -> None:
+        with self._con() as con:
+            con.execute("DELETE FROM catalogo_comercial WHERE tipo = ? AND modelo = ?", (tipo, modelo))
+
+    def sembrar_comercial(self) -> dict:
+        """Copia la semilla del catálogo comercial sin pisar lo editado (INSERT OR IGNORE)."""
+        n = 0; ahora = _ahora()
+        with self._con() as con:
+            for f in semilla_catalogo_comercial():
+                n += con.execute("INSERT OR IGNORE INTO catalogo_comercial (" + ", ".join(COLUMNAS_COMERCIAL) + ", modificado) VALUES ("
+                                 + ",".join("?" * (len(COLUMNAS_COMERCIAL) + 1)) + ")",
+                                 tuple(f[c] for c in COLUMNAS_COMERCIAL) + (ahora,)).rowcount
+        return dict(catalogo_comercial=n)
+
     # ------------------------------------------------------------------ semilla
     def sembrar(self, desafios: bool = True) -> dict:
         """Copia la semilla a la base sin pisar lo editado (INSERT OR IGNORE). Devuelve cuántas filas agregó en cada tabla."""
@@ -710,6 +852,7 @@ class Mantenedor:
             titulos = {f[0] for f in con.execute("SELECT titulo FROM desafios")}
         # PAT 135: estados y precedencia; sus cuentas aparecen en el resultado solo si se agregaron filas
         out.update({k: v for k, v in self.sembrar_precedencia().items() if v})
+        out.update({k: v for k, v in self.sembrar_comercial().items() if v})     # PAT 135, T14
         if desafios:
             for fn in (desafio_agrozzi, desafio_agar):
                 # el título se conoce sin calcular la planta: se arma la semilla solo si falta (Agrozzi tarda cerca de 1 s)
@@ -755,6 +898,18 @@ def tabla_precedencia(bd=None) -> dict:
         return t
     except (sqlite3.Error, OSError):
         return dict(estados=semilla_estados(), precedencia=semilla_precedencia(), libre=False)
+
+
+def catalogo_comercial(bd=None, tipo: str | None = None) -> list[dict]:
+    """PAT 135, T14: filas del catálogo comercial desde la base (la siembra si está vacía); si la base falla, la semilla."""
+    try:
+        m = mantenedor(bd)
+        filas = m.listar_comercial()
+        if not filas:
+            m.sembrar_comercial(); filas = m.listar_comercial()
+    except (sqlite3.Error, OSError):
+        filas = semilla_catalogo_comercial()
+    return [f for f in filas if tipo is None or f["tipo"] == tipo]
 
 
 def _de_semilla(tipo: str, clave, norma: str | None):

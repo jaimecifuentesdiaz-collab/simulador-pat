@@ -8,6 +8,8 @@ Qué hace:
    (API de mensajes de Anthropic por urllib); sin clave, o si falla, algoritmo propio de intercambio por pares tipo CRAFT.
 3. Elevaciones frontal y lateral izquierda, corte y plano en planta como SVG, con cotas.
 4. Longitud de cada corriente: recorrido ortogonal entre puertos con subida y bajada al rack de cañerías, más accesorios.
+5. Red eléctrica (PAT 135, T15): sala eléctrica o CCM ubicada junto al centro de carga ponderado por potencia, un alimentador
+   por equipo con potencia eléctrica por bandeja, corriente, sección por capacidad de corriente y caída de tensión.
 
 Convenciones (PAT 135): coordenadas en metros, x hacia el este, y hacia el norte, z hacia arriba; posiciones[id] = [x, y, rot]
 con (x, y) el centro de la huella del equipo y rot en grados (0, 90, 180 o 270, antihorario). Con rot 0 el largo va según x.
@@ -510,9 +512,217 @@ def longitudes_m(filas: list[dict]) -> dict:
     return {f["id"]: round(f["total"], 2) for f in filas}
 
 
+# ------------------------------------------------------------------------------------------- red eléctrica (PAT 135, T15)
+# Pedido del profesor Torres (04-11-2026): layout preliminar con piping y alimentaciones eléctricas. Un CCM (centro de control
+# de motores) en una sala eléctrica alimenta a cada equipo con potencia eléctrica por un alimentador propio que va por bandeja.
+TENSION_V = 380.0      # V entre fases, trifásico 50 Hz; Supuesto: tensión nominal habitual de baja tensión industrial en Chile
+FP = 0.85              # Supuesto: factor de potencia de motores de inducción a plena carga, sin compensación
+H_BANDEJA_M = 4.0      # m; Supuesto: bandeja portaconductores 1 m bajo el rack de cañerías, separada de las líneas calientes
+HOLGURA_CABLE = 0.15   # fracción; Supuesto: subidas a tableros, curvas de la bandeja, colas de conexión y holgura de tendido
+Z_BORNES_M = 0.5       # m; Supuesto: caja de bornes del motor del equipo a 0,5 m del piso
+Z_SALIDA_CCM_M = 2.3   # m; Supuesto: salida de cables por arriba de las celdas del CCM (alto típico de celdas, 2,3 m)
+FACTOR_DISENO = 1.25   # Supuesto: corriente de diseño del alimentador = 125 % de la nominal (margen de arranque y ampliación)
+DU_MAX_PCT = 3.0       # %; Supuesto: caída de tensión máxima en el alimentador (criterio usual de 3 % en alimentadores)
+RHO_CU_20 = 0.017241   # Ω·mm²/m; resistividad del cobre recocido a 20 °C (IEC 60028, patrón internacional del cobre recocido)
+ALFA_CU = 0.00393      # 1/K; coeficiente de temperatura de la resistencia del cobre recocido a 20 °C (IEC 60028)
+T_CONDUCTOR_C = 90.0   # °C; Supuesto: conductor XLPE a su temperatura máxima de servicio (caso más desfavorable)
+X_CABLE_OHM_KM = 0.08  # Ω/km; Supuesto: reactancia típica de un cable multipolar de baja tensión
+P_MEDIA_TENSION_KW = 250.0   # kW; Supuesto: sobre esta potencia un motor se suele alimentar en media tensión (se avisa)
+CCM_DIM = dict(largo=6.0, ancho=4.0, alto=3.5)   # m; Supuesto: sala eléctrica con una fila de celdas y pasillo de operación
+ID_CCM = "CCM"
+# (sección mm², capacidad A): cobre, aislación XLPE, cable multipolar en bandeja perforada, 30 °C
+SECCIONES = ((2.5, 36), (4, 49), (6, 63), (10, 86), (16, 115), (25, 149), (35, 185), (50, 225), (70, 289), (95, 352),
+             (120, 410), (150, 473), (185, 542), (240, 641), (300, 741))
+FUENTE_SECCIONES = ("Supuesto: capacidades del orden de IEC 60364-5-52, tabla B.52.12, método E (cable multipolar de cobre XLPE "
+                    "en bandeja perforada, 30 °C, tres conductores cargados); verificar con la tabla del fabricante del cable")
+FUENTE_TENSION = ("Supuesto: 380 V trifásico 50 Hz, tensión de baja tensión industrial habitual en Chile; factor de potencia 0,85; "
+                  "caída de tensión máxima 3 % en el alimentador (criterio usual; verificar con el pliego técnico vigente de la SEC)")
+
+
+def potencia_electrica(eq) -> tuple[float | None, str]:
+    """Potencia eléctrica (kW) del equipo y de dónde sale: servicio electricidad_kW del resultado, W_kW del detalle (bombas) o
+    parámetro potencia_kW o potencia (kW). (None, "") si no tiene: ese equipo no lleva alimentador."""
+    r = getattr(eq, "resultado", None)
+    serv = (getattr(r, "servicios", None) or {}) if r is not None else {}
+    det = (getattr(r, "detalle", None) or {}) if r is not None else {}
+    v = _num(serv.get("electricidad_kW"))
+    if v:
+        return v, "Resultado del equipo (servicio de electricidad)"
+    v = _num(det.get("W_kW"))
+    if v:
+        return v, "Resultado del equipo (potencia en el punto de operación)"
+    ps = getattr(eq, "params", {}) or {}
+    for k in ("potencia_kW", "potencia"):
+        if k in ps:
+            v = _num(getattr(ps[k], "valor", ps[k]))
+            if v:
+                return v, f"Parámetro {k} del equipo"
+    return None, ""
+
+
+def cargas_electricas(pl, posiciones: dict, dims: dict, bombas_linea: bool = True) -> list[dict]:
+    """Una carga por equipo con potencia eléctrica, en el centro de su huella. Con bombas_linea, también las bombas de las líneas
+    de líquido que no tienen bomba dibujada en el diagrama (las mismas P-1xx que agrega el costeo), junto a la salida del origen."""
+    out = []
+    for k, eq in pl.equipos.items():
+        if k not in posiciones or k not in dims:
+            continue
+        P, fuente = potencia_electrica(eq)
+        if P:
+            out.append(dict(id=f"AL-{k}", equipo=k, nombre=getattr(eq, "nombre", k), P_kW=P, fuente_P=fuente,
+                            x=float(posiciones[k][0]), y=float(posiciones[k][1])))
+    if bombas_linea:
+        try:
+            from .hidraulica import red_hidraulica
+            lineas = red_hidraulica(pl)["lineas"]
+        except Exception:
+            lineas = []
+        for i, ln in enumerate(lineas, 1):
+            o = ln["origen"]
+            if ln.get("bomba_diagrama") is None and _num(ln.get("potencia_kW")) and o in posiciones and o in dims:
+                x, y, _ = puerto(posiciones[o], dims[o], "sale")
+                out.append(dict(id=f"AL-P-{100 + i}", equipo=f"P-{100 + i}", nombre=f"Bomba de la línea {ln['linea']}",
+                                P_kW=float(ln["potencia_kW"]), fuente_P="Red hidráulica (motor/hidraulica.py)", x=x, y=y))
+    return out
+
+
+def centro_de_carga(cargas: list[dict]) -> tuple[float, float] | None:
+    """Centro de carga: promedio de las posiciones ponderado por la potencia (kW). None sin cargas."""
+    P = sum(c["P_kW"] for c in cargas)
+    if P <= 0:
+        return None
+    return (sum(c["P_kW"] * c["x"] for c in cargas) / P, sum(c["P_kW"] * c["y"] for c in cargas) / P)
+
+
+def posicion_ccm(posiciones: dict, dims: dict, cargas: list[dict], pasillo: float = PASILLO_M, dim_ccm: dict | None = None,
+                 paso: float = 0.5, max_anillos: int = 400) -> list[float]:
+    """Posición propuesta de la sala eléctrica: el punto libre más cercano al centro de carga (sin cargas, el centro de la planta),
+    buscado en anillos de una grilla de paso m; libre = a pasillo o más de toda huella y con coordenadas positivas."""
+    dc = dim_ccm or CCM_DIM
+    hs = [huella(p, dims[k]) for k, p in posiciones.items() if k in dims]
+    c = centro_de_carga(cargas)
+    if c is None:
+        c = ((min(h[0] for h in hs) + max(h[2] for h in hs)) / 2, (min(h[1] for h in hs) + max(h[3] for h in hs)) / 2) if hs else (0.0, 0.0)
+    L2, W2 = dc["largo"] / 2, dc["ancho"] / 2
+
+    def libre(x, y):
+        if x - L2 < pasillo - 1e-9 or y - W2 < pasillo - 1e-9:
+            return False
+        for h in hs:
+            if max(h[0] - (x + L2), (x - L2) - h[2], h[1] - (y + W2), (y - W2) - h[3]) < pasillo - 1e-6:
+                return False
+        return True
+    x0, y0 = round(c[0] / paso) * paso, round(c[1] / paso) * paso
+    for r in range(max_anillos + 1):
+        cand = [(i, j) for i in range(-r, r + 1) for j in range(-r, r + 1) if max(abs(i), abs(j)) == r]
+        cand.sort(key=lambda t: (x0 + t[0] * paso - c[0]) ** 2 + (y0 + t[1] * paso - c[1]) ** 2)
+        for i, j in cand:
+            x, y = x0 + i * paso, y0 + j * paso
+            if libre(x, y):
+                return [x, y, 0]
+    xmax = max((h[2] for h in hs), default=0.0)
+    return [xmax + pasillo + L2, pasillo + W2, 0]
+
+
+def corriente_A(P_kW: float, U_V: float = TENSION_V, fp: float = FP) -> float:
+    """Corriente de línea trifásica: I = P / (√3 · U · cos φ), con P en W."""
+    return float(P_kW) * 1000 / (math.sqrt(3) * U_V * fp)
+
+
+def resistencia_ohm_m(seccion_mm2: float, T_C: float = T_CONDUCTOR_C) -> float:
+    """Resistencia del conductor de cobre (Ω/m): ρ20 · (1 + α (T − 20)) / S."""
+    return RHO_CU_20 * (1 + ALFA_CU * (T_C - 20)) / seccion_mm2
+
+
+def caida_tension(I_A: float, L_m: float, seccion_mm2: float, U_V: float = TENSION_V, fp: float = FP, paralelos: int = 1,
+                  x_ohm_km: float = X_CABLE_OHM_KM) -> tuple[float, float]:
+    """Caída de tensión trifásica (V y % de U): ΔU = √3 · I · L · (R cos φ + X sen φ) / n, con n conductores en paralelo."""
+    R = resistencia_ohm_m(seccion_mm2); X = x_ohm_km / 1000
+    sen = math.sqrt(max(0.0, 1 - fp ** 2))
+    dU = math.sqrt(3) * I_A * L_m * (R * fp + X * sen) / max(1, int(paralelos))
+    return dU, 100 * dU / U_V
+
+
+def seleccionar_seccion(I_A: float, L_m: float, U_V: float = TENSION_V, fp: float = FP, du_max: float = DU_MAX_PCT,
+                        factor: float = FACTOR_DISENO) -> dict:
+    """Sección del alimentador: la menor de la tabla cuya capacidad cubre la corriente de diseño (factor × I) y cuya caída de
+    tensión no pasa de du_max. Si ni la mayor sección alcanza, se ponen conductores en paralelo."""
+    Id = I_A * factor
+    n0 = n = max(1, math.ceil(Id / SECCIONES[-1][1]))
+    while True:
+        aptas = [(S, cap) for S, cap in SECCIONES if cap * n >= Id - 1e-9]
+        for S, cap in aptas:
+            dU, pct = caida_tension(I_A, L_m, S, U_V, fp, n)
+            if pct <= du_max + 1e-9:
+                crit = "capacidad de corriente" if (n == n0 and S == aptas[0][0]) else "caída de tensión"
+                return dict(I_diseno_A=Id, seccion_mm2=S, capacidad_A=cap * n, paralelos=n, dU_V=dU, dU_pct=pct, cumple=True, criterio=crit)
+        if n >= 12:
+            S, cap = SECCIONES[-1]; dU, pct = caida_tension(I_A, L_m, S, U_V, fp, n)
+            return dict(I_diseno_A=Id, seccion_mm2=S, capacidad_A=cap * n, paralelos=n, dU_V=dU, dU_pct=pct, cumple=False, criterio="tope")
+        n += 1
+
+
+def ruta_cable(p_ccm, p_eq, h_bandeja: float = H_BANDEJA_M, z_salida: float = Z_SALIDA_CCM_M, z_bornes: float = Z_BORNES_M) -> list:
+    """Recorrido ortogonal del alimentador (x, y, z): sube del CCM a la bandeja, va según x y después según y, y baja al equipo."""
+    xc, yc = float(p_ccm[0]), float(p_ccm[1]); xe, ye = float(p_eq[0]), float(p_eq[1])
+    return [(xc, yc, z_salida), (xc, yc, h_bandeja), (xe, yc, h_bandeja), (xe, ye, h_bandeja), (xe, ye, z_bornes)]
+
+
+def largo_cable(ruta: list, holgura: float = HOLGURA_CABLE) -> dict:
+    """Largo del recorrido: horizontal (|Δx| + |Δy|), vertical (subida y bajada) y holgura; total = (H + V) × (1 + holgura)."""
+    hor = sum(abs(b[0] - a[0]) + abs(b[1] - a[1]) for a, b in zip(ruta, ruta[1:]))
+    ver = sum(abs(b[2] - a[2]) for a, b in zip(ruta, ruta[1:]))
+    return dict(horizontal=hor, vertical=ver, holgura=(hor + ver) * holgura, total=(hor + ver) * (1 + holgura))
+
+
+def red_electrica(pl, posiciones: dict, dims: dict, ccm=None, h_bandeja: float = H_BANDEJA_M, holgura: float = HOLGURA_CABLE,
+                  U_V: float = TENSION_V, fp: float = FP, du_max: float = DU_MAX_PCT, bombas_linea: bool = True,
+                  pasillo: float = PASILLO_M, dim_ccm: dict | None = None) -> dict:
+    """Red eléctrica del layout: posición del CCM (la dada o la propuesta junto al centro de carga), un alimentador por carga con
+    recorrido, largo, corriente, sección y caída de tensión, el detalle por cable y {alimentador: m} para el costeo."""
+    dc = dict(dim_ccm or CCM_DIM)
+    cargas = cargas_electricas(pl, posiciones, dims, bombas_linea)
+    propuesta = posicion_ccm(posiciones, dims, cargas, pasillo, dc)
+    pos_ccm = [float(ccm[0]), float(ccm[1]), _rot(ccm[2] if len(ccm) > 2 else 0)] if ccm else propuesta
+    cables, avisos = [], []
+    for c in cargas:
+        ruta = ruta_cable(pos_ccm, (c["x"], c["y"]), h_bandeja)
+        lg = largo_cable(ruta, holgura)
+        I = corriente_A(c["P_kW"], U_V, fp)
+        sel = seleccionar_seccion(I, lg["total"], U_V, fp, du_max)
+        cables.append(dict(c, U_V=U_V, fp=fp, I_A=I, ruta=ruta, **lg, **sel,
+                           conductor=(f"{sel['paralelos']} × " if sel["paralelos"] > 1 else "") + f"3 × {escribir(sel['seccion_mm2'], 0 if float(sel['seccion_mm2']).is_integer() else 1)} mm² Cu XLPE"))
+        if c["P_kW"] > P_MEDIA_TENSION_KW:
+            avisos.append(f"{c['equipo']}: {escribir(c['P_kW'], 0)} kW; sobre {escribir(P_MEDIA_TENSION_KW, 0)} kW se suele alimentar en media "
+                          f"tensión; aquí se calcula en {escribir(U_V, 0)} V con " + (f"{sel['paralelos']} conductores por fase en paralelo" if sel["paralelos"] > 1
+                          else "un conductor por fase") + " (Supuesto)")
+        if not sel["cumple"]:
+            avisos.append(f"{c['id']}: ni con {sel['paralelos']} conductores de {escribir(sel['seccion_mm2'], 0)} mm² la caída baja de {escribir(du_max, 1)} %")
+    hs_ccm = huella(pos_ccm, dc)
+    cerca = [k for k, p in posiciones.items() if k in dims and
+             max(huella(p, dims[k])[0] - hs_ccm[2], hs_ccm[0] - huella(p, dims[k])[2],
+                 huella(p, dims[k])[1] - hs_ccm[3], hs_ccm[1] - huella(p, dims[k])[3]) < pasillo - 1e-6]
+    if cerca:
+        avisos.append("La sala eléctrica queda a menos del pasillo de " + ", ".join(cerca))
+    P = sum(c["P_kW"] for c in cargas)
+    return dict(ccm=pos_ccm, ccm_propuesta=propuesta, ccm_dim=dc, cables=cables, cables_m=cables_m(cables), P_total_kW=P,
+                I_total_A=corriente_A(P, U_V, fp) if P else 0.0, largo_total_m=sum(c["total"] for c in cables), avisos=avisos,
+                cerca_ccm=cerca, centro=centro_de_carga(cargas), h_bandeja=h_bandeja,
+                supuestos=dict(U_V=U_V, fp=fp, h_bandeja=h_bandeja, holgura=holgura, du_max=du_max, factor=FACTOR_DISENO,
+                               fuente_tension=FUENTE_TENSION, fuente_secciones=FUENTE_SECCIONES))
+
+
+def cables_m(cables: list[dict]) -> dict:
+    """{alimentador: largo total en m} para st.session_state["layout"]["cables_m"] (lo puede usar el costeo)."""
+    return {c["id"]: round(c["total"], 2) for c in cables}
+
+
 # ------------------------------------------------------------------------------------------- dibujos SVG
 _COLOR = {"producto": "#1b7a5a", "subproducto": "#7a5a1b", "vapor": "#c0392b", "condensado": "#2e6db4", "agua": "#2e86c1",
           "gas": "#8e44ad", "aire": "#5dade2", "humos": "#7f8c8d", "electricidad": "#d4ac0d", "calor": "#e67e22", "biomasa": "#6e8b3d"}
+
+
+COLOR_CABLE = _COLOR["electricidad"]   # PAT 135 (T15): mismo color de «Energía eléctrica» en la leyenda de Diseño
 
 
 def _f(v, d=1):
@@ -541,14 +751,19 @@ _DEFS = ('<defs><marker id="fl" markerWidth="8" markerHeight="8" refX="4" refY="
          'patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#7b8c95" stroke-width="1.2"/></pattern></defs>')
 
 
-def _vista(items, titulo, eje_txt, h_rack, ancho_px=900, notas=""):
-    """items: (u1, u2, alto, id, estilo) con u en m a lo largo de la vista; estilo 'cerca', 'lejos' o 'corte'."""
+def _vista(items, titulo, eje_txt, h_rack, ancho_px=900, notas="", cables=None, h_bandeja=None):
+    """items: (u1, u2, alto, id, estilo) con u en m a lo largo de la vista; estilo 'cerca', 'lejos', 'corte' o 'electrico'
+    (sala eléctrica). PAT 135 (T15): cables = recorridos [(u, z), ...] de los alimentadores y h_bandeja, la bandeja eléctrica."""
     if not items:
         return f'<svg xmlns="http://www.w3.org/2000/svg" width="400" height="60"><text x="10" y="30">{_esc(titulo)}: sin equipos</text></svg>'
-    umin = min(i[0] for i in items); umax = max(i[1] for i in items); zmax = max(max(i[2] for i in items), h_rack) + 1.0
+    cables = cables or []
+    us = [p[0] for c in cables for p in c]
+    umin = min([i[0] for i in items] + us); umax = max([i[1] for i in items] + us)
+    zmax = max(max(i[2] for i in items), h_rack, h_bandeja or 0.0) + 1.0
     mx, mt, mb = 60, 50, 70
-    s = min((ancho_px - 2 * mx) / max(umax - umin, 1.0), 380 / zmax)
-    W = 2 * mx + (umax - umin) * s; Hs = mt + zmax * s + mb
+    der = 130                                               # PAT 135 (T15): espacio para los rótulos del rack y de la bandeja
+    s = min((ancho_px - 2 * mx - der) / max(umax - umin, 1.0), 380 / zmax)
+    W = 2 * mx + der + (umax - umin) * s; Hs = mt + zmax * s + mb
     X = lambda u: mx + (u - umin) * s
     Z = lambda z: mt + (zmax - z) * s
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.0f}" height="{Hs:.0f}" viewBox="0 0 {W:.0f} {Hs:.0f}" font-family="Arial">',
@@ -559,16 +774,23 @@ def _vista(items, titulo, eje_txt, h_rack, ancho_px=900, notas=""):
     o.append(f'<line x1="{X(umin) - 20:.1f}" y1="{Z(h_rack):.1f}" x2="{X(umax) + 20:.1f}" y2="{Z(h_rack):.1f}" stroke="#c98c31" '
              f'stroke-width="2" stroke-dasharray="8 5"/><text x="{X(umax) + 22:.1f}" y="{Z(h_rack) + 4:.1f}" font-size="10" '
              f'fill="#c98c31">rack +{_f(h_rack, 2)}</text>')
-    orden = sorted(items, key=lambda i: {"lejos": 0, "cerca": 1, "corte": 2}[i[4]])
+    if h_bandeja:
+        o.append(f'<line x1="{X(umin) - 20:.1f}" y1="{Z(h_bandeja):.1f}" x2="{X(umax) + 20:.1f}" y2="{Z(h_bandeja):.1f}" stroke="{COLOR_CABLE}" '
+                 f'stroke-width="2" stroke-dasharray="3 3"/><text x="{X(umax) + 22:.1f}" y="{Z(h_bandeja) + 4:.1f}" font-size="10" '
+                 f'fill="{COLOR_CABLE}">bandeja eléctrica +{_f(h_bandeja, 2)}</text>')
+    orden = sorted(items, key=lambda i: {"lejos": 0, "cerca": 1, "electrico": 1, "corte": 2}[i[4]])   # estable: lo lejano primero
     for u1, u2, h, k, est in orden:
-        fill = {"lejos": "#eef3f5", "cerca": "#dcebe6", "corte": "url(#rayado)"}[est]
-        stroke = {"lejos": "#9aaab2", "cerca": "#1b7a5a", "corte": "#173243"}[est]
+        fill = {"lejos": "#eef3f5", "cerca": "#dcebe6", "corte": "url(#rayado)", "electrico": "#f8eec4"}[est]
+        stroke = {"lejos": "#9aaab2", "cerca": "#1b7a5a", "corte": "#173243", "electrico": COLOR_CABLE}[est]
         o.append(f'<rect x="{X(u1):.1f}" y="{Z(h):.1f}" width="{(u2 - u1) * s:.1f}" height="{h * s:.1f}" fill="{fill}" '
                  f'stroke="{stroke}" stroke-width="{2 if est != "lejos" else 1}"/>')
         if est != "lejos":
             o.append(f'<text x="{(X(u1) + X(u2)) / 2:.1f}" y="{Z(h) - 4:.1f}" font-size="11" text-anchor="middle" fill="#173243" '
                      f'font-weight="bold">{_esc(k)}</text>')
             o.append(_cota_v(X(u2) + 4, Z(h), Z(0), _f(h, 1)))
+    for c in cables:                                        # PAT 135 (T15): alimentadores punteados
+        pts = " ".join(f"{X(u):.1f},{Z(z):.1f}" for u, z in c)
+        o.append(f'<polyline points="{pts}" fill="none" stroke="{COLOR_CABLE}" stroke-width="1.6" stroke-dasharray="2 3"/>')
     # piso, nivel y cota total
     o.append(f'<line x1="{X(umin) - 30:.1f}" y1="{Z(0):.1f}" x2="{X(umax) + 30:.1f}" y2="{Z(0):.1f}" stroke="#173243" stroke-width="2.5"/>')
     o.append(f'<text x="{X(umin) - 30:.1f}" y="{Z(0) + 14:.1f}" font-size="10" fill="#173243">±0,00</text>')
@@ -579,9 +801,10 @@ def _vista(items, titulo, eje_txt, h_rack, ancho_px=900, notas=""):
     return "".join(o)
 
 
-def elevacion_svg(posiciones: dict, dims: dict, vista: str = "frontal", h_rack: float = H_RACK_M) -> str:
+def elevacion_svg(posiciones: dict, dims: dict, vista: str = "frontal", h_rack: float = H_RACK_M, red: dict | None = None) -> str:
     """Elevación frontal (observador al sur mirando al norte: eje x) o lateral izquierda (observador al oeste mirando al este:
-    eje y, el norte a la izquierda). Los equipos más cercanos al observador se dibujan delante; cotas de alto y largo total."""
+    eje y, el norte a la izquierda). Los equipos más cercanos al observador se dibujan delante; cotas de alto y largo total.
+    PAT 135 (T15): con red (de red_electrica) se dibujan la sala eléctrica, la bandeja y los alimentadores punteados."""
     items = []
     for k, p in posiciones.items():
         if k not in dims:
@@ -591,15 +814,25 @@ def elevacion_svg(posiciones: dict, dims: dict, vista: str = "frontal", h_rack: 
             items.append((x1, x2, dims[k]["alto"], k, "cerca", y1))
         else:
             items.append((-y2, -y1, dims[k]["alto"], k, "cerca", x1))
+    cables, hb = [], None
+    if red and red.get("ccm"):                              # PAT 135 (T15): la sala eléctrica entra al orden por profundidad
+        x1, y1, x2, y2 = huella(red["ccm"], red["ccm_dim"])
+        items.append(((x1, x2, red["ccm_dim"]["alto"], ID_CCM, "cerca", y1) if vista == "frontal" else
+                      (-y2, -y1, red["ccm_dim"]["alto"], ID_CCM, "cerca", x1)))
+        cables = [[(p[0] if vista == "frontal" else -p[1], p[2]) for p in c["ruta"]] for c in red.get("cables", [])]
+        hb = red.get("h_bandeja", H_BANDEJA_M)
     # profundidad: el que está más lejos va detrás y más claro si lo tapa otro más cercano
     items.sort(key=lambda i: -i[5])
     fin = []
     for i, it in enumerate(items):
         tapado = any(o[0] <= it[0] + 1e-6 and o[1] >= it[1] - 1e-6 and o[2] >= it[2] - 1e-6 for o in items[i + 1:])
-        fin.append((it[0], it[1], it[2], it[3], "lejos" if tapado else "cerca"))
+        est = "lejos" if tapado else ("electrico" if it[3] == ID_CCM else "cerca")
+        fin.append((it[0], it[1], it[2], it[3], est))
     if vista == "frontal":
-        return _vista(fin, "Elevación frontal (vista desde el sur)", "Eje horizontal: oeste a la izquierda, este a la derecha; alturas en m", h_rack)
-    return _vista(fin, "Elevación lateral izquierda (vista desde el oeste)", "Eje horizontal: norte a la izquierda, sur a la derecha; alturas en m", h_rack)
+        return _vista(fin, "Elevación frontal (vista desde el sur)", "Eje horizontal: oeste a la izquierda, este a la derecha; alturas en m", h_rack,
+                      cables=cables, h_bandeja=hb)
+    return _vista(fin, "Elevación lateral izquierda (vista desde el oeste)", "Eje horizontal: norte a la izquierda, sur a la derecha; alturas en m", h_rack,
+                  cables=cables, h_bandeja=hb)
 
 
 def corte_y_por_defecto(posiciones: dict, dims: dict) -> float:
@@ -628,13 +861,16 @@ def corte_svg(posiciones: dict, dims: dict, y_corte: float | None = None, h_rack
 
 
 def plano_svg(posiciones: dict, dims: dict, fl: list[dict] | None = None, nombres: dict | None = None, y_corte: float | None = None,
-              ancho_px: int = 900) -> str:
-    """Plano en planta para el informe (el mismo que dibuja el componente): cuadrícula de 1 m, rótulos, escala, norte y línea de corte."""
+              ancho_px: int = 900, red: dict | None = None) -> str:
+    """Plano en planta para el informe (el mismo que dibuja el componente): cuadrícula de 1 m, rótulos, escala, norte y línea de corte.
+    PAT 135 (T15): con red (de red_electrica) se dibujan la sala eléctrica y los alimentadores en líneas punteadas."""
     nombres = nombres or {}
     hs = {k: huella(p, dims[k]) for k, p in posiciones.items() if k in dims}
+    h_ccm = huella(red["ccm"], red["ccm_dim"]) if red and red.get("ccm") else None
     if not hs:
         return '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="40"><text x="10" y="25">Sin equipos</text></svg>'
-    X2 = max(h[2] for h in hs.values()) + PASILLO_M; Y2 = max(h[3] for h in hs.values()) + PASILLO_M
+    X2 = max([h[2] for h in hs.values()] + ([h_ccm[2]] if h_ccm else [])) + PASILLO_M
+    Y2 = max([h[3] for h in hs.values()] + ([h_ccm[3]] if h_ccm else [])) + PASILLO_M
     m = 40; s = (ancho_px - 2 * m) / max(X2, 1.0); W = ancho_px; H = 2 * m + Y2 * s + 30
     X = lambda x: m + x * s
     Y = lambda y: m + (Y2 - y) * s
@@ -654,6 +890,14 @@ def plano_svg(posiciones: dict, dims: dict, fl: list[dict] | None = None, nombre
         o.append(f'<rect x="{X(x1):.1f}" y="{Y(y2):.1f}" width="{(x2 - x1) * s:.1f}" height="{(y2 - y1) * s:.1f}" fill="#dcebe6" stroke="#1b7a5a" stroke-width="1.5"/>')
         o.append(f'<text x="{X((x1 + x2) / 2):.1f}" y="{Y((y1 + y2) / 2):.1f}" font-size="11" text-anchor="middle" font-weight="bold" fill="#173243">{_esc(k)}</text>')
         o.append(f'<text x="{X((x1 + x2) / 2):.1f}" y="{Y((y1 + y2) / 2) + 12:.1f}" font-size="9" text-anchor="middle" fill="#3b5562">{_esc(str(nombres.get(k, ""))[:22])}</text>')
+    if h_ccm:                                               # PAT 135 (T15): sala eléctrica y alimentadores
+        for c in red.get("cables", []):
+            pts = " ".join(f"{X(p[0]):.1f},{Y(p[1]):.1f}" for p in c["ruta"])
+            o.append(f'<polyline points="{pts}" fill="none" stroke="{COLOR_CABLE}" stroke-width="1.8" stroke-dasharray="2 3"/>')
+        x1, y1, x2, y2 = h_ccm
+        o.append(f'<rect x="{X(x1):.1f}" y="{Y(y2):.1f}" width="{(x2 - x1) * s:.1f}" height="{(y2 - y1) * s:.1f}" fill="#f8eec4" '
+                 f'stroke="{COLOR_CABLE}" stroke-width="1.8"/><text x="{X((x1 + x2) / 2):.1f}" y="{Y((y1 + y2) / 2) + 4:.1f}" '
+                 f'font-size="11" text-anchor="middle" font-weight="bold" fill="#7d6608">{ID_CCM}</text>')
     if y_corte is not None:
         o.append(f'<line x1="{X(0):.1f}" y1="{Y(y_corte):.1f}" x2="{X(X2):.1f}" y2="{Y(y_corte):.1f}" stroke="#bd4b40" stroke-width="1.5" stroke-dasharray="12 4 2 4"/>'
                  f'<text x="{X(0) + 2:.1f}" y="{Y(y_corte) - 4:.1f}" font-size="11" fill="#bd4b40" font-weight="bold">A</text>'
@@ -669,7 +913,9 @@ def plano_svg(posiciones: dict, dims: dict, fl: list[dict] | None = None, nombre
 def estado_layout(pl, layout: dict | None = None, overrides: dict | None = None, pasillo: float = PASILLO_M,
                   h_rack: float = H_RACK_M, accesorios: float = ACCESORIOS) -> dict:
     """Arma o actualiza el dict de st.session_state["layout"]: posiciones (completadas con los equipos nuevos), dims,
-    longitudes_m, filas de longitudes y costo. Si no hay posiciones, parte con el algoritmo propio."""
+    longitudes_m, filas de longitudes y costo. Si no hay posiciones, parte con el algoritmo propio.
+    PAT 135 (T15): también la red eléctrica (ccm, red, cables y cables_m) con los supuestos guardados en el mismo dict
+    (h_bandeja, holgura_cable, tension, fp, du_max, bombas_linea); sin ccm se propone junto al centro de carga."""
     lay = dict(layout or {})
     dims = dimensiones_planta(pl, overrides if overrides is not None else lay.get("overrides"))
     if not lay.get("posiciones"):
@@ -680,4 +926,8 @@ def estado_layout(pl, layout: dict | None = None, overrides: dict | None = None,
     lay.update(dims=dims, filas=filas, longitudes_m=longitudes_m(filas),
                costo=costo_flujo_distancia(lay["posiciones"], flujos(pl)),
                superposiciones=superposiciones(lay["posiciones"], dims, pasillo))
+    red = red_electrica(pl, lay["posiciones"], dims, lay.get("ccm"), float(lay.get("h_bandeja", H_BANDEJA_M)),
+                        float(lay.get("holgura_cable", HOLGURA_CABLE)), float(lay.get("tension", TENSION_V)), float(lay.get("fp", FP)),
+                        float(lay.get("du_max", DU_MAX_PCT)), bool(lay.get("bombas_linea", True)), pasillo)
+    lay.update(ccm=red["ccm"], red=red, cables=red["cables"], cables_m=red["cables_m"])
     return lay

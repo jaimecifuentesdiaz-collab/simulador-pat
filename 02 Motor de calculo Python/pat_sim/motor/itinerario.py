@@ -1,11 +1,14 @@
 """Itinerario guiado (PAT 133, mejora 17): etapas de la práctica con su condición de cumplimiento y una pista.
 
 Cada condición se evalúa sobre la sesión (un diccionario o st.session_state) y la planta, sin tocar ninguna de las dos.
-Las etapas siguen el orden de las pestañas: Escenario, Diseño, Operación, Calidad SPC, Balances, Recuperación de calor,
-Economía y Evaluación. El orden es una recomendación: una etapa puede cumplirse antes que la anterior."""
+PAT 135 (T16): las nueve etapas del proceso de diseño iterativo vienen de motor/flujo.py (la misma guía de la franja de
+arriba de cada pantalla) y se suman las tres propias del curso: Operación, Calidad SPC y Evaluación. Una etapa de diseño con
+un cambio en una anterior queda «por revisar» y no cuenta como cumplida. El orden es una recomendación."""
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
+
+from . import flujo as FL
 
 TOL_CIERRE = 1e-3       # cierre relativo de materia y energía aceptado por equipo (0,1 %); Supuesto: el motor cierra en 1e-10
 
@@ -48,28 +51,47 @@ class Etapa:
     condicion: Callable
 
 
-ETAPAS = [
-    Etapa("escenario", "Escenario", "Escenario", "Planta cargada con su línea de proceso",
-          "Elija el rubro en la pestaña Escenario y cargue el escenario base, una plantilla o un proyecto de ejemplo.",
-          lambda ss, pl, r: pl is not None and len(pl.equipos) >= 2 and len(pl.conexiones) >= 1),
-    Etapa("diseno", "Diseño", "Diseño", "Planta resuelta y con capacidades declaradas",
-          "En Diseño, resuelva la planta y declare la capacidad nominal de los equipos (o use «Asignar capacidades»).",
-          lambda ss, pl, r: bool(pl is not None and pl.resuelta and _con_capacidades(pl))),
+class _Vista:
+    """La sesión con la planta indicada, para evaluar las condiciones de flujo.py con la planta recibida."""
+    def __init__(self, ss, pl):
+        self.ss, self.pl = ss, pl
+
+    def get(self, k, defecto=None):
+        return self.pl if k == "pl" else _g(self.ss, k, defecto)
+
+    def __setitem__(self, k, v):
+        self.ss[k] = v
+
+
+_PISTAS = {
+    1: "En Desafío, elija el desafío y presione «Partir en blanco», o siga con el escenario cargado.",
+    2: "En Diseño, conecte los equipos hasta que la planta quede resuelta.",
+    3: "En Selección de equipos, elija equipos comerciales (si hace falta en paralelo) y revise su confiabilidad.",
+    4: "En Selección de equipos, revise la teoría de restricciones y el costo de ineficiencia para decidir las redundancias; declare también la capacidad nominal de los equipos.",
+    5: "En Balances, revise el cierre de cada equipo; después vea Recuperación de calor y Alternativas.",
+    6: "En Instrumentación, defina los lazos de control ISA-5.1.",
+    7: "En Costeo, calcule la inversión de la planta.",
+    8: "En Economía y Riesgo económico, calcule el VAN con su incertidumbre.",
+    9: "En Layout, proponga y ajuste la disposición, con cañerías y red eléctrica.",
+}
+
+
+def _etapa_flujo(e):
+    return Etapa(clave=_CLAVES_FLUJO[e.num], nombre=e.nombre, pestana=e.paginas[0],
+                 meta=e.nombre + (" completada" if e.num != 1 else " elegido"), pista=_PISTAS[e.num],
+                 condicion=lambda ss, pl, r, n=e.num: FL.estado_etapa(n, _Vista(ss, pl)) == FL.HECHA)
+
+
+_CLAVES_FLUJO = {1: "desafio", 2: "diseno", 3: "seleccion", 4: "restricciones", 5: "balances", 6: "instrumentacion",
+                 7: "costeo", 8: "economia", 9: "layout"}
+
+ETAPAS = [_etapa_flujo(e) for e in FL.ETAPAS] + [
     Etapa("operacion", "Operación", "Operación", "Al menos un turno ejecutado",
           "En Operación, fije la meta de utilización y ejecute un turno de 8 h.",
           lambda ss, pl, r: bool(_g(ss, "op") is not None and _g(ss, "op").turnos)),
     Etapa("calidad", "Calidad SPC", "Calidad SPC", "Carta de control con datos (8 resultados de laboratorio o más)",
           "En Calidad SPC, tome una muestra por turno: los resultados llegan uno o dos turnos después y la carta necesita 8.",
           lambda ss, pl, r: _spc_con_datos(_g(ss, "op"))),
-    Etapa("balances", "Balances", "Balances", "Balances de materia y energía cerrados en cada equipo",
-          "En Balances, revise el cierre de cada equipo; si no cierra, corrija las conexiones en Diseño.",
-          lambda ss, pl, r: bool(pl is not None and _cierra(pl))),
-    Etapa("recuperacion", "Recuperación de calor", "Recuperación de calor", "Cascada con calor recuperado",
-          "En Recuperación de calor, revise el mapa de residuales y ajuste la aproximación mínima hasta que la cascada recupere calor.",
-          lambda ss, pl, r: bool(r and not r.get("sin_sumidero") and (r.get("cascada") or 0) > 0)),
-    Etapa("economia", "Economía", "Economía", "Inversión ingresada",
-          "En Economía, ingrese o acepte la inversión de la alternativa para calcular el VAN y la TIR.",
-          lambda ss, pl, r: float((_g(ss, "economia") or {}).get("inversion") or 0) > 0),
     Etapa("evaluacion", "Evaluación", "Evaluación", "Evaluación finalizada",
           "En Evaluación, escriba las justificaciones y presione «Finalizar y revelar evaluación».",
           lambda ss, pl, r: bool(_g(ss, "op") is not None and _g(ss, "op").finalizada)),
@@ -95,7 +117,12 @@ def evaluar(ss, pl, resumen: dict | None = None) -> list[dict]:
             ok = bool(e.condicion(ss, pl, r))
         except Exception:                  # una condición que no se puede evaluar cuenta como pendiente
             ok = False
-        out.append(dict(clave=e.clave, nombre=e.nombre, pestana=e.pestana, meta=e.meta, pista=e.pista, cumplida=ok))
+        revisar = False
+        if e.clave in _CLAVES_FLUJO.values():                      # PAT 135: una etapa de diseño puede estar por revisar
+            n = next(k for k, c in _CLAVES_FLUJO.items() if c == e.clave)
+            revisar = FL.estado_etapa(n, _Vista(ss, pl)) == FL.POR_REVISAR
+        out.append(dict(clave=e.clave, nombre=e.nombre, pestana=e.pestana, meta=e.meta, pista=e.pista, cumplida=ok,
+                        por_revisar=revisar))
     return out
 
 

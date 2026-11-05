@@ -71,13 +71,15 @@ def mostrar():
     X, k_alt = _alternativa(pl)
     lay = ss.get("layout") or {}
     longitudes = lay.get("longitudes_m") if isinstance(lay, dict) else None
+    cables_m = lay.get("cables_m") if isinstance(lay, dict) else None   # PAT 135, T14: red eléctrica del layout (equipo S)
     try:
         bd = C.obtener_bd()
     except Exception:
         bd = None
     try:
         res = CT.costear(pl, cepci_hoy=float(P["cepci"]), anio_cepci=int(P["anio"]), dolar=float(E["dolar"]), bd=bd,
-                         buscar=bool(buscar and clave), clave=clave, longitudes=longitudes, alternativa=k_alt, X=X)
+                         buscar=bool(buscar and clave), clave=clave, longitudes=longitudes, alternativa=k_alt, X=X,
+                         cables_m=cables_m if isinstance(cables_m, dict) else None)
     except Exception as e:                    # el costeo nunca debe botar la aplicación
         st.error(f"No se pudo costear la planta: {e}")
         return
@@ -90,7 +92,8 @@ def mostrar():
     m2.metric(f"Instalación (factor {C.fmt(t['f_inst'], 1)})", C.esc("$" + C.fmt(t["instalacion_clp"] / 1e6, 1) + " MM"))
     m3.metric("Total planta", C.esc("$" + C.fmt(t["total_clp"] / 1e6, 1) + " MM"), f"US$ {C.fmt(t['total_usd'] / 1e6, 2)} MM", delta_color="off")
     m4.metric("Origen de los precios", f"{res['n_internet']} de internet", f"{res['n_bibliografia']} de bibliografía", delta_color="off")
-    filas = [dict(f, nombre_txt=f"{f['equipo']} · {f['nombre']}", req=_tam(f["tamano"], f["unidad"]) + (f" × {C.fmt(f['cantidad'], 0)} m" if f["unidad"] == "mm" else ""),
+    filas = [dict(f, nombre_txt=f"{f['equipo']} · {f['nombre']}", req=_tam(f["tamano"], f["unidad"]) + (f" × {C.fmt(f['cantidad'], 0)} m" if f["unidad"] in ("mm", "mm2") else "")
+                  + (f" × {f['unidades']} unidades" if f.get("unidades") else ""),   # PAT 135, T14: unidades en paralelo
                   ref=_tam(f["tamano_ref"], f["unidad"]), anio_txt=str(f["anio"] or "—"), url_txt=f["url"] or "—") for f in res["filas"]]
     C.mostrar_tabla(filas, [("nombre_txt", "Equipo", "txt", 0), ("tipo", "Tipo", "txt", 0), ("req", "Tamaño requerido", "cen", 0),
                             ("ref", "Tamaño de referencia", "cen", 0), ("precio_ref_usd", "Precio de referencia (US$)", "clp", 0),

@@ -7,7 +7,9 @@
      mecanismo que el lienzo de Diseño (componente bidireccional de Streamlit, apiVersion 1, por postMessage).
      Recibe {equipos: [{id, nombre, largo, ancho, alto}], posiciones: {id: [x, y, rot]}, corrientes: [...], pasillo, version,
      ultimo_seq, y_corte} y devuelve {posiciones, seq, version}: la posición de todos los equipos cada vez que el usuario
-     suelta o rota uno. Coordenadas en m: x al este, y al norte; rot en grados antihorario. -->
+     suelta o rota uno. Coordenadas en m: x al este, y al norte; rot en grados antihorario.
+     PAT 135 (T15): la sala eléctrica (CCM) viene como un equipo más con electrico: true (se mueve y rota igual) y los
+     alimentadores en cables: [{id, equipo, ruta: [[x, y], ...]}] se dibujan con líneas punteadas del color de la electricidad. -->
 <style>
 :root{--tinta:#173243;--suave:#5b7280;--borde:#d6e3e8;--verde:#1b7a5a;--rojo:#bd4b40}
 *{box-sizing:border-box}
@@ -23,6 +25,7 @@ button:disabled{opacity:.45;cursor:default}
 .eq{cursor:grab}
 .eq.sel rect.cuerpo{stroke:#2563eb;stroke-width:3}
 .eq.mal rect.cuerpo{fill:#fbe3e0;stroke:var(--rojo)}
+.eq.elec rect.cuerpo{fill:#f8eec4;stroke:#b7950b}
 .estado{position:absolute;left:8px;top:8px;font-size:12.5px;padding:3px 8px;border-radius:12px;background:#e3f3ec;color:#145e45;border:1px solid #b9dccc;pointer-events:none;max-width:75%}
 .estado.mal{background:#fbe9e7;color:#9c3329;border-color:#efc4be}
 svg text{font-family:"Source Sans Pro","Segoe UI",Arial,sans-serif}
@@ -33,7 +36,7 @@ svg text{font-family:"Source Sans Pro","Segoe UI",Arial,sans-serif}
   <button id="b-rot" title="Rota 90° el equipo seleccionado (tecla R o doble clic)" disabled>Rotar 90°</button>
   <button id="b-ajustar" title="Ajusta la vista a la planta">Ajustar vista</button>
   <button id="z-menos" title="Alejar">−</button><button id="z-mas" title="Acercar">+</button>
-  <span class="nota" id="nota">Arrastre un equipo para moverlo (se ajusta a 0,5 m); doble clic o R para rotarlo; rueda: zoom; arrastrar el fondo: mover la vista.</span>
+  <span class="nota" id="nota">Arrastre un equipo o la sala eléctrica (CCM, amarilla) para moverlo (se ajusta a 0,5 m); doble clic o R para rotarlo; rueda: zoom; arrastrar el fondo: mover la vista. Punteado amarillo: alimentadores eléctricos.</span>
 </div>
 <div class="plano" id="plano"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="estado" class="estado"></div></div>
 <script>
@@ -145,6 +148,16 @@ function pintar() {
     if (!a || !b) continue;
     o.push(`<path d="M${SX(a[0])} ${SY(a[1])} H${SX(b[0])} V${SY(b[1])}" fill="none" stroke="${COLOR[c.tipo] || "#555"}" stroke-width="2"${c.servicio ? ' stroke-dasharray="7 4"' : ""} opacity=".75"><title>${esc(c.id)}: ${esc(c.origen)} → ${esc(c.destino)}</title></path>`);
   }
+  // PAT 135 (T15): alimentadores desde la sala eléctrica, punteados (ruta de Python; si se movió algo, se redibuja desde las posiciones locales)
+  const ccm = (D.equipos.find(e => e.electrico) || {}).id;
+  for (const c of D.cables || []) {
+    const a = ccm && POS[ccm], b = POS[c.equipo];
+    let pts = (c.ruta || []).map(p => [p[0], p[1]]);
+    if (a && b) pts = [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]]];
+    else if (a && pts.length) pts = [[a[0], a[1]], [pts[pts.length - 1][0], a[1]], pts[pts.length - 1]];
+    if (pts.length < 2) continue;
+    o.push(`<polyline points="${pts.map(p => SX(p[0]) + "," + SY(p[1])).join(" ")}" fill="none" stroke="#d4ac0d" stroke-width="2" stroke-dasharray="2 3"><title>${esc(c.id)}: ${esc(c.texto || "")}</title></polyline>`);
+  }
   // línea de corte A-A
   if (D.y_corte != null) {
     o.push(`<line x1="0" y1="${SY(D.y_corte)}" x2="${W}" y2="${SY(D.y_corte)}" stroke="#bd4b40" stroke-width="1.5" stroke-dasharray="14 4 2 4"/>`);
@@ -158,7 +171,7 @@ function pintar() {
     // flecha de la salida (lado x+ local) para ver la orientación
     const ang = r90 * Math.PI / 180, lx = (e.largo / 2) * vista.k, ex = cx + lx * Math.cos(ang), ey = cy - lx * Math.sin(ang);
     const fs = Math.max(9, Math.min(13, vista.k * 1.1));
-    o.push(`<g class="eq${sel === e.id ? " sel" : ""}${malos.has(e.id) ? " mal" : ""}" data-id="${esc(e.id)}">`
+    o.push(`<g class="eq${e.electrico ? " elec" : ""}${sel === e.id ? " sel" : ""}${malos.has(e.id) ? " mal" : ""}" data-id="${esc(e.id)}">`
       + `<rect class="cuerpo" x="${x}" y="${y}" width="${w}" height="${hh}" rx="2" fill="#dcebe6" stroke="#1b7a5a" stroke-width="1.6"/>`
       + `<line x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" stroke="#1b7a5a" stroke-width="1.2" marker-end="url(#fl)" opacity=".6"/>`
       + `<text x="${cx}" y="${cy - 2}" font-size="${fs}" font-weight="700" text-anchor="middle" fill="#173243">${esc(e.id)}</text>`

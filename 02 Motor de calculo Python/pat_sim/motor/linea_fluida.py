@@ -111,7 +111,18 @@ def fallas_defecto(eq) -> dict | None:
     """Fallas por defecto de un equipo según su tipo (Supuesto PAT 134). None si el equipo no tiene capacidad declarada."""
     if eq.capacidad_efectiva() is None:
         return None
-    cat = categoria(eq.tipo); mtbf, mttr = FALLAS_TIPO[cat]
+    cat = categoria(eq.tipo)
+    # PAT 135, T14: si la selección de equipos comerciales dejó MTBF y MTTR en el equipo, se usan esos (con n unidades en
+    # paralelo, los de una etapa equivalente que entrega la misma capacidad esperada; motor/seleccion.fallas_equivalentes)
+    from . import seleccion as SEL
+    eqv = SEL.fallas_equivalentes(eq)
+    if eqv is not None:
+        mtbf, mttr, nota = eqv
+        if mttr <= 0:
+            return None                       # reparación instantánea: el equipo elegido no detiene la línea
+        return dict(mtbf=AJ.crear("exponencial", nota=nota, escala=mtbf), mttr=AJ.crear("exponencial", nota=nota, escala=mttr),
+                    base="operando", origen="Selección de equipos", categoria=cat)
+    mtbf, mttr = FALLAS_TIPO[cat]
     nota = f"Supuesto PAT 134 ({NOMBRE_CATEGORIA[cat].lower()})"
     return dict(mtbf=AJ.crear("exponencial", nota=nota, escala=mtbf), mttr=AJ.crear("exponencial", nota=nota, escala=mttr),
                 base="operando", origen="Supuesto", categoria=cat)

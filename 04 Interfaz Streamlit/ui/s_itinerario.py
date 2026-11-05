@@ -15,8 +15,10 @@ def mostrar():
     if sig is None:
         st.success("Completó todas las etapas. Descargue el informe en la pestaña Evaluación.")
     else:
-        st.info(f"Siguiente: {sig['nombre']} (pantalla {sig['pestana']}). {sig['pista']}")
-        if sig["pestana"] != ss.get("pagina"):                 # PAT 134: salto a la pantalla del índice lateral
+        rev = " Quedó por revisar porque cambió una etapa anterior." if sig.get("por_revisar") else ""
+        st.info(f"Siguiente: {sig['nombre']} (pantalla {sig['pestana']}). {sig['pista']}{rev}")
+        validas = ss.get("flujo_paginas")                       # PAT 135: pantallas existentes (las deja la franja de flujo.py)
+        if sig["pestana"] != ss.get("pagina") and (not validas or sig["pestana"] in validas):                 # PAT 134: salto a la pantalla del índice lateral
             st.button(f"Ir a {sig['pestana']}", key="it_ir", on_click=lambda: ss.update(pagina=sig["pestana"]))
     with st.expander("Ver las etapas", expanded=False):
-        st.markdown("\n".join(f"- {'✔' if e['cumplida'] else '○'} {e['nombre']}: {e['meta']}" for e in est))
+        st.markdown("\n".join(f"- {'✔' if e['cumplida'] else ('↻' if e.get('por_revisar') else '○')} {e['nombre']}: {e['meta']}" for e in est))
