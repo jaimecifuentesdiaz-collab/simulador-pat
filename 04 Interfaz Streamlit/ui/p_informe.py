@@ -42,7 +42,7 @@ def construir_html(pl, r, E, cop) -> str:
         h.append(AT.html("inf_economia", "Economía") + C.tabla([
             dict(n="Gas desplazado por la cascada (MMBtu por temporada)", v=des["MMBtu"]), dict(n="CO2 evitado (t por temporada)", v=des["co2_t"])],
             [("n", "Concepto", "txt", 0), ("v", "Valor", "num", 1)]) + C.tabla(
-            [dict(n="Ahorro por temporada (MM$)", v=eco.valor_gas(des["MMBtu"], E["precio_gas"], E["dolar"]))], [("n", "Concepto", "txt", 0), ("v", "Valor", "mm", 1)]))
+            [dict(n="Ahorro por temporada (M$)", v=eco.valor_gas(des["MMBtu"], E["precio_gas"], E["dolar"]))], [("n", "Concepto", "txt", 0), ("v", "Valor", "mm", 1)]))
         h.append(f"<p>Henry Hub {C.fmt(C.HENRY_HUB, 2)} US$/MMBtu ({html.escape(C.FUENTE_HH)}); precio usado {C.fmt(E['precio_gas'], 2)} US$/MMBtu; "
                  f"dólar {C.fmt(E['dolar'], 2)} $/US$ ({html.escape(C.FUENTE_DOLAR)}).</p>")
     if "biomasa_base" in r:
@@ -52,10 +52,10 @@ def construir_html(pl, r, E, cop) -> str:
             dict(n="Biomasa desplazada por la cascada (t por año)", v=des["t"]), dict(n="Volumen desplazado (m³ estéreo por año)", v=des["m3"]),
             dict(n="CO2 biogénico evitado (t por año)", v=des["co2_biogenico_t"])],
             [("n", "Concepto", "txt", 0), ("v", "Valor", "num", 1)]) + C.tabla(
-            [dict(n="Ahorro por año (MM$)", v=des["m3"] * precio / 1e6)], [("n", "Concepto", "txt", 0), ("v", "Valor", "mm", 1)]))
+            [dict(n="Ahorro por año (M$)", v=des["m3"] * precio / 1e6)], [("n", "Concepto", "txt", 0), ("v", "Valor", "mm", 1)]))
         h.append(f"<p>Precio de la biomasa {C.fmt(precio, 0)} $/m³ estéreo ({html.escape(C.FUENTE_BIOMASA)}). "
                  "El CO2 de la biomasa es biogénico: se informa aparte y no suma al inventario nacional (IPCC, 2006, vol. 2, sec. 2.3.3.4).</p>")
-    h.append("<p class='nota'>Cifras del Capítulo 1: Modelo_PAT_Agrozzi_v2.xlsx. Símbolos de equipos: ISO 10628; instrumentación: ISA-5.1 y estructura de ISA-5.4.</p></body></html>")
+    h.append("<p class='nota'>Cifras de la planta basada en Agrozzi: Modelo_PAT_Agrozzi_v2.xlsx. Símbolos de equipos: ISO 10628; instrumentación: ISA-5.1 y estructura de ISA-5.4.</p></body></html>")
     return "".join(h)
 
 

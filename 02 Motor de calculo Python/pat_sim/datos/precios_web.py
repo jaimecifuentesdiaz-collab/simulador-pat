@@ -58,13 +58,19 @@ def obtener_clave(secretos=None) -> str | None:
 
 
 # ---------------------------------------------------------------- llamada a Tavily
-def buscar_tavily(consulta: str, clave: str, timeout: float = TIMEOUT_S, _abrir=None) -> dict:
+def buscar_tavily(consulta: str, clave: str, timeout: float = TIMEOUT_S, _abrir=None, max_resultados: int | None = None,
+                  texto_completo: bool = False) -> dict:
     """Llama a Tavily y devuelve el JSON de respuesta. _abrir reemplaza a urllib.request.urlopen en las pruebas.
-    Levanta la excepción de red o de formato: quien llama decide el respaldo."""
+    Levanta la excepción de red o de formato: quien llama decide el respaldo.
+    PAT 136, T23 (retrocompatible): max_resultados cambia los 5 resultados por omisión y texto_completo pide además el texto
+    de cada página (include_raw_content), que las fichas de máquinas de motor/fichas.py leen con expresiones regulares."""
     if not clave:
         raise ValueError("No hay clave de Tavily")
-    cuerpo = json.dumps(dict(api_key=clave, query=consulta, search_depth="basic", max_results=MAX_RESULTADOS,
-                             include_answer=True)).encode("utf-8")
+    pedido = dict(api_key=clave, query=consulta, search_depth="basic", max_results=int(max_resultados or MAX_RESULTADOS),
+                  include_answer=True)
+    if texto_completo:
+        pedido["include_raw_content"] = True
+    cuerpo = json.dumps(pedido).encode("utf-8")
     req = urllib.request.Request(URL_TAVILY, data=cuerpo, method="POST",
                                  headers={"Content-Type": "application/json", "Accept": "application/json"})
     abrir = _abrir or urllib.request.urlopen

@@ -62,6 +62,7 @@ def mostrar():
             if ok:
                 n = sum(Q.aplicar_accion(pl, x, v) for x, v in zip(acc, nuevos))
                 if n and C.resolver(pl):
+                    C.marcar_cambio()                # PAT 137 (estado único): las demás pantallas se recalculan con la planta corregida
                     op.acciones += n
                     ss.aviso_operacion = "cal", f"{n} acción(es) correctiva(s) aplicada(s); la planta se recalculó (vapor, gas y recuperación de calor incluidos)."
                     st.rerun()
@@ -109,5 +110,5 @@ def mostrar():
                         [("n", "Variable", "txt", 0), ("m", "Media", "num", 2), ("sd", "Desviación estándar", "num", 3), ("p", "Dentro de especificación (%)", "num", 1),
                          ("e", "Especificación", "txt", 0), ("c", "Categoría del límite", "txt", 0), ("fe", "Fuente del límite", "txt", 0),
                          ("fm", "Origen de la media", "txt", 0)])
-        st.caption("Desviaciones estándar de la variabilidad común: Supuestos didácticos (las del pellet son las del simulador del profesor); crecen con el "
+        st.caption("Desviaciones estándar de la variabilidad común: Supuestos didácticos (las del pellet son las del simulador didáctico de referencia); crecen con el "
                    "desgaste del equipo de control. Fracción conforme del turno = producto de las probabilidades de cada variable, con un máximo de 0,99.")

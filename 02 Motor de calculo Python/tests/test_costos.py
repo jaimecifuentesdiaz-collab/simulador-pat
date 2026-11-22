@@ -1,4 +1,4 @@
-"""La inversión de pat_sim.motor.costos reproduce la del Capítulo 4 (A3, 5.355 MM$ con U medio)."""
+"""La inversión de pat_sim.motor.costos reproduce la del Capítulo 4 (A3, 5.355 M$ con U medio)."""
 import pytest
 from pat_sim.motor import costos
 

@@ -13,6 +13,7 @@ El entorno queda fuera de OneDrive a propósito: miles de archivos de librerías
 
 | Pestaña | Qué hace |
 |:---|:---|
+| Proyectos | (PAT 138) Primera pantalla del índice. Guarda el proyecto actual («Proyecto de <nombre> <n>», con el nombre escrito en Desafío; el nombre se puede cambiar y no se repite) con la planta y el estado de la sesión, lista los proyectos guardados con buscador por nombre o persona, fecha, tipo de planta y cifras clave, y los carga (la última versión o una del historial), renombra y elimina (con confirmación). Abajo, las plantas de ejemplo y las versiones guardadas antes de PAT 138. En la versión publicada en internet la base vuelve a la original cuando el servidor se reinicia. PAT 144 b: con sesión en la nube («Ingresar a la nube» en la barra lateral, usuario y contraseña de Supabase) la pantalla guarda y abre los proyectos de la cuenta en Supabase, con su rol (docente, estudiante o visita); ver `03 Base de datos\supabase\LEAME.md` |
 | Escenario | Rubro (pasta de tomate, pellet, chip de madera, leña), proyectos y versiones guardadas, crear proyecto; el escenario base del rubro elegido con sus parámetros de partida y, para la biomasa, sus cifras de control (producto, poder calorífico, calor de secado, cascada) |
 | Diseño | Simulador de planta interactivo (PAT 128): arrastrar equipos del catálogo, moverlos, conectarlos de puerto a puerto, editar capacidad, estado, repartos y parámetros con recálculo inmediato; flujos animados, capacidad efectiva, recurso crítico y acumulación (teoría de restricciones), diagnóstico, pistas, secuencia sugerida, curva de desempeño, variables de planta, vista por etapas y exportación SVG, PNG, JPG y Mermaid. Debajo: tabla de corrientes, balance por equipo con capacidad efectiva, formulario con todos los parámetros y PFD ISO 10628 con instrumentos ISA-5.1. PAT 134: catálogo «Instrumentación ISA-5.1 y ISA-5.4» (16 burbujas por tipo y ubicación, elementos primarios, válvulas con actuador y elementos de lazo), letras validadas en Propiedades, líneas de señal por tipo, casilla «Instrumentos» y aviso «Mínimo …» de los parámetros acotados |
 | Operación | (PAT 130) Turnos de 8 h como el simulador del profesor: meta de utilización, compra de materia prima, mantenimiento (ninguno, preventivo en el equipo crítico, correctivo), inventario de materia prima y de producto conforme, producción limitada por la restricción, demanda variable, fallas, alertas y causas especiales con semilla reproducible, desgaste del estado de cada equipo; en el tomate, el tomate que espera en el patio se pierde y se cuenta el gas que la cascada evita en cada turno. Tabla de supuestos con su justificación |
@@ -24,11 +25,11 @@ El entorno queda fuera de OneDrive a propósito: miles de archivos de librerías
 | Evaluación | (PAT 130) Nombre del estudiante (fija la semilla), cuatro justificaciones escritas, puntaje automático oculto hasta finalizar: los 85 puntos del profesor (diseño 15, restricciones 20, economía 15, calidad 20, operación 15) más 15 de recuperación de calor; descarga del informe (HTML) y del proyecto (JSON), importación y reinicio de la práctica |
 | Informe | Descarga del informe en HTML y de los datos en JSON |
 
-La barra lateral guarda la planta actual como una versión nueva del proyecto y registra su corrida.
+La barra lateral muestra el proyecto abierto, avisa si hay cambios sin guardar y tiene el botón «Guardar proyecto» (PAT 138): guarda en el proyecto abierto como una versión más o crea uno nuevo con el nombre automático. El botón «Guardar» del lienzo de Planta ficticia y el de Escenario hacen lo mismo.
 
 ## Cifras de control (planta basada en Agrozzi, igual que Modelo_PAT_Agrozzi_v2.xlsx)
 
-Sumidero 15.956,0 kW; cascada 9.073,8 kW (56,9 %); pinch 9.722,9 kW; solo condensados 6.621,9 kW; gas que desplaza la cascada 73.747 MMBtu y 3.855 t de CO2; ahorro 202,3 MM$ por temporada al Henry Hub.
+Sumidero 15.956,0 kW; cascada 9.073,8 kW (56,9 %); pinch 9.722,9 kW; solo condensados 6.621,9 kW; gas que desplaza la cascada 73.747 MMBtu y 3.855 t de CO2; ahorro 202,3 M$ por temporada al Henry Hub.
 
 ## Supuestos y límites
 
@@ -78,3 +79,7 @@ Completan las seis pestañas del simulador del profesor (Escenario, Diseño libr
 | Evaluación | Se suman 15 puntos de recuperación de calor a los 85 del profesor |
 
 Pruebas: `tests/test_operacion.py` (15 pruebas del motor) y, en la interfaz, `test_diez_pestanas_sin_errores` y `test_operacion_calidad_y_evaluacion`.
+
+## Conexión libre y validador del diseño (PAT 143, 20-11-2026)
+
+En los cuatro lienzos (Planta ficticia, Planta real, Equipos auxiliares y Lazos de control) la conexión es libre: se puede unir cualquier salida con cualquier entrada, soltar un candidato sobre otro equipo de su clase aunque no calce y unir instrumentos con cualquier tipo de señal. El validador (`pat_sim/motor/validador.py`, interfaz en `ui/validacion.py`) revisa la pantalla después de cada cambio. Si encuentra un error, aparece sobre el lienzo una advertencia con la lista de errores, la franja del proceso deja deshabilitado «Etapa siguiente» y el botón «Pista» muestra, clic a clic, tres pistas del primer error: la regla, dónde mirar y qué cambiar en ese punto. Con corrientes de distinto tipo la planta no se calcula. Las reglas, su origen y las pruebas están en `01 Requisitos y diseno/Cambios_PAT143a_20nov2026.md`.

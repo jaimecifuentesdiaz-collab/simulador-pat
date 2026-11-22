@@ -1,4 +1,5 @@
-"""Arma simulador_pat.db desde cero: esquema, proyecto «Planta basada en Agrozzi», fuentes del Capítulo 1 y catálogo de parámetros.
+"""Arma simulador_pat.db desde cero: esquema, proyecto «Planta basada en Agrozzi», fuentes del Capítulo 1, catálogo de parámetros
+y catálogos genéricos de la herramienta docente (PAT 136, T20: plantas, demandas, compatibilidad, equipos y modelos comerciales).
 
 Uso (desde cualquier carpeta):
     python construir_bd.py                 # usa el índice v3 de PAT\\Fuentes\\Capitulo 1 2.0 si existe
@@ -16,6 +17,7 @@ RAIZ = AQUI.parent                              # …\Aplicacion simulador
 sys.path.insert(0, str(RAIZ / "02 Motor de calculo Python"))
 
 from pat_sim.datos import bd as bdmod, fuentes_indice   # noqa: E402
+from pat_sim.datos import genericos   # noqa: E402  (PAT 136, T20: catálogos genéricos de la herramienta docente)
 
 
 def main():
@@ -33,6 +35,10 @@ def main():
         base = bdmod.BaseDatos(tmp)
         print("Precarga:", base.precargar())
         print("Contenido:", base.contar())
+        # PAT 136 (T20): 10 tipos de planta, sus operaciones, equipos, 10 tipos de demanda, compatibilidad y modelos comerciales
+        g = genericos.BaseGenericos(base, sembrar=False)
+        print("Catálogos genéricos:", g.sembrar())
+        print("Tablas genéricas:", g.contar())
         destino = Path(a.destino)
         destino.parent.mkdir(parents=True, exist_ok=True)
         if destino.exists():   # respaldo con fecha: la base nueva reemplaza las versiones guardadas desde la interfaz (revisión PAT 125, A09)

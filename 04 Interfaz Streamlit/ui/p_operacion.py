@@ -21,7 +21,7 @@ def materia(pl) -> str:
 
 
 def producto(pl) -> str:
-    return {"tomate": "pasta de tomate", "pellet": "pellet", "chip": "chip", "lena": "leña"}.get(pl.rubro, "producto")
+    return {"tomate": "pasta de tomate", "pellet": "pellet", "chip": "chip", "lena": "leña", "agar": "agar en polvo"}.get(pl.rubro, "producto")
 
 
 def ejecutar_turno(op, pl, origen: str = "op"):
@@ -149,14 +149,14 @@ def mostrar():
             precio = ss.economia["precio_gas"]; dolar = ss.economia["dolar"]
             e1, e2 = st.columns(2)
             e1.metric("Gas evitado por la cascada en los turnos", C.fmt(g, 1) + " MMBtu", help="Calor de la cascada × horas de los turnos, a la producción de cada turno")
-            e2.metric("Valor del gas evitado", C.esc("$" + C.fmt(g * precio * dolar / 1e6, 2) + " MM"),
+            e2.metric("Valor del gas evitado", C.esc("$" + C.fmt(g * precio * dolar / 1e6, 2) + " M"),
                       help=C.esc(f"Al precio de la pestaña Economía: {C.fmt(precio, 2)} US$/MMBtu y {C.fmt(dolar, 2)} $/US$. CO2 evitado: {C.fmt(co2, 1)} t."))
     with st.expander("Estado de los equipos (desgaste y mantenimiento)", expanded=False):
         filas = [dict(eq=k, nombre=pl.equipos[k].nombre, estado=v, util=100 * ln["util"][k]["util_demanda"] if ln["util"].get(k, {}).get("util_demanda") else None)
                  for k, v in ln["estados"].items()]
         AT.tabla("op_estado", "Estado y utilización por equipo")   # PAT 134: «?» de la tabla
         C.mostrar_tabla(filas, [("eq", "Equipo", "txt", 0), ("nombre", "Nombre", "txt", 0), ("estado", "Estado", "num", 3), ("util", "Utilización (%)", "num", 1)])
-        st.caption("El estado baja entre 0,002 y 0,004 por turno hasta 0,65; el mantenimiento lo sube en el equipo crítico. Es el mismo estado de la pestaña Diseño.")
+        st.caption("Es el mismo estado de la pestaña Diseño.")   # PAT 140: cómo baja y sube el estado ya está en el «?» de la tabla
     with st.expander("Supuestos de la operación y del laboratorio", expanded=False):
         AT.tabla("op_supuestos", "Supuestos")   # PAT 134: «?» de la tabla
         C.mostrar_tabla([dict(n=s.nombre, v=C.fmt(s.valor, 3).rstrip("0").rstrip(","), u=s.unidad, j=s.justificacion)

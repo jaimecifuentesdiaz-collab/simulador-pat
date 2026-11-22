@@ -110,7 +110,7 @@ class Refinadora(Equipo):
           "Banda de 3 a 5 % del tomate recibido (Lu et al., 2019)", 0, 0.3),
         P("brix_jugo", "Sólidos solubles del jugo (°Brix/100)", 0.05, "kg/kg", "Literatura",
           "Simpson et al. (2008, p. 492); Amon et al. (2015, p. 527); coincide con la entrada del Apollo (CFT)", "", 0.03, 0.08),
-        P("cps", "Calor específico de los sólidos solubles", 1.5, "kJ/kg·K", "Supuesto", "Informe 1, Tabla 25"),
+        P("cps", "Calor específico de los sólidos solubles", 1.5, "kJ/kg·K", "Supuesto", "Supuesto de partida del modelo de la planta basada en Agrozzi"),
         capacidad_param(),
     ]
 

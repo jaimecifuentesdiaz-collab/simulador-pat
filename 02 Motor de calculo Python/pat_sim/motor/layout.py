@@ -106,6 +106,42 @@ def familia(eq) -> str:
     return _POR_SIMBOLO.get(s, "general")
 
 
+def forma(eq) -> str:
+    """PAT 140 (plano detallado): forma del símbolo de vista superior del equipo (motor/plano_detalle.py). Sale del símbolo ISO 10628,
+    del tipo y del nombre; no cambia ninguna dimensión ni cálculo."""
+    s = str(getattr(eq, "simbolo", "") or ""); t = str(getattr(eq, "tipo", "") or "").lower()
+    n = str(getattr(eq, "nombre", "") or "").lower()
+    fam = familia(eq)
+    if "acopio" in t or "acopio" in n:
+        return "acopio"
+    if fam == "evaporador":
+        return "evaporador_mvr" if s == "evaporador_mvr" else "evaporador"
+    if fam == "intercambiador":
+        return "intercambiador_placas" if s == "intercambiador_placas" else "intercambiador"
+    if fam == "separador":
+        if s in ("tamiz", "centrifuga") or "refin" in t or "refin" in n:
+            return "refinadora"
+        if s in ("ciclon", "filtro_mangas"):
+            return "ciclon"
+        return "banda"                     # lavadoras, cribas y mesas de selección: banda con rodillos
+    if fam == "acabado":
+        return "llenadora" if ("llen" in t or "llen" in n or "ensac" in t or "ensac" in n) else "general"
+    if fam == "molienda":
+        return "sierra" if s == "sierra" else "molienda"
+    return {"tolva": "tolva", "recipiente": "estanque", "caldera": "caldera", "hogar": "hogar", "secador_rotatorio": "secador_rotatorio",
+            "secador_banda": "secador_banda", "secador_camara": "secador_camara", "pelletizadora": "pelletizadora", "enfriador": "enfriador",
+            "bomba": "bomba", "valvula": "valvula", "transportador": "transportador", "maquina_rotativa": "maquina_rotativa",
+            "columna": "columna"}.get(fam, "general")
+
+
+def efectos(eq) -> int:
+    """Número de cuerpos (efectos) de un evaporador para el símbolo en planta: parámetro N o 1."""
+    try:
+        return max(1, min(8, int(round(float(getattr(eq.params.get("N"), "valor", eq.params.get("N")) or 1)))))
+    except Exception:
+        return 1
+
+
 def _num(v):
     try:
         v = float(v)
@@ -142,6 +178,10 @@ def dimensiones(eq, override=None) -> dict:
     f = max(ESCALA_MIN, min(ESCALA_MAX, (S / S0) if S else 1.0))
     d = dict(largo=max(DIM_MIN, L0 * f ** eL), ancho=max(DIM_MIN, W0 * f ** eW), alto=max(DIM_MIN, H0 * f ** eH),
              familia=fam, variable=var, tamano=S, unidad=unidad, categoria="Supuesto", fuente=just)
+    try:                                                     # PAT 140: solo para el símbolo del plano detallado
+        d.update(forma=forma(eq), efectos=efectos(eq) if fam == "evaporador" else 1)
+    except Exception:
+        d.update(forma="general", efectos=1)
     if d["ancho"] > d["largo"]:
         d["largo"], d["ancho"] = d["ancho"], d["largo"]
     if override:
@@ -751,6 +791,140 @@ _DEFS = ('<defs><marker id="fl" markerWidth="8" markerHeight="8" refX="4" refY="
          'patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#7b8c95" stroke-width="1.2"/></pattern></defs>')
 
 
+def _choca(b, cajas, m=1.0) -> bool:
+    return any(b[0] < c[2] + m and c[0] < b[2] + m and b[1] < c[3] + m and c[1] < b[3] + m for c in cajas)
+
+
+def _libres(a, b, tapas):
+    """Tramos de [a, b] que no cubre ninguno de los intervalos tapas (px)."""
+    seg = [(a, b)]
+    for c0, c1 in tapas:
+        nuevo = []
+        for s0, s1 in seg:
+            if c1 <= s0 or c0 >= s1:
+                nuevo.append((s0, s1))
+                continue
+            if c0 > s0:
+                nuevo.append((s0, c0))
+            if c1 < s1:
+                nuevo.append((c1, s1))
+        seg = nuevo
+    return [x for x in seg if x[1] - x[0] > 0.5]
+
+
+def _rotulos_vista(orden, X, Z, s, ocupado, W) -> list[str]:
+    """PAT 140 i: nombre de cada equipo sobre su contorno y cota de altura dentro del contorno (flecha vertical y número centrados, con
+    fondo claro), en la parte que no tapa un equipo más cercano y sin chocar con otro rótulo. Si el equipo es muy angosto, el número va
+    en una llamada horizontal fuera del contorno, donde no tape a los vecinos."""
+    o, puestas = [], list(ocupado)
+    vis = [(i, it) for i, it in enumerate(orden) if it[4] != "lejos"]
+    caja_eq = {i: (X(it[0]), Z(it[2]), X(it[1]), Z(0)) for i, it in vis}
+    TXT_H, CH = 11.0, 5.6                                        # alto del número (px) y ancho medio de un carácter (px)
+
+    def tapas(i, solo_altos):
+        h = orden[i][2]
+        return [(X(o2[0]), X(o2[1])) for j, o2 in enumerate(orden) if j > i and o2[4] != "lejos" and (not solo_altos or o2[2] >= h - 1e-6)]
+
+    def candidatos(segs, ancho):
+        out = []
+        for s0, s1 in sorted(segs, key=lambda g: -(g[1] - g[0])):
+            if s1 - s0 < ancho:
+                continue
+            c = (s0 + s1) / 2
+            out += [c, s0 + ancho / 2 + 2, s1 - ancho / 2 - 2]
+        return out
+
+    # 1) nombres sobre el contorno
+    for i, (u1, u2, h, k, est) in vis:
+        tw = len(str(k)) * 7.2 + 4
+        segs = _libres(X(u1), X(u2), tapas(i, True)) or [(X(u1), X(u2))]
+        puesto = None
+        cxs = candidatos(segs, tw) + [(g[0] + g[1]) / 2 for g in segs] + [(X(u1) + X(u2)) / 2]
+        for dy in (0, 13, 26, 39):
+            for cx in cxs:
+                for off in ((0,) if not dy else (0, tw / 2 + 3, -(tw / 2 + 3))):
+                    b = (cx + off - tw / 2, Z(h) - 4 - 11 - dy, cx + off + tw / 2, Z(h) - 2 - dy)
+                    if not _choca(b, puestas) and not (dy and _choca((cx - 0.5, Z(h) - 2 - dy, cx + 0.5, Z(h)), puestas, 0)):
+                        puesto = (cx, off, dy, b)
+                        break
+                if puesto:
+                    break
+            if puesto:
+                break
+        if not puesto:
+            cx = (X(u1) + X(u2)) / 2
+            puesto = (cx, 0, 0, (cx - tw / 2, Z(h) - 15, cx + tw / 2, Z(h) - 2))
+        cx, off, dy, b = puesto
+        puestas.append(b)
+        if dy:
+            puestas.append((cx - 1, Z(h) - 2 - dy, cx + 1, Z(h)))
+            o.append(f'<line x1="{cx:.1f}" y1="{Z(h) - 2 - dy:.1f}" x2="{cx:.1f}" y2="{Z(h):.1f}" stroke="#173243" stroke-width="0.7"/>')
+        o.append(f'<text x="{cx + off:.1f}" y="{Z(h) - 4 - dy:.1f}" font-size="11" text-anchor="middle" fill="#173243" '
+                 f'font-weight="bold">{_esc(k)}</text>')
+    # 2) cotas de altura: primero las que caben dentro del contorno; después las llamadas de los equipos angostos o tapados
+    pendientes = []
+    for i, (u1, u2, h, k, est) in vis:
+        txt = _f(h, 1); tw = len(txt) * CH + 6; th = TXT_H + 3
+        y0, y1 = Z(h), Z(0); ym = (y0 + y1) / 2
+        dentro = None
+        if y1 - y0 >= th + 12:
+            for segs in (_libres(X(u1), X(u2), tapas(i, False)), _libres(X(u1), X(u2), tapas(i, True))):
+                for cx in candidatos(segs, tw + 4):
+                    for yy in (ym, ym - th, ym + th, ym - 2 * th, ym + 2 * th):
+                        if yy - th / 2 < y0 + 4 or yy + th / 2 > y1 - 4:
+                            continue
+                        bx = (cx - tw / 2, yy - th / 2, cx + tw / 2, yy + th / 2)
+                        if not _choca(bx, puestas) and not _choca((cx - 2, y0, cx + 2, y1), puestas[len(ocupado):], 0):
+                            dentro = (cx, yy, bx)
+                            break
+                    if dentro:
+                        break
+                if dentro:
+                    break
+        if not dentro:
+            pendientes.append((i, u1, u2, h, txt, tw, th))
+            continue
+        cx, yy, bx = dentro
+        puestas += [bx, (cx - 1, y0, cx + 1, y1)]
+        o.append(f'<g stroke="#34495e" fill="#34495e" font-size="10"><line x1="{cx:.1f}" y1="{y0 + 1:.1f}" x2="{cx:.1f}" '
+                 f'y2="{y1 - 1:.1f}" marker-start="url(#fl)" marker-end="url(#fl)"/>'
+                 f'<rect x="{bx[0]:.1f}" y="{bx[1]:.1f}" width="{bx[2] - bx[0]:.1f}" height="{bx[3] - bx[1]:.1f}" rx="2" fill="#ffffff" '
+                 f'fill-opacity="0.9" stroke="none"/><text x="{cx:.1f}" y="{yy + 3.5:.1f}" text-anchor="middle" stroke="none">{txt}</text></g>')
+    # equipo angosto, bajo o casi tapado: flecha en su parte visible y llamada horizontal fuera, donde no tape rótulos ni, si se puede,
+    # a los equipos vecinos (se elige la posición de menor penalización)
+    for i, u1, u2, h, txt, tw, th in pendientes:
+        y0, y1 = Z(h), Z(0); ym = (y0 + y1) / 2
+        segs = _libres(X(u1), X(u2), tapas(i, False)) or _libres(X(u1), X(u2), tapas(i, True)) or [(X(u1), X(u2))]
+        g0, g1 = max(segs, key=lambda g: g[1] - g[0]); cx = (g0 + g1) / 2
+        otros = [c for j, c in caja_eq.items() if j != i]
+        mejor = None
+        ys = [ym + d * th for d in (0, -1, 1, -2, 2, -3, 3)] + [y0 - th * 0.9, y0 - th * 1.9]
+        for yy in ys:
+            if yy - th / 2 < 2 or yy + th / 2 > y1 - 1:
+                continue
+            for lado in (1, -1):
+                for sep in (6, 18, 34):
+                    xa = (g1 if lado > 0 else g0) + lado * sep
+                    bx = (xa, yy - th / 2, xa + tw, yy + th / 2) if lado > 0 else (xa - tw, yy - th / 2, xa, yy + th / 2)
+                    if bx[0] < 2 or bx[2] > W - 2:
+                        continue
+                    guia = (min(cx, xa), yy - 0.5, max(cx, xa), yy + 0.5)
+                    pen = (1000 * (_choca(bx, puestas) or _choca(guia, puestas[len(ocupado):], 0))
+                           + 8 * sum(_choca(bx, [c], 0) for c in otros) + sep / 6 + abs(yy - ym) / 40 + (0 if lado > 0 else 0.5))
+                    if mejor is None or pen < mejor[0]:
+                        mejor = (pen, xa, yy, bx, guia)
+        if mejor is None:
+            xa = g1 + 6; mejor = (0, xa, ym, (xa, ym - th / 2, xa + tw, ym + th / 2), (cx, ym, xa, ym))
+        _pen, xa, yy, bx, guia = mejor
+        puestas += [bx, guia, (cx - 1, y0, cx + 1, y1)]
+        o.append(f'<g stroke="#34495e" fill="#34495e" font-size="10"><line x1="{cx:.1f}" y1="{y0 + 1:.1f}" x2="{cx:.1f}" y2="{y1 - 1:.1f}" '
+                 f'marker-start="url(#fl)" marker-end="url(#fl)"/><line x1="{cx:.1f}" y1="{yy:.1f}" x2="{xa:.1f}" y2="{yy:.1f}" '
+                 f'stroke-width="0.8"/><rect x="{bx[0]:.1f}" y="{bx[1]:.1f}" width="{bx[2] - bx[0]:.1f}" height="{bx[3] - bx[1]:.1f}" rx="2" '
+                 f'fill="#ffffff" fill-opacity="0.9" stroke="#34495e" stroke-width="0.6"/>'
+                 f'<text x="{(bx[0] + bx[2]) / 2:.1f}" y="{yy + 3.5:.1f}" text-anchor="middle" stroke="none">{txt}</text></g>')
+    return o
+
+
 def _vista(items, titulo, eje_txt, h_rack, ancho_px=900, notas="", cables=None, h_bandeja=None):
     """items: (u1, u2, alto, id, estilo) con u en m a lo largo de la vista; estilo 'cerca', 'lejos', 'corte' o 'electrico'
     (sala eléctrica). PAT 135 (T15): cables = recorridos [(u, z), ...] de los alimentadores y h_bandeja, la bandeja eléctrica."""
@@ -784,13 +958,14 @@ def _vista(items, titulo, eje_txt, h_rack, ancho_px=900, notas="", cables=None, 
         stroke = {"lejos": "#9aaab2", "cerca": "#1b7a5a", "corte": "#173243", "electrico": COLOR_CABLE}[est]
         o.append(f'<rect x="{X(u1):.1f}" y="{Z(h):.1f}" width="{(u2 - u1) * s:.1f}" height="{h * s:.1f}" fill="{fill}" '
                  f'stroke="{stroke}" stroke-width="{2 if est != "lejos" else 1}"/>')
-        if est != "lejos":
-            o.append(f'<text x="{(X(u1) + X(u2)) / 2:.1f}" y="{Z(h) - 4:.1f}" font-size="11" text-anchor="middle" fill="#173243" '
-                     f'font-weight="bold">{_esc(k)}</text>')
-            o.append(_cota_v(X(u2) + 4, Z(h), Z(0), _f(h, 1)))
     for c in cables:                                        # PAT 135 (T15): alimentadores punteados
         pts = " ".join(f"{X(u):.1f},{Z(z):.1f}" for u, z in c)
         o.append(f'<polyline points="{pts}" fill="none" stroke="{COLOR_CABLE}" stroke-width="1.6" stroke-dasharray="2 3"/>')
+    # PAT 140 i: nombres y cotas de altura al final, encima de todo y sin encimarse (ver _rotulos_vista)
+    ocupado = [(X(umax) + 18, Z(h_rack) - 9, W, Z(h_rack) + 6)]
+    if h_bandeja:
+        ocupado.append((X(umax) + 18, Z(h_bandeja) - 9, W, Z(h_bandeja) + 6))
+    o.extend(_rotulos_vista(orden, X, Z, s, ocupado, W))
     # piso, nivel y cota total
     o.append(f'<line x1="{X(umin) - 30:.1f}" y1="{Z(0):.1f}" x2="{X(umax) + 30:.1f}" y2="{Z(0):.1f}" stroke="#173243" stroke-width="2.5"/>')
     o.append(f'<text x="{X(umin) - 30:.1f}" y="{Z(0) + 14:.1f}" font-size="10" fill="#173243">±0,00</text>')

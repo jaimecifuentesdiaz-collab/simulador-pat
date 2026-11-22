@@ -210,15 +210,15 @@ def semilla_parametros() -> list[dict]:
                       unidad="$/m³ estéreo", categoria="Oficial", fuente=c.get("FUENTE_BIOMASA", ""), fecha="2025-06-30"))
     # PAT 135: parámetros de evaluación que estaban fijos en ui/comun.iniciar_estado (tasa y horizonte). Son Supuesto.
     F.append(dict(clave="tasa_descuento", nombre="Tasa de descuento de la evaluación económica", valor=0.10, unidad="fracción",
-                  categoria="Supuesto", fuente="Supuesto: 10 % real anual, valor de partida del simulador (ui/comun.py); el profesor lo ajusta según el proyecto",
+                  categoria="Supuesto", fuente="Supuesto: 10 % real anual, valor de partida del simulador (ui/comun.py); el docente lo ajusta según el proyecto",
                   fecha="2026-11-04"))
     F.append(dict(clave="anios_evaluacion", nombre="Horizonte de la evaluación económica", valor=20, unidad="años", categoria="Supuesto",
-                  fuente="Supuesto: 20 años, valor de partida del simulador (ui/comun.py); el profesor lo ajusta según la vida útil del proyecto",
+                  fuente="Supuesto: 20 años, valor de partida del simulador (ui/comun.py); el docente lo ajusta según la vida útil del proyecto",
                   fecha="2026-11-04"))
     # PAT 135: segundo escenario de gas, el mismo del modelo de los Capítulos 2 a 4 (FLUJO_A3, «Flujo importación»).
     F.append(dict(clave=CLAVE_GAS_IMPORTACION, nombre="Precio del gas natural de importación (FOB)", valor=round(6.89 / 1.037, 3),
                   unidad="US$/MMBtu", categoria="Oficial",
-                  fuente="Modelo_PAT_Capitulos2a4_Agrozzi_v1.xlsx, hoja PARAMETROS: fob_mcf 6,89 US$/mcf dividido por mcf_mmbtu 1,037; "
+                  fuente="Modelo económico de la planta basada en Agrozzi (v1), hoja PARAMETROS: fob_mcf 6,89 US$/mcf dividido por mcf_mmbtu 1,037; "
                          "precio FOB de importación, sin regasificación, transporte ni distribución",
                   fecha="2026-11-04"))
     # No se siembra «precio_gas_industrial_chile» (US$/MMBtu): no hay un valor con fuente segura en la carpeta del proyecto.
@@ -322,8 +322,8 @@ def semilla_catalogo_comercial() -> list[dict]:
         ref = CO.REFERENCIAS[clave]
         n, fuente_n, _cat = CO.exponente(clave)
         cat = LF.categoria(tipo); mtbf, mttr = LF.FALLAS_TIPO[cat]
-        f_conf = (f"Supuesto PAT 134 de motor/linea_fluida.py (FALLAS_TIPO, {LF.NOMBRE_CATEGORIA[cat].lower()}): orden de magnitud del "
-                  "simulador del profesor, igual para todos los tamaños; sin dato de fabricante ni base de confiabilidad en la carpeta")
+        f_conf = (f"Supuesto PAT 134 de motor/linea_fluida.py (FALLAS_TIPO, {LF.NOMBRE_CATEGORIA[cat].lower()}): orden de magnitud "
+                  "didáctico, igual para todos los tamaños; sin dato de fabricante ni base de confiabilidad en la carpeta")
         f_precio = (f"Supuesto: referencia de motor/costeo.py ({_fmt_cl(ref['S'])} {unidad}, US$ {_fmt_cl(ref['C'])} de {ref['anio']}, "
                     f"también Supuesto) escalada a este tamaño con Williams, n = {str(n).replace('.', ',')} ({fuente_n})")
         for S in tamanos:
@@ -341,7 +341,7 @@ COLUMNAS_COMERCIAL = ("tipo", "modelo", "magnitud", "capacidad", "unidad", "fuen
 
 # Desafío de ejemplo en blanco: secado de agar agar. Todas sus cifras son Supuesto ilustrativo (no hay fuente en la carpeta PAT).
 _SUP_AGAR = ("Supuesto ilustrativo para el desafío de ejemplo: no hay dato de una planta ni fuente segura en la carpeta del "
-             "proyecto. El profesor lo reemplaza en el mantenedor")
+             "proyecto. El docente lo reemplaza en el mantenedor")
 AGAR_MESES = ("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
 AGAR_DEMANDA_T = (42.0, 40.0, 45.0, 50.0, 55.0, 58.0, 60.0, 58.0, 54.0, 50.0, 46.0, 44.0)   # Supuesto: 602 t al año, peak en invierno
 
@@ -390,7 +390,7 @@ def desafio_agar() -> dict:
 
 
 # ------------------------------------------------------------------ PAT 135: estados del material y precedencia
-_F_TOMATE = ("Supuesto: orden de la línea de la planta basada en Agrozzi del Capítulo 1 (escenarios/agrozzi.py): recepción, lavado, "
+_F_TOMATE = ("Supuesto: orden de la línea de la planta basada en Agrozzi (escenarios/agrozzi.py): recepción, lavado, "
              "trituradora, hot break, refinadora, evaporadores, esterilizador, enfriamiento y llenado aséptico")
 _F_PELLET = "Supuesto: orden de la línea de escenarios/pellet.py (secado, molienda, pelletizado, enfriamiento, cribado y ensacado)"
 _F_CHIP = "Supuesto: orden de la línea de escenarios/chip.py (astillado, cribado, secado y acopio)"
@@ -758,7 +758,7 @@ class Mantenedor:
         return bool(p and p["valor"])
 
     def fijar_conexiones_libres(self, libre: bool) -> None:
-        self.guardar_parametro(CLAVE_LIBRE, 1 if libre else 0, "—", "Opción del profesor en el mantenedor (1 = conexiones libres, "
+        self.guardar_parametro(CLAVE_LIBRE, 1 if libre else 0, "—", "Opción del docente en el mantenedor (1 = conexiones libres, "
                                "sin la restricción de precedencia)", date.today().isoformat(), "Permitir conexiones libres", "Usuario")
 
     def sembrar_precedencia(self) -> dict:

@@ -78,6 +78,24 @@ SUPUESTOS = {
     "pellet": _biomasa("aserrín verde", 25.0, 4.0, 168.0),
     "chip": _biomasa("rollizos", 28.0, 2.0, 96.0),
     "lena": _biomasa("trozas", 25.0, 2.0, 168.0),
+    "agar": [   # PAT 143 b: planta de agar agar (escenarios/agar.py)
+        Supuesto("camion", "Carga de un camión de alga seca en fardos", 10.0, "t",
+                 "El alga seca se despacha en fardos prensados, livianos y voluminosos, así que el camión llena su volumen antes que su "
+                 "carga útil; " + _SD + ". Se puede cambiar en la pestaña"),
+        _CV,
+        Supuesto("umbral", "Espera sobre la cual la materia prima se degrada", 0.0, "h",
+                 "El alga seca a cerca de 20 % de humedad se guarda en fardos (Armisen y Galatas, 1987): no se degrada en esperas de horas"),
+        Supuesto("tasa", "Pérdida por hora de espera sobre el umbral", 0.0, "fracción por h", "Igual que el umbral: el alga seca no se degrada en horas"),
+        Supuesto("arranque", "Duración del arranque de la temporada", 8.0, "h",
+                 "Encendido de la caldera y calentamiento del baño alcalino, del extractor y del aire del secador antes de recibir alga; " + _SD),
+        Supuesto("cip_cada", "Horas de producción entre limpiezas programadas", 24.0, "h",
+                 "Lavado diario de las telas del filtro prensa y de los estanques, que acumulan residuo de alga y gel; " + _SD),
+        Supuesto("cip_dur", "Duración de una limpieza programada", 2.0, "h", "Cambio y lavado de las telas del filtro prensa; " + _SD),
+        Supuesto("parada_cada", "Días entre paradas programadas de mantenimiento", 30.0, "d",
+                 "Mantenimiento preventivo mensual de la línea, como en los rubros de biomasa; " + _SD),
+        Supuesto("parada_dur", "Duración de una parada programada", 24.0, "h", "Un día de mantenimiento preventivo; " + _SD),
+        Supuesto("parada_final", "Duración de la parada final", 8.0, "h", "Vaciado de los estanques, limpieza y apagado de la caldera; " + _SD),
+    ],
 }
 TIPOS = [("arranque", "Arranque", "#8a9aa3"), ("produccion", "Producción", "#4f7f6a"), ("limpieza", "Limpieza", "#5b84a8"),
          ("parada", "Parada programada", "#b08a4a"), ("fuera_turno", "Fuera de turno", "#d3d9dc"), ("parada_final", "Parada final", "#8b5e5e")]

@@ -102,7 +102,7 @@ def _hx_shamoushaki(area_m2: float) -> float:
 
 
 SUP = "Supuesto"
-J_SUP = "orden de magnitud de partida; se reemplaza con el precio de internet (Tavily) o con el PDF del profesor"
+J_SUP = "orden de magnitud de partida; se reemplaza con el precio de internet (Tavily) o de una cotización"
 # clave → nombre, consulta en inglés para Tavily, magnitud, unidad, tamaño y precio de referencia (US$ de equipo comprado),
 # año, fuente, categoría y, si existe, correlación f(S) → US$ del año con su rango de validez en S.
 REFERENCIAS = {
@@ -153,10 +153,27 @@ _LINEA = {
     "criba_biomasa": ("criba", "Criba", "vibrating screen biomass price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 40000.0),
     "sierra_lena": ("sierra_lena", "Procesadora de leña", "firewood processor price {s} t/h", "Capacidad", "t/h", "carga_t_h", 4.0, 90000.0),
     "despacho_biomasa": ("ensacado_acopio", "Ensacado o acopio", "pellet bagging machine price {s} t/h", "Capacidad", "t/h", "producto_t_h", 5.0, 150000.0),
+    # PAT 143 b: agar agar. El secador, el molino y el envasado usan la referencia del equipo parecido de biomasa; los demás parten del
+    # equipo genérico (10 t/h, US$ 30.000), con su consulta propia para el precio de internet
+    "alimentacion_alga": ("recepcion_alga", "Recepción de alga seca", "seaweed bale receiving hopper conveyor price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "lavado_alga": ("estanque_lavado_alga", "Estanque de lavado de alga", "stainless steel seaweed washing tank with agitator price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "tratamiento_alcalino_agar": ("reactor_alcalino_agar", "Reactor de tratamiento alcalino", "stainless steel jacketed alkali treatment tank agar seaweed price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "lavado_neutralizacion_agar": ("estanque_neutralizacion_agar", "Estanque de lavado y neutralización", "stainless steel neutralization washing tank agitator price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "extractor_agar": ("extractor_agar", "Extractor de agar con camisa", "agar extraction tank steam jacketed stainless steel price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "filtro_prensa_agar": ("filtro_prensa_agar", "Filtro prensa", "plate and frame filter press hot agar extract price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "gelificador_agar": ("enfriador_extracto_agar", "Enfriador del extracto de agar", "plate heat exchanger cooler agar extract gelling price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "prensa_gel_agar": ("prensa_gel_agar", "Prensa del gel de agar", "hydraulic gel press agar syneresis price {s} t/h", "Capacidad", "t/h", "carga_t_h", 10.0, 30000.0),
+    "secador_agar": ("secador_banda", "Secador de banda", "belt dryer agar gel steam heated price {s} kg/h water evaporation", "Evaporación", "kg/h", "agua_evaporada_kgh", 5000.0, 1500000.0),
+    "molino_agar": ("molino_martillos", "Molino de martillos", "agar powder hammer mill price {s} t/h", "Capacidad", "t/h", "carga_t_h", 5.0, 120000.0),
+    "envasado_agar": ("ensacado_acopio", "Ensacado o acopio", "agar powder bag filling machine price {s} t/h", "Capacidad", "t/h", "producto_t_h", 5.0, 150000.0),
 }
 for _t, (_k, _n, _q, _m, _u, _d, _s, _c) in _LINEA.items():
     REFERENCIAS.setdefault(_k, dict(nombre=_n, consulta=_q, magnitud=_m, unidad=_u, S=_s, C=_c, anio=2023, fuente=f"Supuesto: {J_SUP}",
                                     categoria=SUP))
+for _k in ("recepcion_alga", "estanque_lavado_alga", "reactor_alcalino_agar", "estanque_neutralizacion_agar", "extractor_agar", "filtro_prensa_agar",
+           "enfriador_extracto_agar", "prensa_gel_agar"):     # PAT 143 b: sin precio de referencia propio
+    REFERENCIAS[_k]["fuente"] = ("Supuesto: sin precio de referencia para este equipo; se parte del equipo genérico del simulador (10 t/h, "
+                                 "US$ 30.000 de 2023) y se reemplaza con el precio de internet (Tavily) o de una cotización")
 # PAT 135, T14: cable eléctrico de los alimentadores del layout (st.session_state["layout"]["cables_m"], equipo S)
 REFERENCIAS["cable_electrico"] = dict(nombre="Cable eléctrico de potencia", consulta="copper power cable 3x35 mm2 low voltage price per meter",
                                       magnitud="Sección", unidad="mm2", S=35.0, C=25.0, anio=2023, por_metro=True,
@@ -349,10 +366,16 @@ def precio_bibliografia(clave: str, tamano: float | None, exponentes: dict | Non
 def costear(pl, cepci_hoy: float = CEPCI_HOY, anio_cepci: int = ANIO_CEPCI_HOY, dolar: float = costos.DOLAR, euro: float = costos.EURO,
             bd=None, buscar: bool = False, clave: str | None = None, longitudes: dict | None = None, alternativa: str | None = None,
             X: dict | None = None, exponentes: dict | None = None, f_inst: float = costos.F_INSTALACION, items: list | None = None,
-            _abrir=None, cables_m: dict | None = None) -> dict:
+            _abrir=None, cables_m: dict | None = None, metodo: str = "factor_unico", mantencion_pct: float | None = None,
+            opciones_metodo: dict | None = None) -> dict:
     """Costo de cada equipo y de la planta. Cada fila: equipo, tipo, tamaño requerido, tamaño y precio de referencia, año,
     exponente de Williams aplicado, factor CEPCI, costo actualizado en US$ y $, fuente, fecha, URL y origen (internet,
-    guardado o bibliografía). Totales: equipos, instalación (factor f_inst de motor/costos.py) y total de la planta."""
+    guardado o bibliografía). Totales: equipos, instalación (factor f_inst de motor/costos.py) y total de la planta.
+    PAT 136, T24: metodo elige el sistema de costeo de motor/factores_costo.py («factor_unico» por defecto deja todas las
+    cifras como antes; «lang», «hand», «modulo_desnudo», «desglose»), con opciones_metodo (tipo, lang_fuente, material, P_barg,
+    precio_en_material, ampliacion, incluir_terreno, entrega_pct). El resultado trae «metodo_costeo» (desglose y fuente) y
+    «operacion» (mantención anual con mantencion_pct, en %, y otros costos fijos sobre la inversión total)."""
+    from . import factores_costo as FC
     from ..datos import precios_web as PW
     items = items if items is not None else lista_equipos(pl, longitudes, alternativa, X, cables_m)
     filas, avisos = [], []
@@ -394,7 +417,7 @@ def costear(pl, cepci_hoy: float = CEPCI_HOY, anio_cepci: int = ANIO_CEPCI_HOY, 
         cant = it["cantidad"] if it["clave"] in ("caneria", "cable_electrico") or it.get("unidades") else 1.0
         usd = float(C_hoy * cant)
         S2 = None if S2 is None else float(S2)
-        filas.append(dict(equipo=it["equipo"], nombre=it["nombre"], tipo=it["tipo"], magnitud=it["magnitud"], tamano=S2, unidad=it["unidad"],
+        filas.append(dict(equipo=it["equipo"], nombre=it["nombre"], clave=it["clave"], tipo=it["tipo"], magnitud=it["magnitud"], tamano=S2, unidad=it["unidad"],
                           cantidad=float(cant), tamano_ref=None if S1 is None else float(S1), precio_ref_usd=float(C1), anio=anio, n=n_apl, fuente_n=f"{fuente_n} ({cat_n})",
                           cepci_ref=cepci_ref, factor_cepci=float(fc), costo_usd=usd, costo_clp=usd * dolar, fuente=p.get("fuente", ""),
                           fecha=p.get("fecha", ""), url=p.get("url", ""), origen=origen, categoria=p.get("categoria", "Internet"),
@@ -403,7 +426,48 @@ def costear(pl, cepci_hoy: float = CEPCI_HOY, anio_cepci: int = ANIO_CEPCI_HOY, 
     rec_usd = float(sum(f["costo_usd"] for f in filas if f["tipo"] in (REFERENCIAS["intercambiador"]["nombre"], REFERENCIAS["bomba_calor"]["nombre"])))
     tot = dict(equipos_usd=eq_usd, instalacion_usd=eq_usd * (f_inst - 1), total_usd=eq_usd * f_inst, f_inst=f_inst,
                recuperacion_usd=rec_usd * f_inst)
+    # PAT 136, T24: sistema de costeo con factores de literatura (el factor único deja los totales de arriba sin cambio)
+    mc = FC.aplicar(metodo, filas, f_inst=f_inst, **(opciones_metodo or {}))
+    if metodo != "factor_unico":
+        tot = dict(equipos_usd=eq_usd, instalacion_usd=mc["total_usd"] - eq_usd, total_usd=mc["total_usd"],
+                   f_inst=(mc["total_usd"] / eq_usd if eq_usd > 0 else 0.0), recuperacion_usd=mc["recuperacion_usd"])
     tot.update({k.replace("_usd", "_clp"): v * dolar for k, v in list(tot.items()) if k.endswith("_usd")})
+    op = FC.operacion_fija(tot["total_usd"], mantencion_pct)
     return dict(filas=filas, totales=tot, avisos=avisos, cepci_hoy=cepci_hoy, anio_cepci=anio_cepci, dolar=dolar, euro=euro,
                 n_internet=sum(1 for f in filas if f["origen"].startswith("internet")),
-                n_bibliografia=sum(1 for f in filas if f["origen"] == "bibliografía"))
+                n_bibliografia=sum(1 for f in filas if f["origen"] == "bibliografía"), metodo=metodo, metodo_costeo=mc, operacion=op)
+
+
+# ---------------------------------------------------------------- PAT 136, T24: comparación de métodos
+def comparar_metodos(pl, opciones_metodo: dict | None = None, mantencion_pct: float | None = None, res: dict | None = None,
+                     metodos: list | None = None, **kw) -> dict:
+    """Inversión total de la misma planta con cada sistema de costeo (motor/factores_costo.py). Costea una vez (o usa res, el
+    resultado de costear) y aplica cada método a las mismas filas. kw pasa a costear (cepci_hoy, dolar, longitudes, X, ...).
+    Devuelve {filas: [{metodo, nombre, base_usd, total_usd, total_clp, factor_efectivo, diferencia_pct, mantencion_usd,
+    om_usd, fuente, categoria}], tipo_planta, avisos}. Con planta vacía o sin resolver, filas en cero y un aviso."""
+    from . import factores_costo as FC
+    metodos = list(metodos or FC.METODOS)
+    dolar = float(kw.get("dolar", costos.DOLAR)) if res is None else float(res.get("dolar", costos.DOLAR))
+    avisos = []
+    if res is None:
+        if not getattr(pl, "equipos", None):
+            avisos.append("La planta está vacía: agregue equipos en Diseño para comparar los métodos de costeo.")
+        elif not pl.resuelta:
+            avisos.append("Resuelva la planta antes de comparar los métodos de costeo.")
+        else:
+            res = costear(pl, **kw)
+    filas_c = res["filas"] if res else []
+    f_inst = float(kw.get("f_inst", costos.F_INSTALACION))
+    ref = None; out = []
+    for m in metodos:
+        a = FC.aplicar(m, filas_c, f_inst=f_inst, **(opciones_metodo or {}))
+        op = FC.operacion_fija(a["total_usd"], mantencion_pct)
+        if m == "factor_unico":
+            ref = a["total_usd"]
+        out.append(dict(metodo=m, nombre=a["nombre"], base_usd=a["base_usd"], total_usd=a["total_usd"], total_clp=a["total_usd"] * dolar,
+                        factor_efectivo=a["factor_efectivo"], mantencion_usd=op["mantencion"], om_usd=op["total"],
+                        fuente=a["fuente"], categoria=a["categoria"], tipo_planta=a["tipo_planta"]["nombre"]))
+    for r in out:
+        r["diferencia_pct"] = ((r["total_usd"] / ref - 1) * 100) if ref else None
+    tp = FC.tipo_planta(filas_c, (opciones_metodo or {}).get("tipo"))
+    return dict(filas=out, tipo_planta=tp, avisos=avisos + (res.get("avisos", []) if res else []))

@@ -59,8 +59,8 @@ ECONOMIA = [
     ("precio_gas", "Precio del gas natural (Henry Hub)", "US$/MMBtu", 2.77, "CNE (2026c), Reporte mensual sector energético, septiembre de 2026, p. 12; agosto de 2026", 0.0, 100.0, False),
     ("dolar", "Dólar observado", "$/US$", 990.35, "Banco Central de Chile (2026), indicadores diarios, 26-10-2026", 1.0, 5000.0, False),
     ("tasa", "Tasa de descuento", "fracción (0,10 = 10 %)", 0.10, "Supuesto: valor de partida de la pestaña Economía, se puede cambiar", 0.0, 0.5, False),
-    ("inversion", "Inversión", "MM$", 0.0, "La declara el usuario (con 0 la pestaña Economía usa la inversión estimada de la alternativa)", 0.0, 1e7, False),
-    ("costo_anual", "Costo anual de operación y mantención", "MM$", 0.0, "Lo declara el usuario", 0.0, 1e6, False),
+    ("inversion", "Inversión", "M$", 0.0, "La declara el usuario (con 0 la pestaña Economía usa la inversión estimada de la alternativa)", 0.0, 1e7, False),
+    ("costo_anual", "Costo anual de operación y mantención", "M$", 0.0, "Lo declara el usuario", 0.0, 1e6, False),
     ("anios", "Horizonte de evaluación", "años", 20, "Supuesto: valor de partida de la pestaña Economía, se puede cambiar", 1, 50, True),
     ("precio_biomasa", "Precio de la biomasa combustible (astilla de pino con corteza, sin IVA)", "$/m³ estéreo", 6750.0,
      "INFOR (Pardo, 2025), Boletín de precios forestales N.° 193, junio de 2025, pp. 12-13; punto medio de 6.000 a 7.500", 0.0, 1e6, False),
@@ -762,7 +762,7 @@ def _hoja_operacion(turnos: list, hoy: str) -> X.Hoja:
             ("gas_evitado_MMBtu", "Gas evitado (MMBtu)", X.NUM1), ("biomasa_evitada_t", "Biomasa evitada (t)", X.NUM1)]
     h = X.Hoja("Operación", [8, 12, 11, 11, 15, 8, 8, 10, 13, 12, 12, 12, 12, 12, 12, 14, 14, 13, 13])
     h.poner(1, 1, "Turnos de la pestaña Operación", X.TIT)
-    h.poner(2, 1, f"Fuente: motor/operacion.py (correr_turno, adaptación de runShift de Scorm_pellet_profesor.html), exportado el {hoy}.", X.NOTA)
+    h.poner(2, 1, f"Fuente: motor/operacion.py (correr_turno, adaptación de runShift del simulador SCORM de pellet), exportado el {hoy}.", X.NOTA)
     if not turnos:
         h.poner(4, 1, "Sin turnos corridos en la sesión.", X.TXT); return h
     h.fila(4, [t for _k, t, _e in cols], [X.ENC_NUM if e != X.TXT else X.ENC_TXT for _k, _t2, e in cols])

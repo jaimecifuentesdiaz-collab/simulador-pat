@@ -22,6 +22,7 @@ from . import comun as C
 N_DEMO = 9
 DISENOS = ["Una columna", "Dos columnas"]
 COLS_BIB = 4                                  # tarjetas por fila en la biblioteca
+SIN_TURNOS = "Todavía no hay turnos de Operación"   # PAT 140: comienzo del aviso de los gráficos sin turnos (motor/tablero.py)
 
 
 # ----------------------------------------------------------------------------------------------- tableros guardados
@@ -171,7 +172,7 @@ def _demo(op, pl):
     meta = float(ss.get("op_meta", 90.0)) / 100
     for i in range(N_DEMO):
         OP.correr_turno(o2, p2, meta, None, "preventivo" if i == N_DEMO // 2 else "ninguno")
-    ss.tb_demo = dict(rubro=pl.rubro, turnos=o2.turnos, pl=p2)
+    ss.tb_demo = dict(rubro=pl.rubro, turnos=o2.turnos, pl=p2, version=C.version_planta())   # PAT 136
 
 
 def _extra_llegadas() -> dict:
@@ -249,7 +250,14 @@ def _dibujar(w: dict, g: dict | None = None, n: int = 0, total: int = 1, tab: di
         if tab is not None and g is not None:
             with b:
                 _acciones(w, g, n, total, tab, activo, columnas)
+        vistos = st.session_state.get("_tb_avisos_vistos")   # PAT 140: cada aviso se muestra una sola vez en el tablero
         for av in w["avisos"]:
+            clave = SIN_TURNOS if av.startswith(SIN_TURNOS) else av
+            if vistos is not None and clave in vistos:
+                st.caption("Sin datos todavía: vea el aviso de arriba.")
+                continue
+            if vistos is not None:
+                vistos.add(clave)
             st.info(av)
         if w["tarjetas"]:
             tj = w["tarjetas"]
@@ -297,7 +305,7 @@ def mostrar():
         st.toast(aviso)
     op = C.operacion()
     demo = ss.get("tb_demo")
-    if demo and demo.get("rubro") != pl.rubro:
+    if demo and (demo.get("rubro") != pl.rubro or demo.get("version", C.version_planta()) != C.version_planta()):   # PAT 136
         ss.pop("tb_demo", None); demo = None
     if op.turnos:
         turnos, pl_turnos, origen = op.turnos, pl, f"{len(op.turnos)} turnos de la pestaña Operación"
@@ -306,6 +314,8 @@ def mostrar():
     else:
         turnos, pl_turnos, origen = [], pl, None
     a, b = st.columns([3, 1])
+    # PAT 140: un aviso igual en varios gráficos se muestra una vez; con la Operación vacía, el de arriba ya lo dice
+    ss["_tb_avisos_vistos"] = set() if origen else {SIN_TURNOS}
     if origen:
         a.caption("Datos de Operación: " + origen + ".")
     else:

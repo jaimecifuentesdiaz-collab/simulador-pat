@@ -14,6 +14,8 @@ HOLGURAS = {
     "pellet": {"T1": 0.10, "Z1": 0.30, "A1": 0.15, "T2": 0.40, "F1": 0.50, "A2": 1.00},
     "chip": {"Z1": 0.40, "F1": 0.60, "T1": 0.10, "A1": 1.00},
     "lena": {"A1": 0.20, "T1": 0.10, "A2": 1.00},
+    # PAT 143 b: agar agar. El extractor y el secador quedan como recursos críticos; envasado y molino con holgura para los peaks
+    "agar": {"R1": 0.30, "C1": 0.20, "R2": 0.30, "W1": 0.10, "F1": 0.30, "W2": 0.30, "F2": 0.30, "T1": 0.10, "Z1": 0.50, "A1": 1.00},
 }
 JUSTIFICACION = ("Holgura de diseño supuesta por el simulador, no es dato de la planta: el equipo más caro de la línea se dimensiona "
                  "más ajustado (recurso crítico) y la recepción, el acopio y el despacho se sobredimensionan para los peaks")

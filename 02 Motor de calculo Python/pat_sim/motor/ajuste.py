@@ -582,7 +582,7 @@ _EJ = "Serie didáctica generada al azar, sin datos medidos de la planta"
 _DESC = ("La media es cercana al tiempo de descarga de la pestaña Temporada (carga del camión dividida por la capacidad de recepción "
          "de partida del rubro, escenarios/capacidades.py), para que al usarla la temporada siga comparable; la forma asimétrica a la "
          "derecha es la habitual de los tiempos de servicio")
-_FALLA = ("La media es cercana a la detención del simulador del profesor (Scorm_pellet_profesor.html, runShift: un turno con falla "
+_FALLA = ("La media es cercana a la detención del simulador didáctico de referencia (SCORM de pellet, runShift: un turno con falla "
           "conserva 0,36 de su capacidad, es decir, unas 5,1 h detenidas de 8 h)")
 EJEMPLOS = {   # rubro -> serie -> (distribución que la genera, parámetros, semilla, n, decimales)
     "tomate": {"descarga_h": ("lognormal", dict(mu=math.log(0.048) - 0.5 * 0.35 ** 2, sigma=0.35), 134001, 120, 4),

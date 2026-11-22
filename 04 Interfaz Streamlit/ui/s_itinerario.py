@@ -21,4 +21,6 @@ def mostrar():
         if sig["pestana"] != ss.get("pagina") and (not validas or sig["pestana"] in validas):                 # PAT 134: salto a la pantalla del índice lateral
             st.button(f"Ir a {sig['pestana']}", key="it_ir", on_click=lambda: ss.update(pagina=sig["pestana"]))
     with st.expander("Ver las etapas", expanded=False):
-        st.markdown("\n".join(f"- {'✔' if e['cumplida'] else ('↻' if e.get('por_revisar') else '○')} {e['nombre']}: {e['meta']}" for e in est))
+        # PAT 140: si la meta ya empieza con el nombre de la etapa («Costeo completada»), no se repite el nombre delante
+        st.markdown("\n".join(f"- {'✔' if e['cumplida'] else ('↻' if e.get('por_revisar') else '○')} "
+                               + (e['meta'] if str(e['meta']).startswith(e['nombre']) else f"{e['nombre']}: {e['meta']}") for e in est))

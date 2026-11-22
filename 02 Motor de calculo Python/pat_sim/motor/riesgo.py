@@ -48,7 +48,7 @@ def evaluacion_cascada(params: dict, desplazado: float, combustible: str = "gas"
 
 
 def van_cascada(params: dict, desplazado: float, combustible: str = "gas") -> float:
-    """VAN (MM$) de la cascada con los supuestos de params: precio, dolar, inversion, costo_anual, tasa, anios y fraccion."""
+    """VAN (M$) de la cascada con los supuestos de params: precio, dolar, inversion, costo_anual, tasa, anios y fraccion."""
     return evaluacion_cascada(params, desplazado, combustible)["VAN"]
 
 
@@ -80,7 +80,7 @@ def supuestos(r: dict, E: dict) -> dict | None:
         if inv_max > 0:
             base["inversion"] = inv_max
             txt = f"{inv_max:,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            avisos.append(f"La inversión de la sesión es 0: se usa como base la inversión máxima con VAN cero ({txt} MM$), de modo "
+            avisos.append(f"La inversión de la sesión es 0: se usa como base la inversión máxima con VAN cero ({txt} M$), de modo "
                           "que el VAN base es 0 y el riesgo se lee como la probabilidad de que esa inversión no se pague.")
         else:
             avisos.append("La inversión de la sesión es 0 y el ahorro no cubre el costo anual: no hay inversión que dé VAN positivo.")

@@ -139,7 +139,7 @@ OPCIONALES = ("capacidad", "costo", "consumo_especifico") + SELECCION
 
 def params_restricciones() -> list[Parametro]:
     return [P("estado", "Estado del equipo (disponibilidad)", 1.0, "—", "Supuesto",
-              "1 = equipo en buen estado; como el estado (0 a 1) del simulador del profesor",
+              "1 = equipo en buen estado; como el estado (0 a 1) del simulador didáctico de referencia",
               "Capacidad efectiva = capacidad nominal × estado", 0.15, 1.0),
             P("costo", "Costo del equipo (inversión)", None, "$", "Usuario", "",
               "Lo declara el usuario; se suma en la inversión declarada del diseño"),

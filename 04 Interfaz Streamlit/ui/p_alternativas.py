@@ -18,7 +18,7 @@ def alternativas_sesion(pl, r) -> dict:
     ss = st.session_state; E = ss.economia
     pesos = tuple(ss.get("alt_pesos", (1 / 3, 1 / 3, 1 / 3)))
     clave = (id(pl), pl.nombre, round(r["Qsumidero"], 3), round(r["cascada"], 3), r["dT_min"], r["T_final"], precio_sesion(r),
-             E["dolar"], E["tasa"], ss.cop, pesos)
+             E["dolar"], E["tasa"], ss.cop, pesos, C.version_planta())   # PAT 136: versión de la planta única
     if ss.get("alt_clave") != clave:
         ss.alt_res = AL.alternativas(pl, r, precio_sesion(r), E["dolar"], E["tasa"], AL.VIDA, cop=ss.cop, pesos=pesos)
         ss.alt_clave = clave
@@ -33,9 +33,9 @@ def elegida(X) -> str:
 
 def mostrar():
     ss = st.session_state; pl = C.planta(); E = ss.economia
-    C.ayuda(C.esc("Las mismas cuatro alternativas y el mismo método del Capítulo 3: suma ponderada con normalización por rango de "
+    C.ayuda(C.esc("Las cuatro alternativas y el método de comparación: suma ponderada con normalización por rango de "
                   "tres criterios y barrido de pesos con paso 0,01. Precio, dólar y tasa se toman de la pestaña Economía; el horizonte es la vida útil "
-                  "tributaria de 15 años (SII, Res. Ex. 43/2002), como en el Capítulo 4."), "Alternativas de recuperación de calor", 3)   # PAT 134: ayuda «?»
+                  "tributaria de 15 años (SII, Res. Ex. 43/2002)."), "Alternativas de recuperación de calor", 3)   # PAT 134: ayuda «?»
     if not C.exigir_resuelta():
         return
     r = C.resumen_actual()
@@ -61,8 +61,8 @@ def mostrar():
     AT.tabla("alt_comparacion", "Comparación", 4,   # PAT 134: «?» de la tabla
              u_bio="; en biomasa, U del gas de escape como Supuesto con el orden de magnitud de Incropera et al. (2007)" if bio else "")
     C.mostrar_tabla(filas, [("k", "Alternativa", "txt", 0), ("n", "Descripción", "txt", 0), ("q", "Calor (kW)", "num", 1), ("cob", "Cobertura (%)", "num", 1),
-                            ("eq", "Equipos", "num", 0), ("ar", "Área con U medio (m²)", "num", 0), ("inv", "Inversión (MM$)", "clp", 1),
-                            ("pe", f"Precio de equilibrio ({up})", "num", 2), ("van", "VAN al precio de Economía (MM$)", "clp", 1),
+                            ("eq", "Equipos", "num", 0), ("ar", "Área con U medio (m²)", "num", 0), ("inv", "Inversión (M$)", "clp", 1),
+                            ("pe", f"Precio de equilibrio ({up})", "num", 2), ("van", "VAN al precio de Economía (M$)", "clp", 1),
                             ("pt", "Puntaje", "num", 3), ("ba", "Gana en el barrido (%)", "num", 1)])
     g = X["ganador"]
     pw = ss.get("alt_pesos", (1 / 3, 1 / 3, 1 / 3))
@@ -96,10 +96,10 @@ def mostrar():
         x[0].metric("ΔTmin óptimo", C.fmt(op["dT"], 1) + " °C")
         x[1].metric("Calor recuperado", C.fmt(op["Q"], 0) + " kW")
         x[2].metric("Área", C.fmt(op["area"], 0) + " m²")
-        x[3].metric("Costo total anual", C.esc("$" + C.fmt(op["total"], 1) + " MM"))
+        x[3].metric("Costo total anual", C.esc("$" + C.fmt(op["total"], 1) + " M"))
         df = pd.DataFrame([{"dT": f["dT"], "Capital anualizado": f["capital"], "Operación y mantención": f["om"],
                             "Combustible remanente": f["combustible"], "Total": f["total"]} for f in o["filas"]]).set_index("dT")
-        st.line_chart(df, x_label="Aproximación mínima de temperatura (°C)", y_label="MM$ por temporada")
+        st.line_chart(df, x_label="Aproximación mínima de temperatura (°C)", y_label="M$ por temporada")
         borde = op["dT"] in (o["filas"][0]["dT"], o["filas"][-1]["dT"])
         if borde:
             st.caption("El óptimo queda en el borde del rango: con este precio del combustible conviene ir al extremo.")

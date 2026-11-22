@@ -114,7 +114,7 @@ class SecadorBiomasa(EquipoBiomasa):
           "Uasuf (2010, pp. 31 y 33): sistema de secado de 280 kW en una planta de 6 t/h de pellet, simultaneidad de 85 %",
           "280 kW × 0,85 / 12 t/h de aserrín al 55 % ≈ 20 kWh por tonelada que entra", 0, 100),
         P("T_condensacion", "Temperatura hasta la que se puede enfriar el escape", 30.0, "°C", "Supuesto",
-          "Igual a la temperatura final de los residuales del Capítulo 1", "", 10, 60),
+          "Igual a la temperatura final de los residuales de la planta basada en Agrozzi", "", 10, 60),
         capacidad_param(),
     ]
 

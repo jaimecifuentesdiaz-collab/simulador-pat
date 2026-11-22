@@ -1,19 +1,23 @@
-"""Pestaña Escenario: rubro, proyecto, versiones guardadas y el escenario base de cada rubro (Agrozzi, pellet, chip y leña)."""
+"""Pestaña Escenario: rubro, proyecto, versiones guardadas y el escenario base de cada rubro (Agrozzi, pellet, chip, leña y agar)."""
 from __future__ import annotations
 import streamlit as st
 from pat_sim.catalogos.registro import RUBROS
-from pat_sim.escenarios import agrozzi, pellet, chip, lena
+from pat_sim.escenarios import agrozzi, pellet, chip, lena, agar
 from pat_sim.escenarios.biomasa_comun import resumen_corto
 from pat_sim.datos.bd import NOMBRE_AGROZZI
 from . import comun as C
 from . import ayudas_tablas as AT   # PAT 134: «?» de cada tabla
 
 ESCENARIOS_BIOMASA = {"pellet": pellet, "chip": chip, "lena": lena}
+ESCENARIOS_OTROS = {"agar": agar}               # PAT 143 b: rubros con escenario propio que no son de biomasa ni el tomate
+ESCENARIOS = {**ESCENARIOS_BIOMASA, **ESCENARIOS_OTROS}
 DESCRIPCION = {
     "pellet": "Aserrín verde de pino radiata: secador rotatorio, molino, pelletizadora, enfriador, criba y ensacado (ENplus A1). "
               "El generador quema astilla con corteza para el aire del secador.",
     "chip": "Rollizos verdes de pino radiata: astilladora, criba, secador de banda a baja temperatura y acopio (ISO 17225-4, clase M25).",
     "lena": "Trozas de eucalipto: procesadora (sierra y partidora), secador de leña y acopio con el límite de leña seca (25 % en base seca).",
+    "agar": "Alga roja seca (pelillo): lavado, tratamiento alcalino con NaOH a 85 °C, neutralización, extracción con agua a 95 °C, filtro "
+            "prensa, enfriamiento y gelificación, prensa del gel, secador de banda, molino y envasado. Una caldera a gas da el vapor.",
 }
 
 PARAMS_AGROZZI = [  # (argumento de model.py, etiqueta, mínimo, máximo, paso, formato)
@@ -39,10 +43,10 @@ def _cambiar_rubro():
     """PAT 132: al elegir otro rubro se carga de inmediato su escenario base, así Diseño, Operación, Calidad SPC y las demás
     pestañas muestran ese mismo rubro sin volver a elegirlo. «Equipos generales» no tiene escenario: deja la planta como está."""
     ss = st.session_state; r = ss.get("esc_rubro"); pl = C.planta()
-    if r == pl.rubro or (r not in ESCENARIOS_BIOMASA and r != "tomate"):
+    if r == pl.rubro or (r not in ESCENARIOS and r != "tomate"):
         return
     bd = C.obtener_bd()
-    mod = ESCENARIOS_BIOMASA.get(r)
+    mod = ESCENARIOS.get(r)
     try:
         ss.pl = mod.crear() if mod else agrozzi.crear()
         nombre = mod.NOMBRE if mod else NOMBRE_AGROZZI
@@ -74,11 +78,14 @@ def mostrar():
     with c2:
         st.markdown(f"**Planta actual:** {pl.nombre}  \n**Equipos:** {len(pl.equipos)} · **Conexiones:** {len(pl.conexiones)} · "
                     f"**Lazos de instrumentación:** {len(pl.instrumentos)}")
-        C.ayuda("Las cifras de la planta basada en Agrozzi reproducen el Modelo_PAT_Agrozzi_v2.xlsx (Capítulo 1). "   # PAT 134
+        C.ayuda("Las cifras de la planta basada en Agrozzi reproducen el Modelo_PAT_Agrozzi_v2.xlsx. "   # PAT 134
                 "No hubo visita a la planta: cada supuesto se justifica con el fabricante (CFT) o la literatura.")
 
     proy = bd.listar_proyectos()
-    AT.tabla("esc_proyectos", "Proyectos guardados", 4)   # PAT 134: «?» de la tabla
+    # PAT 138: los proyectos de cada persona se guardan, cargan, renombran y eliminan en la pantalla Proyectos. Aquí quedan las
+    # plantas de ejemplo y las versiones guardadas antes de PAT 138 (tablas proyectos y versiones), que siguen pudiendo cargarse.
+    AT.tabla("esc_proyectos", "Plantas de ejemplo y versiones antiguas", 4)   # PAT 134: «?» de la tabla
+    st.caption("Los proyectos de cada persona («Proyecto de <nombre> <n>») están en la pantalla Proyectos, al comienzo del índice.")
     if proy:
         C.mostrar_tabla([dict(nombre=p["nombre"], rubro=RUBROS.get(p["rubro"], p["rubro"]), n=p["n_versiones"], mod=p["modificado"]) for p in proy],
                         [("nombre", "Proyecto", "txt", 0), ("rubro", "Rubro", "txt", 0), ("n", "Versiones", "num", 0), ("mod", "Modificado", "txt", 0)])
@@ -95,17 +102,17 @@ def mostrar():
             _limpiar_claves()
             st.rerun()
     with b:
-        nuevo = st.text_input("Nuevo proyecto (se guarda con la planta actual)", placeholder="Nombre del proyecto")
-        desc = st.text_input("Descripción", "")
-        if st.button("Crear proyecto", disabled=not nuevo.strip()):
-            try:
-                pid = bd.crear_proyecto(nuevo, pl.rubro, desc)
-                v = bd.guardar_version(pid, pl, "Versión inicial")
-                ss.pid, ss.vid = pid, v["id"]
-                st.success(f"Proyecto «{nuevo}» creado con la versión 1.")
-                st.rerun()
-            except ValueError as e:
-                st.error(str(e))
+        # PAT 138: «Crear proyecto» usa el mismo sistema que el botón «Guardar proyecto» de la barra lateral (pantalla Proyectos)
+        from . import proyectos as PRY
+        nuevo = st.text_input("Nuevo proyecto (se guarda con la planta actual y la sesión)", placeholder=C.obtener_bd().nombre_sugerido(PRY.persona()),
+                              key="esc_nuevo_proyecto", help="Vacío: el nombre automático «Proyecto de <su nombre> <n>».")
+        desc = st.text_input("Nota", "", key="esc_nota_proyecto")
+        if st.button("Crear proyecto", key="esc_crear_proyecto"):
+            r = PRY.guardar(nombre=nuevo.strip() or None, nota=desc, nuevo=True)
+            if r["ok"]:
+                st.success(C.esc(r["mensaje"]))
+            else:
+                st.error(C.esc(r["mensaje"] + (" Use la pantalla Proyectos para sobrescribirlo." if r.get("repetido") else "")))
 
     from . import s_proyecto                       # PAT 134: proyecto, versión y coma decimal (antes en la barra lateral)
     s_proyecto.mostrar()
@@ -114,6 +121,9 @@ def mostrar():
     s_datos_planta.mostrar()
     if sel in ESCENARIOS_BIOMASA:
         _bloque_biomasa(sel, ESCENARIOS_BIOMASA[sel], bd, pl)
+        return
+    if sel in ESCENARIOS_OTROS:
+        _bloque_biomasa(sel, ESCENARIOS_OTROS[sel], bd, pl, cifras=_cifras_agar)
         return
 
     C.ayuda("Recrea la línea de pasta de tomate con los parámetros de partida (los de model.py). "   # PAT 134
@@ -143,8 +153,9 @@ def mostrar():
             st.error(f"No se pudo crear la planta: {e}")
 
 
-def _bloque_biomasa(rubro, mod, bd, pl):
-    """Escenario base de un rubro de biomasa: parámetros de partida, botón para cargarlo y sus cifras de control."""
+def _bloque_biomasa(rubro, mod, bd, pl, cifras=None):
+    """Escenario base de un rubro de biomasa: parámetros de partida, botón para cargarlo y sus cifras de control.
+    PAT 143 b: cifras = función que muestra las cifras de control de otro rubro (el agar); sin ella, las de la biomasa."""
     ss = st.session_state
     C.ayuda("Cada equipo trae sus parámetros con fuente (pestaña Diseño). Reemplaza la planta de la sesión; "   # PAT 134
             "la base de datos no cambia hasta que guarde una versión.", mod.NOMBRE)
@@ -169,7 +180,9 @@ def _bloque_biomasa(rubro, mod, bd, pl):
             st.rerun()
         except Exception as e:
             st.error(f"No se pudo crear la planta: {e}")
-    if pl.nombre == mod.NOMBRE and pl.resuelta:
+    if pl.nombre == mod.NOMBRE and pl.resuelta and cifras is not None:
+        cifras(pl)
+    elif pl.nombre == mod.NOMBRE and pl.resuelta:
         r = resumen_corto(pl)
         st.markdown("#### Cifras de control de la planta actual")
         a, b, c, d = st.columns(4)
@@ -180,3 +193,23 @@ def _bloque_biomasa(rubro, mod, bd, pl):
         if pl.avisos:
             for a_ in pl.avisos:
                 st.warning(a_)
+
+
+def _cifras_agar(pl):
+    """PAT 143 b: cifras de control del escenario de agar agar (escenarios/agar.resumen_corto)."""
+    r = agar.resumen_corto(pl)
+    st.markdown("#### Cifras de control de la planta actual")
+    a, b, c, d = st.columns(4)
+    a.metric("Agar en polvo", C.fmt(r["producto_t_h"] * 1000, 1) + " kg/h", f"humedad {C.pct(r['humedad_producto'])}", delta_color="off")
+    b.metric("Rendimiento global", C.pct(r["rendimiento_global"]), "agar seco por kg de alga recibida", delta_color="off")
+    c.metric("Calor de proceso (vapor)", C.fmt(r["calor_proceso_kW"], 0) + " kW",
+             f"baño {C.fmt(r['calor_bano_kW'], 0)}, extracción {C.fmt(r['calor_extraccion_kW'], 0)} y secado {C.fmt(r['calor_secado_kW'], 0)} kW",
+             delta_color="off")
+    d.metric("Calor recuperable (todas las corrientes)", C.fmt(r["recuperable_todas_kW"], 0) + " kW",
+             C.pct(r["cobertura_todas"]) + " del calor que piden las corrientes frías", delta_color="off")
+    C.ayuda(C.esc("El calor recuperable sale de la tabla del problema con todas las corrientes calientes (lejía gastada, extracto antes "
+                  "de gelificar y escape del secador) y los tres sumideros (baño alcalino, agua de extracción y aire de secado), con la "
+                  "aproximación mínima de la planta. La pantalla Recuperación de calor cruza las calientes con un solo sumidero, el mayor."))
+    if pl.avisos:
+        for a_ in pl.avisos:
+            st.warning(a_)

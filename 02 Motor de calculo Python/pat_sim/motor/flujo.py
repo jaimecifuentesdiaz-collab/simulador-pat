@@ -30,12 +30,13 @@ class Etapa:
 
 # Pantallas según el índice de app.py (GRUPOS); «Selección de equipos» la construye otro equipo.
 ETAPAS = (
-    Etapa(1, "Desafío", "Desafío", ("Desafío", "Escenario")),
-    Etapa(2, "Diseño del diagrama de flujo", "Diagrama", ("Diseño",)),
-    Etapa(3, "Selección de equipos comerciales y confiabilidad", "Selección", ("Selección de equipos",)),
+    Etapa(1, "Desafío: tipo de planta y demanda", "Desafío", ("Desafío", "Demanda", "Escenario")),
+    Etapa(2, "Planta ficticia: diagrama de flujo teórico", "P. ficticia", ("Diseño",)),
+    Etapa(3, "Planta real: equipos comerciales y confiabilidad", "P. real", ("Selección de equipos",)),
     Etapa(4, "Teoría de restricciones y redundancias", "Restricciones", ("Selección de equipos",)),
-    Etapa(5, "Balances y equipos auxiliares", "Balances", ("Balances", "Recuperación de calor", "Alternativas")),
-    Etapa(6, "Instrumentación", "Instrumentación", ("Instrumentación",)),
+    Etapa(5, "Equipos auxiliares y balances", "Auxiliares", ("Equipos auxiliares", "Balances", "Recuperación de calor", "Alternativas")),
+    # PAT 142: la pantalla Instrumentación pasa a llamarse «Lazos de control»; el nombre antiguo queda para los índices que aún lo usan
+    Etapa(6, "Lazos de control", "Lazos de control", ("Lazos de control", "Instrumentación")),
     Etapa(7, "Costeo", "Costeo", ("Costeo",)),
     Etapa(8, "Evaluación económica con riesgo", "Economía", ("Economía", "Riesgo económico")),
     Etapa(9, "Layout con cañerías y red eléctrica, isométrica y elevaciones", "Layout", ("Layout",)),

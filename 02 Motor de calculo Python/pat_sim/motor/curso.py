@@ -59,6 +59,13 @@ RANGOS = {
         Rango("dias", "Días de operación al año", 280, 320, 1, "planta", _SUP),
         Rango("f_precio_biomasa", "Factor sobre el precio de la biomasa", 0.89, 1.11, 0.01, "economia", _BIO),
     ],
+    "agar": [   # PAT 143 b
+        Rango("produccion", "Agar en polvo producido (t/h)", 0.068, 0.084, 0.001, "planta", _SUP),
+        Rango("rend", "Agar extraído por kg de materia seca del alga", 0.2203, 0.2326, 0.0001, "planta",
+              "Correa Rivas (2020), ficha del repositorio: 22,03 % con extracción previa de proteínas y 23,26 % sin ella (Agarophyton chilense)"),
+        Rango("dias", "Días de operación al año", 300, 350, 1, "planta", _SUP),
+        Rango("f_precio_gas", "Factor sobre el precio del gas natural", 0.85, 1.15, 0.01, "economia", _GAS),
+    ],
 }
 
 
@@ -97,8 +104,8 @@ def variante(identificador: str, rubro: str = "tomate", curso: str = "") -> dict
 
 def crear_planta(var: dict):
     """Planta resuelta de la variante, con el escenario del rubro y sus capacidades de partida."""
-    from ..escenarios import agrozzi, pellet, chip, lena
-    mod = {"tomate": agrozzi, "pellet": pellet, "chip": chip, "lena": lena}[var["rubro"]]
+    from ..escenarios import agrozzi, pellet, chip, lena, agar
+    mod = {"tomate": agrozzi, "pellet": pellet, "chip": chip, "lena": lena, "agar": agar}[var["rubro"]]
     pl = mod.crear(**var["planta"])
     pl.nombre = f"{pl.nombre} · variante {var['identificador']}"
     return pl
@@ -123,7 +130,7 @@ def operacion_de(var: dict):
 def hash_clave(clave: str, sal: str | None = None) -> str:
     """«sha256$sal$hash»: SHA-256 de la sal más la clave. La clave nunca se guarda en claro."""
     if not clave:
-        raise ValueError("La clave del profesor no puede quedar vacía")
+        raise ValueError("La clave del docente no puede quedar vacía")
     sal = sal or os.urandom(16).hex()
     return f"sha256${sal}${hashlib.sha256((sal + clave).encode('utf-8')).hexdigest()}"
 
@@ -166,7 +173,7 @@ def entregar(bd, curso: dict, identificador: str, op) -> int:
 def tabla_profesor(bd, curso: dict, clave: str) -> list[dict]:
     """Una fila por estudiante: entregas, último y mejor puntaje y fecha. Exige la clave del profesor."""
     if not verificar_clave(clave, curso.get("clave_hash", "")):
-        raise PermissionError("Clave del profesor incorrecta")
+        raise PermissionError("Clave del docente incorrecta")
     filas = {}
     for s in bd.listar_estudiantes(curso["id"]):
         filas[s["identificador"]] = dict(identificador=s["identificador"], nombre=s["nombre"], entregas=0, ultimo=None, mejor=None, fecha="")

@@ -8,7 +8,7 @@ from pat_sim.motor import temporada as TM
 from . import comun as C
 from . import ayudas_tablas as AT   # PAT 134: «?» de cada tabla
 
-MATERIA = {"tomate": "tomate", "pellet": "aserrín", "chip": "rollizos", "lena": "trozas"}
+MATERIA = {"tomate": "tomate", "pellet": "aserrín", "chip": "rollizos", "lena": "trozas", "agar": "alga seca"}
 BASES = {"recepcion": "Primer equipo de la línea (capacidad de partida)", "linea": "Recurso crítico de la línea"}
 
 

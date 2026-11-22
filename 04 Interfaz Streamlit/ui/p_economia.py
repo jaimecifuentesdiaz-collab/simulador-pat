@@ -1,8 +1,11 @@
-"""Pestaña Economía: gas natural desplazado, CO2 evitado, valorización con Henry Hub y dólar, VAN y TIR."""
+"""Pestaña Economía: gas natural desplazado, CO2 evitado, valorización con Henry Hub y dólar, VAN y TIR.
+PAT 142 (pedido de Jaime del 19-11-2026): flujo de caja con impuestos, con la inversión que trae la internación de Costeo, el IVA
+pagado y recuperado como crédito fiscal, la depreciación tributaria, el impuesto de primera categoría y la banda de error de la
+clase de estimación (motor: pat_sim/motor/internacion.py). Claves «eco_fc_»."""
 from __future__ import annotations
 import pandas as pd
 import streamlit as st
-from pat_sim.motor import economia as eco
+from pat_sim.motor import economia as eco, internacion as INT
 from . import comun as C
 from . import ayudas_tablas as AT   # PAT 134: «?» de cada tabla
 from . import p_alternativas as PA
@@ -82,8 +85,8 @@ def mostrar():
         st.warning("La planta no tiene una caldera con horas de operación declaradas: no se puede calcular el gas desplazado.")
         return
     k_alt, alt = _alternativa(pl, r)
-    C.ayuda(C.esc(f"Henry Hub: {C.fmt(C.HENRY_HUB, 2)} US$/MMBtu, {C.FUENTE_HH}. Dólar: {C.fmt(C.DOLAR, 2)} $/US$, {C.FUENTE_DOLAR}. "   # PAT 134: ayuda «?»
-                  f"La planta quema gas natural licuado regasificado, que se modela como metano (Engineering ToolBox, 2003; poder calorífico superior)."),
+    # PAT 140: el Henry Hub y el dólar, con sus fuentes, ya están en el «?» de cada campo del formulario de abajo
+    C.ayuda(C.esc("La planta quema gas natural licuado regasificado, que se modela como metano (Engineering ToolBox, 2003; poder calorífico superior)."),   # PAT 134: ayuda «?»
             "Precios y supuestos")
     _escenario_gas(E)                                         # PAT 135: Henry Hub, importación o precio industrial del mantenedor
     with st.form("form_eco"):
@@ -94,8 +97,8 @@ def mostrar():
         dl = b.number_input(C.esc("Dólar observado ($/US$)"), 1.0, 5000.0, float(E["dolar"]), 1.0, help=C.FUENTE_DOLAR)
         tasa = c.number_input("Tasa de descuento (%)", 0.0, 50.0, E["tasa"] * 100, 0.5) / 100
         d, e, f = st.columns(3)
-        inv = d.number_input(C.esc("Inversión (MM$)"), 0.0, 1e7, _inversion(E, alt), 10.0, help=C.esc("Parte con la inversión estimada de la alternativa evaluada; desmarque la casilla para escribir otra. Con 0 se muestra la inversión máxima que da VAN cero."))
-        cos = e.number_input(C.esc("Costo anual de operación y mantención (MM$)"), 0.0, 1e6, float(E["costo_anual"]), 1.0)
+        inv = d.number_input(C.esc("Inversión (M$)"), 0.0, 1e7, _inversion(E, alt), 10.0, help=C.esc("Parte con la inversión estimada de la alternativa evaluada; desmarque la casilla para escribir otra. Con 0 se muestra la inversión máxima que da VAN cero."))
+        cos = e.number_input(C.esc("Costo anual de operación y mantención (M$)"), 0.0, 1e6, float(E["costo_anual"]), 1.0)
         an = f.number_input("Horizonte (años)", 1, 50, int(E["anios"]))
         auto = st.checkbox("Usar la inversión estimada de la alternativa evaluada", value=bool(E.get("inv_auto", True)), key="eco_inv_auto",
                            disabled=alt is None)
@@ -111,19 +114,19 @@ def mostrar():
         f["caso"] = n
     AT.tabla("eco_gas", "Gas natural y emisiones por temporada", 4, hh=C.FUENTE_HH)   # PAT 134: «?» de la tabla
     C.mostrar_tabla(filas, [("caso", "Caso", "txt", 0), ("mwh", "Gas (MWh PCS)", "num", 0), ("m3", "Gas (m³)", "num", 0), ("co2", "CO2 (t)", "num", 0),
-                            ("mm", "Gas (MMBtu)", "num", 0), ("v_hh", "Al Henry Hub (MM$)", "clp", 1), ("v", "Al precio elegido (MM$)", "clp", 1)])
+                            ("mm", "Gas (MMBtu)", "num", 0), ("v_hh", "Al Henry Hub (M$)", "clp", 1), ("v", "Al precio elegido (M$)", "clp", 1)])
     des = r["gas_desplazado_cascada"]; nom = "la cascada"
     if alt is not None:                       # PAT 133: el ahorro es el de la alternativa evaluada
         from pat_sim.motor.resumen import _caldera
         des = eco.gas(alt["Q"], r["horas"], _caldera(pl)); nom = f"{k_alt} ({alt['nombre'].lower()})"
-        st.info(C.esc(f"Se evalúa {nom}: {C.fmt(alt['Q'], 0)} kW recuperados e inversión estimada de ${C.fmt(alt['inv']['medio'], 1)} MM "
-                      f"(rango ${C.fmt(alt['inv']['min'], 1)} a ${C.fmt(alt['inv']['max'], 1)} MM). Se cambia en la pestaña Alternativas."))
+        st.info(C.esc(f"Se evalúa {nom}: {C.fmt(alt['Q'], 0)} kW recuperados e inversión estimada de ${C.fmt(alt['inv']['medio'], 1)} M "
+                      f"(rango ${C.fmt(alt['inv']['min'], 1)} a ${C.fmt(alt['inv']['max'], 1)} M). Se cambia en la pestaña Alternativas."))
     ahorro = eco.valor_gas(des["MMBtu"], E["precio_gas"], E["dolar"])
     inv_eval = _inversion(E, alt)
     a, b, c = st.columns(3)
     a.metric("Gas desplazado por " + nom, C.fmt(des["MMBtu"], 0) + " MMBtu")
     b.metric("CO2 evitado por temporada", C.fmt(des["co2_t"], 0) + " t")
-    c.metric("Ahorro por temporada", C.esc("$" + C.fmt(ahorro, 1) + " MM"))
+    c.metric("Ahorro por temporada", C.esc("$" + C.fmt(ahorro, 1) + " M"))
 
     neto = ahorro - E["costo_anual"]
     ev = eco.evaluacion(inv_eval, ahorro, E["costo_anual"], E["anios"], E["tasa"])
@@ -131,15 +134,16 @@ def mostrar():
     C.ayuda("Un ciclo de operación por año (una temporada). La TIR se calcula con la inversión ingresada; si es 0 no está definida.",   # PAT 134
             "Evaluación económica")
     d, e, f, g = st.columns(4)
-    d.metric("VAN", C.esc("$" + C.fmt(ev["VAN"], 1) + " MM"))
+    d.metric("VAN", C.esc("$" + C.fmt(ev["VAN"], 1) + " M"))
     e.metric("TIR", C.pct(ev["TIR"]) if ev["TIR"] is not None else "—")
     f.metric("Recuperación", (C.fmt(ev["recuperacion_anios"], 1) + " años") if ev["recuperacion_anios"] else "—")
-    g.metric("Inversión máxima con VAN cero", C.esc("$" + C.fmt(neto * fa, 1) + " MM"))
+    g.metric("Inversión máxima con VAN cero", C.esc("$" + C.fmt(neto * fa, 1) + " M"))
+    _flujo_impuestos(E, inv_eval, ahorro, "fc")          # PAT 142
 
     st.markdown("#### Sensibilidad al precio del gas")
     precios = [x / 2 for x in range(2, 61)]
-    df = pd.DataFrame({"Ahorro de la cascada (MM$ por temporada)": [eco.valor_gas(des["MMBtu"], p, E["dolar"]) for p in precios]}, index=precios)
-    st.line_chart(df, x_label="Precio del gas (US$/MMBtu)", y_label="MM$ por temporada")
+    df = pd.DataFrame({"Ahorro de la cascada (M$ por temporada)": [eco.valor_gas(des["MMBtu"], p, E["dolar"]) for p in precios]}, index=precios)
+    st.line_chart(df, x_label="Precio del gas (US$/MMBtu)", y_label="M$ por temporada")
 
     AT.tabla("eco_bomba", "Bomba de calor frente a la cascada", 4, pmm=C.FUENTE_PMM,   # PAT 134: «?» de la tabla
              antes=f"COP {C.fmt(ss.cop, 1)} de la pestaña Recuperación de calor.")
@@ -154,7 +158,8 @@ def mostrar_biomasa(r):
     """Rubros pellet, chip y leña: el generador de calor quema biomasa; la recuperación desplaza ese combustible."""
     ss = st.session_state; E = ss.economia; E.setdefault("precio_biomasa", C.PRECIO_BIOMASA)
     pl = C.planta(); k_alt, alt = _alternativa(pl, r)
-    C.ayuda(C.esc(f"Biomasa: {C.fmt(C.PRECIO_BIOMASA, 0)} $/m³ estéreo, {C.FUENTE_BIOMASA}. El volumen sale de la densidad a granel del combustible "   # PAT 134
+    # PAT 140: el precio de la biomasa, con su fuente, ya está en el «?» del campo del formulario de abajo
+    C.ayuda(C.esc("El volumen de la biomasa sale de la densidad a granel del combustible "   # PAT 134
                   "(parámetro del generador de calor). El CO2 de la biomasa es biogénico: se informa aparte y no suma al inventario nacional "
                   "(IPCC, 2006, vol. 2, sec. 2.3.3.4)."), "Precios y supuestos")
     with st.form("form_eco_bio"):
@@ -164,8 +169,8 @@ def mostrar_biomasa(r):
         tasa = b.number_input("Tasa de descuento (%)", 0.0, 50.0, E["tasa"] * 100, 0.5) / 100
         an = c.number_input("Horizonte (años)", 1, 50, int(E["anios"]))
         d, e = st.columns(2)
-        inv = d.number_input(C.esc("Inversión (MM$)"), 0.0, 1e7, _inversion(E, alt), 10.0, help=C.esc("Parte con la inversión estimada de la alternativa evaluada; desmarque la casilla para escribir otra. Con 0 se muestra la inversión máxima que da VAN cero."))
-        cos = e.number_input(C.esc("Costo anual de operación y mantención (MM$)"), 0.0, 1e6, float(E["costo_anual"]), 1.0)
+        inv = d.number_input(C.esc("Inversión (M$)"), 0.0, 1e7, _inversion(E, alt), 10.0, help=C.esc("Parte con la inversión estimada de la alternativa evaluada; desmarque la casilla para escribir otra. Con 0 se muestra la inversión máxima que da VAN cero."))
+        cos = e.number_input(C.esc("Costo anual de operación y mantención (M$)"), 0.0, 1e6, float(E["costo_anual"]), 1.0)
         auto = st.checkbox("Usar la inversión estimada de la alternativa evaluada", value=bool(E.get("inv_auto", True)), key="eco_inv_auto_b",
                            disabled=alt is None)
         if st.form_submit_button("Aplicar", type="primary"):
@@ -177,32 +182,33 @@ def mostrar_biomasa(r):
     AT.tabla("eco_biomasa", "Biomasa combustible y emisiones por año", 4, bio=C.FUENTE_BIOMASA)   # PAT 134: «?» de la tabla
     C.mostrar_tabla(filas, [("caso", "Caso", "txt", 0), ("mwh", "Biomasa (MWh PCI)", "num", 0), ("t", "Biomasa húmeda (t)", "num", 0),
                             ("ts", "Biomasa seca (t)", "num", 0), ("m3", "Volumen (m³ estéreo)", "num", 0), ("co2", "CO2 biogénico (t)", "num", 0),
-                            ("v", "Valor (MM$)", "clp", 1)])
+                            ("v", "Valor (M$)", "clp", 1)])
     des = r["biomasa_cascada"]; nom = "la cascada"
     if alt is not None:                       # PAT 133: el ahorro es el de la alternativa evaluada
         from pat_sim.motor.resumen import _caldera
         des = _caldera(pl).consumo(alt["Q"], r["horas"]); nom = f"{k_alt} ({alt['nombre'].lower()})"
-        st.info(C.esc(f"Se evalúa {nom}: {C.fmt(alt['Q'], 0)} kW recuperados e inversión estimada de ${C.fmt(alt['inv']['medio'], 1)} MM. "
+        st.info(C.esc(f"Se evalúa {nom}: {C.fmt(alt['Q'], 0)} kW recuperados e inversión estimada de ${C.fmt(alt['inv']['medio'], 1)} M. "
                       "Se cambia en la pestaña Alternativas."))
     ahorro = des["m3"] * precio / 1e6
     inv_eval = _inversion(E, alt)
     a, b, c = st.columns(3)
     a.metric("Biomasa desplazada por " + nom, C.fmt(des["t"], 0) + " t por año")
     b.metric("CO2 biogénico evitado", C.fmt(des["co2_biogenico_t"], 0) + " t por año")
-    c.metric("Ahorro por año", C.esc("$" + C.fmt(ahorro, 1) + " MM"))
+    c.metric("Ahorro por año", C.esc("$" + C.fmt(ahorro, 1) + " M"))
     neto = ahorro - E["costo_anual"]
     ev = eco.evaluacion(inv_eval, ahorro, E["costo_anual"], E["anios"], E["tasa"])
     fa = sum(1 / (1 + E["tasa"]) ** i for i in range(1, E["anios"] + 1))
     st.markdown("#### Evaluación económica")
     d, e, f, g = st.columns(4)
-    d.metric("VAN", C.esc("$" + C.fmt(ev["VAN"], 1) + " MM"))
+    d.metric("VAN", C.esc("$" + C.fmt(ev["VAN"], 1) + " M"))
     e.metric("TIR", C.pct(ev["TIR"]) if ev["TIR"] is not None else "—")
     f.metric("Recuperación", (C.fmt(ev["recuperacion_anios"], 1) + " años") if ev["recuperacion_anios"] else "—")
-    g.metric("Inversión máxima con VAN cero", C.esc("$" + C.fmt(neto * fa, 1) + " MM"))
+    g.metric("Inversión máxima con VAN cero", C.esc("$" + C.fmt(neto * fa, 1) + " M"))
+    _flujo_impuestos(E, inv_eval, ahorro, "fcb")         # PAT 142
     st.markdown("#### Sensibilidad al precio de la biomasa")
     precios = [x * 500.0 for x in range(0, 41)]
-    df = pd.DataFrame({"Ahorro de la cascada (MM$ por año)": [des["m3"] * p_ / 1e6 for p_ in precios]}, index=precios)
-    st.line_chart(df, x_label="Precio de la biomasa ($/m³ estéreo)", y_label="MM$ por año")
+    df = pd.DataFrame({"Ahorro de la cascada (M$ por año)": [des["m3"] * p_ / 1e6 for p_ in precios]}, index=precios)
+    st.line_chart(df, x_label="Precio de la biomasa ($/m³ estéreo)", y_label="M$ por año")
     _riesgo(pl, r, E, inv_eval)
 
 def _escenarios_gas() -> list:
@@ -233,9 +239,75 @@ def _escenario_gas(E: dict):
     inicial = len(nombres) - 1 if nombres[-1].startswith("Industrial") else 0   # si existe el precio industrial, parte con él
     elegido = st.radio(C.esc("Escenario de precio del gas"), nombres, index=inicial, horizontal=True, key="eco_esc_gas",
                        help=C.esc("Henry Hub es la referencia de Estados Unidos que la CNE usa para el GNL importado (piso). "
-                                  "Importación FOB es el precio de importación del modelo de los Capítulos 2 a 4. "
-                                  "El profesor puede editar estos valores o agregar el precio industrial en el Mantenedor."))
+                                  "Importación FOB es el precio de importación del modelo económico de la planta basada en Agrozzi. "
+                                  "El docente puede editar estos valores o agregar el precio industrial en el Mantenedor."))
     if st.session_state.get("_eco_esc_gas_previo") != elegido:
         st.session_state["_eco_esc_gas_previo"] = elegido
         E["precio_gas"] = dict(esc)[elegido]
         E["gas_supuesto"] = False
+
+
+# ---------------------------------------------------------------- PAT 142: flujo de caja con impuestos e internación
+_MODOS_RENTA = {"ley": "Gradual de la Ley 21.850", "fija": "Tasa fija"}
+
+
+def _flujo_impuestos(E: dict, inv_eval: float, ahorro: float, pre: str):
+    """Flujo de caja anual con IVA, depreciación e impuesto de primera categoría (motor/internacion.flujo_caja), con la inversión
+    que se evalúa arriba (que trae la internación si se llevó desde Costeo con la internación sumada)."""
+    o = INT.opciones_flujo(E)
+    C.ayuda(C.esc(
+        "Flujo anual del proyecto en millones de pesos. Año 0: inversión (equipos, internación, instalación y terreno) e IVA de la "
+        "inversión, que se paga y se recupera como crédito fiscal (D.L. 825, art. 23 N.º 1): en el año 0 si la empresa ya opera, en "
+        "el año 1 si es un proyecto nuevo (art. 27 bis). Años 1 a n: ahorro menos costo de operación menos depreciación da la "
+        "utilidad antes de impuesto; el impuesto de primera categoría se calcula sobre ella y la depreciación se suma de vuelta "
+        "porque no es salida de caja. El IVA de la inversión se toma como 19 % de la inversión sin terreno, porque equipos, "
+        "internación, montaje y servicios pagan IVA. Los derechos de aduana no se recuperan: quedan en el activo y se deprecian. "
+        f"{INT.FUENTE_RENTA}. {INT.JUST_VIDA}. {INT.JUST_DESECHO}. {INT.JUST_PERDIDA}."), "Flujo de caja con impuestos")
+    with st.form(f"eco_{pre}_form"):
+        a, b, c, d = st.columns(4)
+        modo = a.radio("Impuesto de primera categoría", list(_MODOS_RENTA), format_func=lambda k: _MODOS_RENTA[k],
+                       index=0 if o["tasa_renta_modo"] == "ley" else 1, key=f"eco_{pre}_modo", help=C.esc(INT.FUENTE_RENTA))
+        tasa_f = b.number_input("Tasa fija (%)", 0.0, 60.0, float(o["tasa_renta"]) * 100, 0.5, key=f"eco_{pre}_tasa",
+                                help="Solo con «Tasa fija». Por defecto 27 %, la tasa general antes de la gradualidad de la Ley 21.850.")
+        reg = c.selectbox("Depreciación", list(INT.VIDA), index=list(INT.VIDA).index(o["regimen_dep"]), key=f"eco_{pre}_dep",
+                          format_func=lambda k: f"{k.capitalize()} ({INT.VIDA[k][0]} años)",
+                          help=C.esc(" ".join(f"{v[1]}." for v in INT.VIDA.values()) + " " + INT.JUST_VIDA + "."))
+        caso = d.selectbox("Recuperación del IVA", list(INT.CASOS_IVA), index=list(INT.CASOS_IVA).index(o["caso_iva"]), key=f"eco_{pre}_iva",
+                           format_func=lambda k: "Año 0, empresa en operación" if k == "A" else "Año 1, proyecto nuevo",
+                           help=C.esc(" ".join(f"{k}: {v}." for k, v in INT.CASOS_IVA.items())))
+        e, f, g, h = st.columns(4)
+        anio = e.number_input("Año de la inversión", 2020, 2100, int(o["anio_inversion"]), 1, key=f"eco_{pre}_anio", format="%d", help=INT.JUST_ANIO + ".")
+        otras = f.checkbox("Empresa con utilidades", value=bool(o["otras_utilidades"]), key=f"eco_{pre}_otras", help=INT.JUST_PERDIDA + ".")
+        desecho = g.checkbox("Valor de desecho contable", value=bool(o["valor_desecho"]), key=f"eco_{pre}_desecho", help=INT.JUST_DESECHO + ".")
+        claves = list(INT.CLASES)
+        clase = h.selectbox("Clase de estimación", claves, index=claves.index(o["clase_estimacion"]), key=f"eco_{pre}_clase",
+                            format_func=lambda k: f"{INT.CLASES[k][0]} (± {C.fmt(INT.CLASES[k][2] * 100, 0)} %)", help=C.esc(INT.FUENTE_CLASES + "."))
+        if st.form_submit_button("Aplicar"):
+            E.update(tasa_renta_modo=modo, tasa_renta=float(tasa_f) / 100, regimen_dep=reg, caso_iva=caso, anio_inversion=int(anio),
+                     otras_utilidades=bool(otras), valor_desecho=bool(desecho), clase_estimacion=clase)
+    r = INT.flujo_desde_economia(E, inv_eval, ahorro)
+    k = st.columns(4)
+    k[0].metric("VAN con impuestos", C.esc("$" + C.fmt(r["VAN"], 1) + " M"))
+    k[1].metric("TIR con impuestos", C.pct(r["TIR"]) if r["TIR"] is not None else "—")
+    k[2].metric("Recuperación con impuestos", (C.fmt(r["recuperacion_anios"], 1) + " años") if r["recuperacion_anios"] else "—")
+    bd = r["banda"]
+    k[3].metric(f"VAN con la banda de ± {C.fmt(bd['error_max'] * 100, 0)} %", C.esc(f"${C.fmt(r['VAN_banda'][0], 1)} M"),
+                C.esc(f"a ${C.fmt(r['VAN_banda'][1], 1)} M"), delta_color="off", help=C.esc(f"VAN con la inversión de ${C.fmt(bd['alto'], 1)} M y de ${C.fmt(bd['bajo'], 1)} M, clase {bd['nombre'].lower()} ({INT.FUENTE_CLASES})."))
+    partes = [f"IVA de la inversión: ${C.fmt(r['iva'], 1)} M, recuperado en el año {r['anio_recuperacion_iva']}",
+              f"depreciación {o['regimen_dep']} en {r['vida_util']} años"]
+    if r["desde_costeo"] and r["internacion"] > 0:
+        partes.insert(0, f"la inversión incluye ${C.fmt(r['internacion'], 1)} M de internación"
+                         + (f" (derechos de aduana ${C.fmt(float(E.get('arancel_m') or 0.0), 1)} M)" if E.get("arancel_m") else ""))
+    elif not r["desde_costeo"]:
+        partes.insert(0, "la inversión no viene de Costeo: para sumar la internación, márquela en Costeo y lleve la inversión")
+    if r["terreno"] > 0:
+        partes.append(f"terreno de ${C.fmt(r['terreno'], 1)} M sin depreciar ni IVA")
+    st.caption(C.esc("; ".join(partes)[:1].upper() + "; ".join(partes)[1:] + "."))
+    filas = [dict(f, anio_txt=f"{f['anio']} ({f['anio_calendario']})", tr=f["tasa_renta"] if f["anio"] > 0 else None) for f in r["filas"]]
+    with st.expander("Flujo de caja por año (M$)"):
+        C.mostrar_tabla(filas, [("anio_txt", "Año", "cen", 0), ("ahorro", "Ahorro", "mm", 1), ("costo", "Operación y mantención", "mm", 1),
+                                ("depreciacion", "Depreciación", "mm", 1), ("uai", "Utilidad antes de impuesto", "mm", 1),
+                                ("tr", "Tasa de impuesto", "pct", 1), ("impuesto", "Impuesto", "mm", 1), ("inversion", "Inversión", "mm", 1),
+                                ("iva_pagado", "IVA pagado", "mm", 1), ("iva_recuperado", "IVA recuperado", "mm", 1),
+                                ("valor_desecho", "Valor de desecho", "mm", 1), ("flujo", "Flujo neto", "mm", 1),
+                                ("flujo_desc", "Flujo descontado", "mm", 1), ("acumulado", "Flujo acumulado", "mm", 1)])

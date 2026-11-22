@@ -32,7 +32,8 @@ def mostrar(pl, r):
     m1, m2, m3, m4 = st.columns(4)
     eq = red["equipos"]; eu = red["euler"]
     m1.metric("Calor recuperado por la red", C.fmt(red["Q_recuperado"], 1) + " kW",
-              ("alcanza el objetivo" if red["alcanza_objetivo"] else "bajo el objetivo") + f" de {C.fmt(red['objetivo_kW'], 1)} kW", delta_color="off")
+              ("alcanza el objetivo pinch de arriba" if red["alcanza_objetivo"]           # PAT 140: la cifra del objetivo ya está arriba
+               else f"bajo el objetivo de {C.fmt(red['objetivo_kW'], 1)} kW"), delta_color="off")
     m2.metric("Equipos de la red", C.fmt(eq["total"], 0),
               f"{eq['recuperacion']} de recuperación, {eq['calentadores']} de servicio caliente y {eq['enfriadores']} de servicio frío", delta_color="off")
     m3.metric("Mínimo de Euler (por lado del *pinch*)", C.fmt(eu["total"], 0), f"{eu['arriba']} arriba y {eu['abajo']} abajo", delta_color="off")
@@ -46,9 +47,20 @@ def mostrar(pl, r):
                             ("tipo", "Tipo", "txt", 0), ("tramo", "Tramo del sumidero", "txt", 0), ("Q", "Calor (kW)", "num", 1),
                             ("Th", "Caliente entra → sale (°C)", "cen", 0), ("LMTD", "LMTD (°C)", "num", 2),
                             ("U", "U (W/m²K)", "num", 0), ("A", "Área (m²)", "num", 1)])
-    sc = "; ".join(f"{C.fmt(c['Q_kW'], 1)} kW de {C.fmt(c['Tc_in'], 1)} a {C.fmt(c['Tc_out'], 1)} °C" for c in red["calentadores"]) or "ninguno"
+    # PAT 140: sin repetir cifras ya mostradas: con un solo calentador no se repite su calor entre paréntesis, y si el servicio
+    # caliente es el calor externo mínimo de la sección Pinch de arriba, se nombra en vez de repetir la cifra
+    cal = red["calentadores"]
+    if len(cal) == 1:
+        sc = f"de {C.fmt(cal[0]['Tc_in'], 1)} a {C.fmt(cal[0]['Tc_out'], 1)} °C"
+    else:
+        sc = "; ".join(f"{C.fmt(c['Q_kW'], 1)} kW de {C.fmt(c['Tc_in'], 1)} a {C.fmt(c['Tc_out'], 1)} °C" for c in cal) or "ninguno"
     sf = ", ".join(f"{e['corriente']} ({C.fmt(e['Q_kW'], 1)} kW)" for e in red["enfriadores"]) or "ninguno"
-    st.markdown(f"Servicio caliente que queda (caldera o generador): **{C.fmt(red['servicio_caliente_kW'], 1)} kW** ({sc}). "
+    q_min = r.get("Q_externo_min")
+    if q_min is not None and abs(red["servicio_caliente_kW"] - q_min) < 0.05:
+        caliente = f"el calor externo mínimo de la sección Pinch ({sc})"
+    else:
+        caliente = f"**{C.fmt(red['servicio_caliente_kW'], 1)} kW** ({sc})"
+    st.markdown(f"Servicio caliente que queda (caldera o generador): {caliente}. "
                 f"Calor residual que no se usa (servicio frío): **{C.fmt(red['servicio_frio_kW'], 1)} kW**: {C.esc(sf)}.")
     C.ayuda(f"El mínimo de Euler cuenta corrientes más servicios menos uno en cada lado del *pinch*; sin dividir en el "   # PAT 134
             f"*pinch* serían {red['euler_sin_dividir']} equipos, pero esa red no alcanzaría el objetivo. "

@@ -11,7 +11,7 @@ BD_ORIGEN = Path(__file__).resolve().parents[2] / "03 Base de datos" / "simulado
 @pytest.fixture()
 def app(tmp_path, monkeypatch):
     bd = tmp_path / "t.db"; shutil.copyfile(BD_ORIGEN, bd)
-    monkeypatch.setenv("PAT_SIM_DB", str(bd))
+    monkeypatch.setenv("PAT_SIM_DB", str(bd)); monkeypatch.setenv("PAT_INICIO", "ejemplo")   # PAT 137
     monkeypatch.setenv("PAT_TODAS_LAS_PAGINAS", "1")      # PAT 134: con el índice lateral se ejecutan todas las pantallas
     at = AppTest.from_file(APP, default_timeout=170); at.run()
     assert not at.exception, [e.value for e in at.exception]
@@ -32,14 +32,20 @@ def test_cifras_del_capitulo_1(app):
 def test_veinticinco_pantallas_sin_errores(app):
     # PAT 135: veinticinco pantallas en el índice lateral (se suman Desafío, Selección de equipos, Layout, Costeo, Riesgo económico y Mantenedor);
     # las únicas pestañas que quedan son las diez de Calculadoras
-    assert len(app.tabs) == 10 and not app.error
-    assert len(app.sidebar.radio(key="pagina").options) == 25
+    # PAT 139: con PAT_TODAS_LAS_PAGINAS=1 se ejecutan las 29 pantallas del índice y cada una abre sus propias pestañas, así que
+    # el total ya no es 10 (eran solo las de Calculadoras): ahora se comprueba que las 29 pantallas del índice (28 de PAT 136 + Proyectos de PAT 138) corren sin
+    # excepción ni error, y que las diez pestañas de Calculadoras siguen estando (ver el siguiente test, que abre solo esa pantalla).
+    assert not app.exception and not app.error
+    opciones = app.sidebar.radio(key="pagina").options
+    assert len(opciones) == 29 and len(set(opciones)) == 29   # PAT 136: 28 con Demanda, Docente y Equipos auxiliares; PAT 138: + Proyectos = 29
+    assert {"Desafío", "Calculadoras", "Economía", "Mantenedor", "Proyectos"} <= set(opciones)   # PAT 139: incluye Proyectos (PAT 138)
+    assert len(app.tabs) >= 10
 
 
 def test_indice_lateral_muestra_solo_la_pantalla_elegida(tmp_path, monkeypatch):
     """PAT 134: sin PAT_TODAS_LAS_PAGINAS se ejecuta solo la pantalla elegida en el índice de la barra lateral."""
     bd = tmp_path / "t.db"; shutil.copyfile(BD_ORIGEN, bd)
-    monkeypatch.setenv("PAT_SIM_DB", str(bd)); monkeypatch.delenv("PAT_TODAS_LAS_PAGINAS", raising=False)
+    monkeypatch.setenv("PAT_SIM_DB", str(bd)); monkeypatch.setenv("PAT_INICIO", "ejemplo"); monkeypatch.delenv("PAT_TODAS_LAS_PAGINAS", raising=False)   # PAT 137: PAT_INICIO
     at = AppTest.from_file(APP, default_timeout=170); at.run()
     assert not at.exception and at.session_state.pagina == "Desafío" and len(at.tabs) == 0   # PAT 135: se abre en Desafío
     at.sidebar.radio(key="pagina").set_value("Calculadoras").run()
@@ -76,15 +82,21 @@ def test_lazo_isa51_valida_las_letras(app):
 
 
 def test_cambiar_parametro_recalcula(app):
-    app.selectbox(key="par_eq").set_value("W1"); app.run()
-    app.text_input(key="par_W1_T_salida__cl").set_value("96,0")   # PAT 133: campos con coma decimal
-    [b for b in app.button if b.label.startswith("Aplicar parámetros")][0].click(); app.run()
+    # PAT 140: el formulario «Todos los parámetros de un equipo» se eliminó; los parámetros se cambian en el cuadro «Propiedades» del
+    # lienzo, que manda el evento «parametro» (como lo manda el navegador), y la planta se recalcula sola.
+    evs = [dict(evento="parametro", datos=dict(id="W1", clave="T_salida", valor=96.0), seq=1)]
+    app.session_state["lienzo_planta"] = dict(eventos=evs, seq=1); app.run()
+    assert app.session_state.pl.equipos["W1"].params["T_salida"].valor == 96.0
     assert not app.exception and _metricas(app)["Sumidero: Hot break"] == "17.428,9 kW"
 
 
 def test_guardar_version_y_corrida(app):
-    [b for b in app.button if b.label.startswith("Guardar versión")][0].click(); app.run()
-    assert "Guardada la versión 2 con su corrida." in [s.value for s in app.success]
+    # PAT 139: el botón «Guardar versión» pasó a «Guardar proyecto» de la barra lateral (PAT 138, key pry_guardar_lateral): el primer
+    # clic crea el proyecto y los siguientes guardan una versión más; el mensaje ahora es «Guardado «...» ...» y no «Guardada la versión 2 con su corrida.»
+    app.button(key="pry_guardar_lateral").click(); app.run()
+    assert not app.exception and any(s.value.startswith("Guardado «") and "(proyecto nuevo)" in s.value for s in app.success)
+    app.button(key="pry_guardar_lateral").click(); app.run()
+    assert not app.exception and any(s.value.endswith(", versión 2.") for s in app.success)
 
 
 def _cargar_rubro(at, rubro):
@@ -99,9 +111,14 @@ def test_rubros_de_biomasa_cargan_su_escenario(app, rubro):
     mod = {"pellet": pellet, "chip": chip, "lena": lena}[rubro]
     _cargar_rubro(app, rubro)
     assert app.session_state.pl.nombre == mod.NOMBRE and app.session_state.pl.resuelta
-    m = _metricas(app)
-    assert m["Producto"] == C_fmt(mod.BASE["produccion"]) + " t/h" and "Biomasa desplazada por la cascada" in m
-    assert len(app.tabs) == 10 and not app.error
+    # PAT 139: con todas las pantallas ejecutadas la métrica «Producto» existe también en Calculadoras (otro valor) y _metricas() se quedaba
+    # con la última; se toma la de Escenario (la primera, en el orden del índice). Las pestañas ya no suman 10 (cada pantalla trae las suyas).
+    # También la métrica de Economía pasó de «Biomasa desplazada por la cascada» a «Biomasa desplazada por <alternativa evaluada>» (PAT 133): se busca por prefijo.
+    m = {}
+    for x in app.metric:
+        m.setdefault(x.label, x.value)
+    assert m["Producto"] == C_fmt(mod.BASE["produccion"]) + " t/h" and any(k.startswith("Biomasa desplazada por ") for k in m)
+    assert len(app.tabs) >= 10 and not app.error
 
 
 def C_fmt(v):

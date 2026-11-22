@@ -137,7 +137,7 @@ def test_navegacion_paginas():
     assert F.etapa_de_pagina("Costeo") == 7 and F.etapa_de_pagina("Operación") is None
     assert F.etapa_de_pagina("Selección de equipos") == 3 and F.etapa_de_pagina("Selección de equipos", 4) == 4
     assert F.etapa_de_pagina("Diseño", 4) == 2
-    assert F.pagina_de_etapa(5) == "Balances" and F.pagina_de_etapa(8, PAGINAS) == "Economía"
+    assert F.pagina_de_etapa(5) == "Equipos auxiliares" and F.pagina_de_etapa(5, PAGINAS) == "Balances" and F.pagina_de_etapa(8, PAGINAS) == "Economía"
     assert F.pagina_de_etapa(3, PAGINAS) is None
 
 
@@ -154,6 +154,8 @@ def ui():
         if r not in sys.path:
             sys.path.insert(0, r)
     import streamlit as st
+    if not hasattr(st, "REG"):   # PAT 145: estas pruebas usan el Streamlit simulado del banco sin internet
+        pytest.skip("necesita el Streamlit simulado del banco de pruebas sin internet")
     from ui import flujo as UF
     st.REG["error"].clear(); st.REG["exception"].clear(); st.PRESS.clear()
     st.session_state.clear()

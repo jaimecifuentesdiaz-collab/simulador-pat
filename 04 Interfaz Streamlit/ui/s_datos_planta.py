@@ -66,14 +66,15 @@ def mostrar():
                     C.mostrar_tabla(prueba["rechazos"], [("fila", "Fila", "num", 0), ("equipo", "Equipo", "txt", 0), ("parametro", "Parámetro", "txt", 0),
                                                          ("valor", "Valor", "cen", 0), ("unidad", "Unidad", "txt", 0), ("motivo", "Motivo", "txt", 0)])
                 if prueba["cambios"] and not prueba.get("error"):
-                    if ss.get("dp_aplicado") == huella:
+                    if ss.get("dp_aplicado") == (huella, C.version_planta()):   # PAT 137: ya aplicados a esta versión de la planta
                         st.success("Estos datos ya están aplicados a la planta.")
                     elif st.button("Aplicar los datos medidos a la planta", type="primary", key="dp_aplicar"):
                         inf = DP.aplicar_datos(pl, filas)
                         if inf.get("error"):
                             st.error(inf["error"])
                         else:
-                            ss["dp_aplicado"] = huella; ss["dp_informe"] = inf
+                            C.marcar_cambio()        # PAT 137 (estado único): las demás pantallas se recalculan
+                            ss["dp_aplicado"] = (huella, C.version_planta()); ss["dp_informe"] = inf
                             n = len(inf["cambios"])
                             st.success((f"Se aplicaron {n} valores medidos" if n > 1 else "Se aplicó 1 valor medido") + " y la planta se volvió a resolver. "
                                        "Guarde una versión para conservarlos.")

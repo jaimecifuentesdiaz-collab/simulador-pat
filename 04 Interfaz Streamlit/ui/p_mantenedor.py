@@ -20,7 +20,7 @@ from . import comun as C
 
 NUEVO = "(nuevo desafío)"
 AYUDA = """
-**Para qué sirve.** Es la función reservada al profesor: cargar las instrucciones del ejercicio o cambiar lo que quiera que
+**Para qué sirve.** Es la función reservada al docente: cargar las instrucciones del ejercicio o cambiar lo que quiera que
 sea distinto. Lo que se guarda aquí queda en la base de datos y lo leen las demás pantallas (por ejemplo, Desafío).
 
 **Clave.** Se compara su SHA-256 con PROFESOR_CLAVE_SHA256 de los secretos de Streamlit o de las variables de entorno. Si no
@@ -29,7 +29,7 @@ hay ninguno, vale la clave de respaldo del código; cámbiela en `.streamlit/sec
 **Cómo editar.** Cada pestaña tiene una tabla editable: cambie las celdas, agregue filas con «+» y presione Guardar. Cada
 cifra debe llevar su fuente (autor, año, página o tabla) o la palabra «Supuesto» con su justificación.
 
-**Desafíos.** El enunciado se lee después del saludo: «don Jaime Cifuentes, su desafío es …», así que conviene empezar con
+**Desafíos.** El enunciado se lee después del saludo: «(nombre del estudiante), su desafío es …», así que conviene empezar con
 un verbo (por ejemplo «diseñar una planta de secado de agar agar …»). Solo los desafíos activos aparecen en la pantalla Desafío.
 """
 
@@ -110,17 +110,17 @@ def _acceso() -> bool:
     except Exception:
         secretos = None
     esperado, origen = M.hash_esperado(secretos, os.environ)
-    clave = st.text_input("Clave del profesor", type="password", key="man_clave",
+    clave = st.text_input("Clave del docente", type="password", key="man_clave",
                           help="Sin la clave, el mantenedor queda en solo lectura.")
     ok = M.verificar_profesor(clave, esperado)
     if clave and not ok:
         st.error("Clave incorrecta: el mantenedor queda en solo lectura.")
     elif ok:
-        st.success("Acceso de profesor: puede editar y guardar.")
+        st.success("Acceso de docente: puede editar y guardar.")
         if origen == "defecto":
             st.warning("Se usa la clave de respaldo del código. Fije PROFESOR_CLAVE_SHA256 en .streamlit/secrets.toml antes de publicar.")
     else:
-        st.info("Ingrese la clave del profesor para editar. Mientras tanto, todo se ve en solo lectura.")
+        st.info("Ingrese la clave del docente para editar. Mientras tanto, todo se ve en solo lectura.")
     return ok
 
 
@@ -165,7 +165,7 @@ def _tab_desafios(m, ok: bool):
     rubro = a.selectbox("Rubro de la planta", rubros, index=rubros.index(d0["rubro"]) if d0["rubro"] in rubros else 0,
                         format_func=lambda r: RUBROS.get(r, "Todos los equipos (ISO 10628)"), key="man_rubro" + k)
     autor = b.text_input("Autor", d0.get("autor", ""), key="man_autor" + k)
-    enunciado = st.text_area("Enunciado (se lee después de «don Jaime Cifuentes, su desafío es»)", d0["enunciado"], key="man_enunciado" + k)
+    enunciado = st.text_area("Enunciado (se lee después de «(nombre del estudiante), su desafío es»)", d0["enunciado"], key="man_enunciado" + k)
     activo = st.checkbox("Activo", bool(d0.get("activo", True)), key="man_activo" + k)
     dem = d0["demanda"]
     a, b = st.columns(2)
@@ -359,7 +359,7 @@ def _tab_precedencia(m, ok: bool):
         st.markdown(AYUDA_PRECEDENCIA)
     libre = m.conexiones_libres()
     nuevo_libre = st.checkbox("Permitir conexiones libres (sin la restricción de precedencia)", value=libre, disabled=not ok,
-                              key="man_prec_libre", help="Opción del profesor: con ella el lienzo acepta cualquier conexión de tipos "
+                              key="man_prec_libre", help="Opción del docente: con ella el lienzo acepta cualquier conexión de tipos "
                                                          "compatibles y el diagnóstico solo avisa.")
     if ok and bool(nuevo_libre) != libre and st.button("Guardar la opción", key="man_prec_guardar_libre"):
         m.fijar_conexiones_libres(bool(nuevo_libre))

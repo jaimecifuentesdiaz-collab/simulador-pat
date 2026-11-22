@@ -89,7 +89,7 @@ def mostrar():
     m[0].metric("Datos", C.fmt(rs["n"], 0))
     m[1].metric("Media", C.fmt(rs["media"], 3), "desviación " + C.fmt(rs["desviacion"], 3), delta_color="off")
     m[2].metric("Mínimo y máximo", f"{C.fmt(rs['minimo'], 3)} a {C.fmt(rs['maximo'], 3)}")
-    m[3].metric("Mejor ajuste", r["mejor"]["etiqueta"], r["mejor"]["expresion"], delta_color="off")
+    m[3].metric("Mejor ajuste", r["mejor"]["etiqueta"])   # PAT 140: su expresión para FlexSim está en la tabla de abajo (lugar 1)
     for a in r["avisos"]:
         st.warning(a)
     si = lambda v: "Sí" if v else "No"

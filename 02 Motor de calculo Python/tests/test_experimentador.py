@@ -54,14 +54,28 @@ def test_intervalo_de_una_muestra_fija():
 
 
 # ----------------------------------------------------------------------------------------------- números aleatorios comunes
+def _plano(d, pref=""):
+    """{"Base": {"x": [1, 2]}} → {"Base/x/0": 1, "Base/x/1": 2}, para comparar con pytest.approx."""
+    if isinstance(d, dict):
+        r = {}
+        for k in d: r.update(_plano(d[k], f"{pref}{k}/"))
+        return r
+    if isinstance(d, (list, tuple)):
+        r = {}
+        for i, v in enumerate(d): r.update(_plano(v, f"{pref}{i}/"))
+        return r
+    return {pref.rstrip("/"): d}
+
+
 def test_misma_semilla_mismo_resultado(plantas):
     pl = plantas["pellet"]; esc = EX.escenarios_ejemplo(pl, "temporada")
     a = EX.correr(pl, "temporada", esc, replicas=2, semilla_base=4)
     b = EX.correr(pl, "temporada", esc, replicas=2, semilla_base=4)
     c = EX.correr(pl, "temporada", esc, replicas=2, semilla_base=9)
     # iguales salvo el redondeo de la resolución de la planta (del orden de 1e-15 relativo)
-    assert a["crudos"] == pytest.approx(b["crudos"], rel=1e-9) and a["semillas"] == [4, 5]
-    assert a["crudos"]["Base"]["espera_media_h"] == b["crudos"]["Base"]["espera_media_h"]
+    # PAT 145: pytest.approx no compara diccionarios anidados con el pytest verdadero; se comparan las cifras en plano
+    assert _plano(a["crudos"]) == pytest.approx(_plano(b["crudos"]), rel=1e-9) and a["semillas"] == [4, 5]
+    assert a["crudos"]["Base"]["espera_media_h"] == pytest.approx(b["crudos"]["Base"]["espera_media_h"], rel=1e-9)   # PAT 145: el redondeo de 1e-15 también llega aquí
     assert a["crudos"]["Base"]["espera_media_h"] != c["crudos"]["Base"]["espera_media_h"]
 
 

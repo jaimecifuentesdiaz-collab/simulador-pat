@@ -49,7 +49,7 @@ FALLAS_TIPO = {   # (MTBF h, MTTR h)
 NOMBRE_CATEGORIA = dict(mecanico="Equipo mecánico (corte, molienda, refinado, prensado)",
                         termico="Equipo térmico (calentamiento, evaporación, esterilización, secado, enfriamiento)",
                         manejo="Manejo y envasado (lavado, cribado, llenado, despacho)")
-_JF = ("Orden de magnitud del simulador del profesor: una falla cada seis turnos que deja cerca de un tercio del turno "
+_JF = ("Orden de magnitud didáctico: una falla cada seis turnos que deja cerca de un tercio del turno "
        "(p_falla = 0,16 y disp_falla = 0,36 de operacion.py), es decir, cerca de 10 % de la capacidad de la línea, repartido "
        "entre los equipos según su tipo; los equipos mecánicos fallan más seguido y los térmicos tardan más en repararse. "
        "Exponencial: tasa de falla constante, la elección usual cuando no hay datos medidos; " + _SD + ". Se reemplaza en "

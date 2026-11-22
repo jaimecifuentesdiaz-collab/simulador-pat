@@ -2,3 +2,6 @@ streamlit==1.65.0
 iapws==1.5.4
 numpy>=1.26
 pandas>=2.2
+ezdxf>=1.1
+reportlab>=4
+supabase>=2.30,<3

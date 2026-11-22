@@ -3,6 +3,8 @@
 Gris: pendiente; verde: hecha; naranjo: por revisar (cambió una etapa anterior); la etapa actual va resaltada con borde oscuro.
 Cada paso es un botón que lleva a la primera pantalla de la etapa. «Etapa anterior» y «Etapa siguiente» recorren el proceso.
 Desde app.py, después de la barra lateral y antes de mostrar la pantalla:  FL.barra(ss.pagina, PAGINAS)
+PAT 143 (tarea 6): si la pantalla de construcción de la etapa actual (o de una anterior) tiene errores de diseño según el validador
+(ui/validacion.py), «Etapa siguiente» y los pasos de las etapas siguientes quedan deshabilitados; volver atrás siempre se puede.
 """
 from __future__ import annotations
 import streamlit as st
@@ -37,12 +39,14 @@ def _ir(pagina: str, etapa: int) -> None:
     ss[F.CLAVE_ETAPA] = etapa
 
 
-def _paso(etapa: int, validas, key: str, texto: str, ayuda: str, tipo: str = "secondary"):
+def _paso(etapa: int, validas, key: str, texto: str, ayuda: str, tipo: str = "secondary", bloqueo: str | None = None):
     """Botón que lleva a la primera pantalla de la etapa. Con on_click la sesión cambia antes de dibujar el índice (Streamlit
     no deja cambiar el valor de un widget ya dibujado); si el cambio no ocurrió (sustituto de pruebas), se hace aquí y se
-    relanza la ejecución."""
+    relanza la ejecución. PAT 143: bloqueo (texto) deja el botón deshabilitado con ese texto de ayuda (validador del diseño)."""
     pag = F.pagina_de_etapa(etapa, validas) if etapa else None
-    clic = st.button(texto, key=key, help=ayuda, disabled=pag is None, width="stretch",
+    if bloqueo:
+        pag = None
+    clic = st.button(texto, key=key, help=bloqueo or ayuda, disabled=pag is None, width="stretch",
                      on_click=_ir, args=(pag, etapa) if pag else None)
     if clic and pag:
         ss = st.session_state
@@ -62,6 +66,15 @@ def barra(pagina_actual: str, paginas=None) -> None:
     F.sincronizar(ss)
     est = F.estados(ss)
     actual = F.etapa_de_pagina(pagina_actual, ss.get(F.CLAVE_ETAPA))
+    bloqueo = None                       # PAT 143: con errores de diseño en esta etapa (o antes) no se pasa a las siguientes
+    try:
+        from . import validacion as VAL
+        b_ = VAL.bloqueo_etapa(actual)
+        if b_:
+            bloqueo = (f"No se puede avanzar: {b_[0]} tiene {b_[1]} error{'es' if b_[1] > 1 else ''} de diseño. Vea la advertencia "
+                       "de esa pantalla y su botón «Pista».")
+    except Exception:
+        bloqueo = None
     st.html(_css(est, actual))
     with st.container(key="flujo_franja"):
         cols = st.columns([1.15] + [1] * len(F.ETAPAS) + [1.15], gap="small")
@@ -70,9 +83,11 @@ def barra(pagina_actual: str, paginas=None) -> None:
         for c, e in zip(cols[1:-1], F.ETAPAS):
             with c:
                 _paso(e.num, validas, f"flujo_paso_{e.num}", f"{e.num} {e.corto}",
-                      f"Etapa {e.num}: {e.nombre} ({est[e.num]})", "primary" if e.num == actual else "secondary")
+                      f"Etapa {e.num}: {e.nombre} ({est[e.num]})", "primary" if e.num == actual else "secondary",
+                      bloqueo if (bloqueo and actual is not None and e.num > actual) else None)
         with cols[-1]:
-            _paso(F.etapa_vecina(actual, +1, validas), validas, "flujo_sig", "Etapa siguiente ›", "Ir a la etapa siguiente")
+            _paso(F.etapa_vecina(actual, +1, validas), validas, "flujo_sig", "Etapa siguiente ›", "Ir a la etapa siguiente",
+                  bloqueo=bloqueo)
     if actual is not None and est[actual] == F.POR_REVISAR:
         cambiadas = ", ".join(f"{k} {F.etapa(k).corto}" for k in F.etapas_cambiadas(actual, ss))
         a, b = st.columns([5, 1.4], gap="small")

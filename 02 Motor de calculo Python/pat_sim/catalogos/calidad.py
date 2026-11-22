@@ -11,7 +11,7 @@ from dataclasses import dataclass, asdict
 FUENTE_CODEX = "Codex Alimentarius (1981), CODEX STAN 57-1981, concentrados de tomate elaborados, sec. 3.2.4"
 FUENTE_CEE = "Reglamento (CEE) n.º 1764/86 de la Comisión (1986), requisitos mínimos del concentrado de tomate: pH no mayor que 4,5"
 FUENTE_DIA = "DIA_Agrozzi_rev0.pdf, p. 48"
-FUENTE_PROF = "Simulador del profesor (Scorm_pellet_profesor.html, constante QC)"
+FUENTE_PROF = "Simulador didáctico de referencia (SCORM de pellet, constante QC)"
 
 
 @dataclass
@@ -79,7 +79,7 @@ def variables_tomate(pl) -> list[Variable]:
     Tst = _v(est, "T_salida", 103.0); Thb = _v(hb, "T_salida", 90.0); desc = _v(sel, "descarte", 0.10)
     return [
         Variable("brix", "Sólidos solubles de la pasta", "°Brix", 29.0, 31.0, 0.25, brix,
-                 "Supuesto: ±1 °Brix en torno a la pasta de 30 °Brix del Capítulo 1; la pasta hot break se vende por rangos de 2 °Brix (por ejemplo 28/30 y 30/32)",
+                 "Supuesto: ±1 °Brix en torno a la pasta de 30 °Brix de la planta basada en Agrozzi; la pasta hot break se vende por rangos de 2 °Brix (por ejemplo 28/30 y 30/32)",
                  "Balance de la planta: °Brix de la corriente al llenado aséptico (lazo DIC-302 del último evaporador)",
                  equipo_control=evap, decimales=2),
         Variable("t_est", "Temperatura de esterilización", "°C", 103.0, 110.0, 0.6, Tst,
@@ -124,14 +124,26 @@ def variables_biomasa(pl) -> list[Variable]:
             Variable("cenizas", "Cenizas", "%", None, 0.7, 0.026, 0.45, f"ENplus A1: {fuente_norma}",
                      "Supuesto: aserrín de pino radiata con poca corteza", categoria="Oficial", decimales=3),
             Variable("durabilidad", "Durabilidad mecánica", "%", 98.0, None, 0.19, _clamp(99.1 - 0.105 * (Mbh - 9.5) ** 2, 90.0, 99.7),
-                     f"ENplus A1: {fuente_norma}", f"Fórmula de qualityMean del profesor con la humedad de la planta ({FUENTE_PROF})",
+                     f"ENplus A1: {fuente_norma}", f"Fórmula de qualityMean del simulador didáctico de referencia con la humedad de la planta ({FUENTE_PROF})",
                      categoria="Oficial", equipo_control=ctrl, decimales=2),
             Variable("finos", "Finos", "%", None, 1.0, 0.12, _clamp(0.55 + 0.3 * dm, 0.1, 8.0), f"ENplus A1: {fuente_norma}",
-                     f"Fórmula de qualityMean del profesor ({FUENTE_PROF})", categoria="Oficial", decimales=2),
+                     f"Fórmula de qualityMean del simulador didáctico de referencia ({FUENTE_PROF})", categoria="Oficial", decimales=2),
             Variable("densidad", "Densidad a granel", "kg/m³", 600.0, 750.0, 9.0, _clamp(655.0 - 7.0 * dm, 500.0, 800.0), f"ENplus A1: {fuente_norma}",
-                     f"Fórmula de qualityMean del profesor ({FUENTE_PROF})", categoria="Oficial", decimales=0),
+                     f"Fórmula de qualityMean del simulador didáctico de referencia ({FUENTE_PROF})", categoria="Oficial", decimales=0),
         ]
     return out
+
+
+def variables_agar(pl) -> list[Variable]:
+    """PAT 143 b: humedad del agar en polvo frente a la especificación del envasado (catalogos/agar.py)."""
+    env = _equipo(pl, "envasado_agar"); seca = _equipo(pl, "secador")
+    d = env.resultado.detalle if env is not None and env.resultado is not None else {}
+    hmax = 100 * _v(env, "humedad_max", 0.18)
+    fuente = env.params["humedad_max"].fuente if env is not None and "humedad_max" in env.params else ""
+    return [Variable("humedad", "Humedad del agar en polvo (base húmeda)", "%", None, hmax, 0.22, 100 * float(d.get("humedad_bh", 0.15)),
+                     fuente, "Balance de la planta: humedad que deja el secador (consigna del lazo MIC-402); la desviación estándar es la "
+                     "de la humedad del producto de biomasa (Supuesto)", categoria="Literatura", equipo_control=seca.id if seca else None,
+                     decimales=2)]
 
 
 # PAT 135 (T8): banda de guarda de los lazos de control. Supuesto: el operador fija la consigna del lazo a 3 desviaciones
@@ -163,9 +175,11 @@ def banda_guarda(v: Variable, z: float = Z_GUARDA) -> Variable:
 
 
 def variables(pl) -> list[Variable]:
-    """Variables de calidad de la planta actual (resuelta). Tomate o biomasa; otra planta, sin variables."""
+    """Variables de calidad de la planta actual (resuelta). Tomate, agar o biomasa; otra planta, sin variables."""
     if pl.rubro == "tomate":
         return [banda_guarda(v) for v in variables_tomate(pl)]
+    if _equipo(pl, "envasado_agar") is not None:            # PAT 143 b
+        return [banda_guarda(v) for v in variables_agar(pl)]
     if _equipo(pl, "despacho") is not None:
         return [banda_guarda(v) for v in variables_biomasa(pl)]
     return []

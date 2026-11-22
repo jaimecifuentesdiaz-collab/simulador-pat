@@ -114,12 +114,14 @@ def mostrar():
                 _tabla_cambios(v["cambios"])
                 if v["errores"]:
                     st.caption("Las filas con error no se aplican; el resto de los cambios sí.")
-                if ss.get("xl_aplicado") == huella:
+                if ss.get("xl_aplicado") == (huella, C.version_planta()):   # PAT 137: ya aplicado a esta versión de la planta
                     st.success("Este libro ya está aplicado.")
                 elif st.button("Aplicar a la planta", type="primary", key="xl_aplicar"):
                     det = _aplicar(pl, v)
                     if det is not None:
-                        ss["xl_aplicado"] = huella; ss["xl_detalle"] = det
+                        if g["planta"]:
+                            C.marcar_cambio()        # PAT 137 (estado único): las demás pantallas se recalculan
+                        ss["xl_aplicado"] = (huella, C.version_planta()); ss["xl_detalle"] = det
                         txt = f"Se aplicaron {len(det)} cambios" if len(det) != 1 else "Se aplicó 1 cambio"
                         st.success(txt + (" y la planta se volvió a resolver" if g["planta"] else "") + ". Guarde una versión para conservarlos.")
             else:

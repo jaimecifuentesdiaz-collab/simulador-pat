@@ -160,7 +160,7 @@ def _economia(pl, precio_gas, dolar, tasa, anios, inversion, costo_anual=0.0, pr
 @mcp.tool()
 def evaluar_economia(planta_id: str, precio_gas: float, dolar: float, tasa: float, anios: int, inversion: float,
                      costo_anual: float = 0.0, precio_biomasa: float = 6750.0) -> dict:
-    """Evaluación económica de la recuperación de calor por cascada: ahorro anual, VAN, TIR y recuperación. precio_gas en US$/MMBtu, dolar en $/US$, tasa como fracción (0.10), anios, inversion y costo_anual en millones de pesos (MM$). En plantas a biomasa se usa precio_biomasa en $/m3 estéreo. Con inversion 0 se usa la inversión máxima con VAN cero."""
+    """Evaluación económica de la recuperación de calor por cascada: ahorro anual, VAN, TIR y recuperación. precio_gas en US$/MMBtu, dolar en $/US$, tasa como fracción (0.10), anios, inversion y costo_anual en millones de pesos (M$). En plantas a biomasa se usa precio_biomasa en $/m3 estéreo. Con inversion 0 se usa la inversión máxima con VAN cero."""
     pl = _planta(planta_id)
     r, E = _economia(pl, precio_gas, dolar, tasa, anios, inversion, costo_anual, precio_biomasa)
     s = RIESGO.supuestos(r, E)

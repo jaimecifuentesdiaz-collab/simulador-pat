@@ -128,7 +128,7 @@ def _fallas(P, falla_aj):
 
 def _firma(pl, P) -> tuple:
     caps = tuple((k, e.capacidad_efectiva()) for k, e in pl.equipos.items())
-    return (pl.rubro, caps, repr({k: v for k, v in P.items() if not k.startswith("_")}))
+    return (pl.rubro, caps, repr({k: v for k, v in P.items() if not k.startswith("_")}), C.version_planta())   # PAT 136
 
 
 def mostrar():
@@ -225,6 +225,6 @@ def mostrar():
         AT.tabla("ln_tanques_usados", "Tanques simulados")   # PAT 134: «?» de la tabla
         C.mostrar_tabla([dict(id=t["id"], c=t["capacidad_t"], n=t["nivel_inicial_t"], o="anulado" if t["anulado"] else t["origen"]) for t in res["tanques"]],
                         [("id", "Tanque", "txt", 0), ("c", "Capacidad (t)", "num", 2), ("n", "Nivel inicial (t)", "num", 2), ("o", "Origen", "txt", 0)])
-        st.caption(C.esc("Gamma y lognormal con coeficiente de variación 0,5 y uniforme de 0,5 a 1,5 veces la media cuando solo se da la media: "
-                         "Supuesto PAT 134. Método de fallas por tiempo ocupado o calendario: Law (2015, cap. 14); fuente de FlexSim: manual "
+        # PAT 140: el supuesto de gamma, lognormal y uniforme ya está en el «?» de la tabla «Fallas simuladas»
+        st.caption(C.esc("Método de fallas por tiempo ocupado o calendario: Law (2015, cap. 14); fuente de FlexSim: manual "
                          "público (*Fluid Library*, *Ticker* y MTBF/MTTR)."))

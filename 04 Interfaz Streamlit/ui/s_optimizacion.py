@@ -25,7 +25,7 @@ def mostrar(pl, r, E):
         a, b = st.columns(2)
         obj_txt = a.selectbox("Objetivo", objetivos, index=0, key="op_objetivo",
                               help="El VAN usa los precios, la tasa, el horizonte y la inversión de la sesión. Con inversión según el área, la inversión sale "
-                                   "del área de la cascada con U medio (Capítulo 4) y la correlación de Shamoushaki et al. (2021).")
+                                   "del área de la cascada con U medio y la correlación de Shamoushaki et al. (2021).")
         dos = b.toggle("Optimizar dos variables (grilla)", value=False, key="op_dos")
         elegidas = []
         for i in range(2 if dos else 1):
@@ -44,7 +44,7 @@ def mostrar(pl, r, E):
         st.warning("Elija dos variables distintas.")
         return
     llave = (pl.rubro, objetivo, tuple((str(v[0]), v[1], v[2]) for v in elegidas), n, tuple(sorted(E.items())), ss.get("cop", 2.0),
-             tuple(sorted(pl.globales.items())))
+             tuple(sorted(pl.globales.items())), C.version_planta())   # PAT 136: versión de la planta única
     if st.button("Optimizar", type="primary", key="op_boton"):
         with st.spinner("Evaluando la planta en cada punto…"):
             try:
@@ -62,7 +62,7 @@ def mostrar(pl, r, E):
         st.warning(C.esc(av))
     if res["optimo_lista"] is None:
         return
-    unidad = "MM$" if objetivo.startswith("van") else "kW"
+    unidad = "M$" if objetivo.startswith("van") else "kW"
     m = st.columns(len(nombres) + 2)
     for col, nom, x, xb in zip(m, nombres, res["optimo_lista"], res["base_lista"]):
         col.metric("Óptimo: " + nom, C.fmt(x, 2), "actual " + C.fmt(xb, 2), delta_color="off")
@@ -73,7 +73,7 @@ def mostrar(pl, r, E):
         st.line_chart(df, x_label=nombres[0], y_label=res["objetivo"])
         AT.tabla("opt_curva", "Valores de la curva")   # PAT 134: «?» de la tabla
         C.mostrar_tabla([dict(x=c["x"], v=c["valor"]) for c in res["curva"]],
-                        [("x", nombres[0], "num", 2), ("v", res["objetivo"], "mm" if unidad == "MM$" else "num", 1)])
+                        [("x", nombres[0], "num", 2), ("v", res["objetivo"], "mm" if unidad == "M$" else "num", 1)])
     else:
         filas = [dict(x=c["x"], y=c["y"], v=c["valor"]) for c in res["curva"]]
         tabla = pd.DataFrame(filas).pivot(index="x", columns="y", values="v")

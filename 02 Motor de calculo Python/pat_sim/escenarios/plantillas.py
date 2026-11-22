@@ -6,9 +6,9 @@ térmico y busca la recuperación de calor. La biblioteca reúne los escenarios 
 variantes de diseño que ya existen como argumentos de los escenarios (sin cifras nuevas)."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from . import agrozzi, pellet, chip, lena
+from . import agrozzi, pellet, chip, lena, agar
 
-MODULOS = {"tomate": agrozzi, "pellet": pellet, "chip": chip, "lena": lena}
+MODULOS = {"tomate": agrozzi, "pellet": pellet, "chip": chip, "lena": lena, "agar": agar}   # PAT 143 b: agar
 SERVICIO_CALOR = ("caldera", "generador")          # prefijos de tipo de los equipos de servicio térmico
 
 
@@ -41,11 +41,14 @@ PLANTILLAS = {p.clave: p for p in [
     Plantilla("plantilla_lena", "lena", "Plantilla de leña seca",
               "Recepción de trozas, procesadora, secador de leña y acopio. Sin generador de calor, sin capacidades y sin lazos de control.",
               PENDIENTES),
+    Plantilla("plantilla_agar", "agar", "Plantilla de agar agar",
+              "Recepción del alga seca, lavado, tratamiento alcalino, neutralización, extractor, filtro prensa, enfriador y gelificación, "
+              "prensa del gel, secador, molino y envasado. Sin caldera, sin capacidades y sin lazos de control.", PENDIENTES),
 ]}
 
 EJEMPLOS = {p.clave: p for p in [
     Plantilla("ejemplo_agrozzi", "tomate", "Planta basada en Agrozzi",
-              "Línea de pasta de tomate del Capítulo 1 (Empresas Carozzi S.A., Teno) con los parámetros de Modelo_PAT_Agrozzi_v2.xlsx.",
+              "Línea de pasta de tomate de la planta basada en Agrozzi (Empresas Carozzi S.A., Teno) con los parámetros de Modelo_PAT_Agrozzi_v2.xlsx.",
               es_ejemplo=True),
     Plantilla("ejemplo_agrozzi_sin_tvr", "tomate", "Planta basada en Agrozzi sin termocompresor",
               "La misma línea con el evaporador Venus sin termocompresor (TVR): sirve para comparar el vapor vivo y la cascada.",
@@ -57,6 +60,7 @@ EJEMPLOS = {p.clave: p for p in [
               "El escenario base con la humedad de los rollizos de pino radiata en invierno, 57,7 % en base húmeda (Visser et al., 2014).",
               argumentos=dict(M0=0.577), es_ejemplo=True),
     Plantilla("ejemplo_lena", "lena", lena.NOMBRE, (lena.__doc__ or "").strip().split("\n")[0], es_ejemplo=True),
+    Plantilla("ejemplo_agar", "agar", agar.NOMBRE, (agar.__doc__ or "").strip().split("\n")[0], es_ejemplo=True),
 ]}
 
 

@@ -3,6 +3,9 @@
 (function () {
   const $ = id => document.getElementById(id);
   let D = null, rot = 0, vb0 = null, vb = null, drag = null, fijo = null, altoPrevio = 0, firma = "";
+  // PAT 140 i: orientación sincronizada con la lista «Orientación de la vista» de Streamlit. Cada giro hecho aquí se devuelve con una
+  // marca única; mientras Python no confirme esa marca (datos.marca) se ignora la orientación que llega, para no deshacer un giro en viaje.
+  let pendiente = null;
 
   function aST(type, data) { window.parent.postMessage(Object.assign({isStreamlitMessage: true, type}, data || {}), "*"); }
   function fmt(v, d) {
@@ -21,8 +24,13 @@
     const f = JSON.stringify(Object.keys(datos.vistas || {})) + (datos.firma || "");
     const primera = D === null;
     D = datos;
-    if (primera) rot = Number(datos.rot || 0);
-    if (primera || f !== firma) { firma = f; pintar(true); }
+    let cambia = false;
+    if (pendiente && datos.marca === pendiente) pendiente = null;
+    if (!pendiente) {
+      const r = ((Number(datos.rot || 0) % 360) + 360) % 360;
+      if ([0, 90, 180, 270].includes(r) && r !== rot) { rot = r; cambia = true; }
+    }
+    if (primera || cambia || f !== firma) { firma = f; pintar(true); }
     altura();
   }
 
@@ -162,10 +170,15 @@
     s.addEventListener("wheel", ev => { ev.preventDefault(); const [x, y] = puntoSVG(ev); zoom(ev.deltaY < 0 ? 1.15 : 1 / 1.15, x, y); }, {passive: false});
   }
 
-  function girar(n) { rot = ((rot + n) % 360 + 360) % 360; pintar(true); }
+  function avisarRot() {
+    pendiente = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    aST("streamlit:setComponentValue", {value: {rot, marca: pendiente}, dataType: "json"});
+  }
+  function ponerRot(r) { r = ((r % 360) + 360) % 360; if (r === rot) return; rot = r; pintar(true); avisarRot(); }
+  function girar(n) { ponerRot(rot + n); }
   $("g-izq").onclick = () => girar(-90);
   $("g-der").onclick = () => girar(90);
-  for (const b of document.querySelectorAll("button[data-rot]")) b.onclick = () => { rot = Number(b.dataset.rot); pintar(true); };
+  for (const b of document.querySelectorAll("button[data-rot]")) b.onclick = () => ponerRot(Number(b.dataset.rot));
   $("z-mas").onclick = () => zoom(1.25);
   $("z-menos").onclick = () => zoom(0.8);
   $("ajustar").onclick = () => { vb = vb0.slice(); aplicarVB(); };

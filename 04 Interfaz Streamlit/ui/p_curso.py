@@ -47,7 +47,7 @@ def mostrar():
     if ss.get("aviso_curso"):
         st.success(ss.pop("aviso_curso"))
     nombre_curso = st.text_input("Curso", value=ss.get("cur_curso", CURSO_DEFECTO), key="cur_nombre_curso",
-                                 help="El mismo nombre que le indicó su profesor: la variante depende del curso y del identificador.").strip() or CURSO_DEFECTO
+                                 help="El mismo nombre que le indicó su docente: la variante depende del curso y del identificador.").strip() or CURSO_DEFECTO
     curso = bd.obtener_curso(nombre_curso)
     izq, der = st.columns(2, gap="large")
     with izq:
@@ -81,8 +81,8 @@ def mostrar():
             if not listo:
                 st.caption("Para entregar, finalice la evaluación en la pestaña Evaluación con esta variante cargada.")
     with der:
-        st.markdown("#### Profesor")
-        clave = st.text_input("Clave del profesor", type="password", key="cur_clave")
+        st.markdown("#### Docente")
+        clave = st.text_input("Clave del docente", type="password", key="cur_clave")
         if curso is None or not curso.get("clave_hash"):
             rub = st.selectbox("Rubro del curso", list(CU.RANGOS), index=list(CU.RANGOS).index(pl.rubro) if pl.rubro in CU.RANGOS else 0,
                                format_func=lambda k: RUBROS[k], key="cur_rubro")

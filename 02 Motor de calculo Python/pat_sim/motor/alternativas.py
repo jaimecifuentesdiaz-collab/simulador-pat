@@ -61,7 +61,7 @@ def etapas(filas, corr, biomasa=False):
 
 
 def _valor(Q_kW, h, cal, comb, precio, dolar):
-    """Ahorro por temporada (MM$) y cantidad de combustible desplazado (MMBtu o m3 estéreo)."""
+    """Ahorro por temporada (M$) y cantidad de combustible desplazado (MMBtu o m3 estéreo)."""
     if comb == "biomasa":
         c = cal.consumo(Q_kW, h); return c["m3"] * precio / 1e6, c["m3"]
     g = eco.gas(Q_kW, h, cal); return eco.valor_gas(g["MMBtu"], precio, dolar), g["MMBtu"]
@@ -164,7 +164,7 @@ def crf(tasa: float, anios: int) -> float:
 
 def dTmin_optimo(pl, r, precio: float, dolar: float = costos.DOLAR, tasa: float = 0.10, anios: int = VIDA, alternativa: str = "A3",
                  dTs=None) -> dict:
-    """Costo total anual (MM$ por temporada) de la alternativa para cada ΔTmin: capital anualizado + operación y mantención
+    """Costo total anual (M$ por temporada) de la alternativa para cada ΔTmin: capital anualizado + operación y mantención
     + combustible que la caldera sigue quemando. El óptimo es el ΔTmin de menor costo total."""
     dTs = list(dTs or [x / 2 for x in range(2, 41)])
     snk, cal, h, comb = _contexto(pl, r)

@@ -69,7 +69,7 @@ _PISTAS = {
     3: "En Selección de equipos, elija equipos comerciales (si hace falta en paralelo) y revise su confiabilidad.",
     4: "En Selección de equipos, revise la teoría de restricciones y el costo de ineficiencia para decidir las redundancias; declare también la capacidad nominal de los equipos.",
     5: "En Balances, revise el cierre de cada equipo; después vea Recuperación de calor y Alternativas.",
-    6: "En Instrumentación, defina los lazos de control ISA-5.1.",
+    6: "En Lazos de control, ponga en el lienzo los lazos de control ISA-5.1 de la planta.",   # PAT 142: nombre nuevo de la pantalla
     7: "En Costeo, calcule la inversión de la planta.",
     8: "En Economía y Riesgo económico, calcule el VAN con su incertidumbre.",
     9: "En Layout, proponga y ajuste la disposición, con cañerías y red eléctrica.",

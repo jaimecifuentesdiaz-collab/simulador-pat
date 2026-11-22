@@ -17,7 +17,7 @@ OPC_ALCANCE = {v: k for k, v in M.NOMBRE_ALCANCE.items()}
 
 def mm(v) -> str:
     """Millones de pesos con el signo antes del $ (como s_riesgo.mm)."""
-    return C.esc(("−" if v < 0 else "") + "$" + C.fmt(abs(v), 1) + " MM")
+    return C.esc(("−" if v < 0 else "") + "$" + C.fmt(abs(v), 1) + " M")
 
 
 def _fallas_linea(pl) -> dict | None:
@@ -39,7 +39,7 @@ def _fallas_linea(pl) -> dict | None:
 def _ayuda():
     with st.expander("?  Cómo se hace, para qué y por qué", expanded=False):
         st.markdown(C.esc(
-            "**Para qué.** El profesor Torres pidió (04-11-2026) llevar a la evaluación económica la incertidumbre de la confiabilidad de "
+            "**Para qué.** Lleva a la evaluación económica la incertidumbre de la confiabilidad de "
             "los equipos y de la demanda: la planta se diseña con una estrategia de capacidad y en algunos períodos sobra capacidad "
             "(exceso, costo fijo sin uso) y en otros falta (déficit, venta perdida).\n\n"
             "**Cómo se hace.**\n"
@@ -107,7 +107,7 @@ def _parametros(pl, hay_desafio: bool, alcance0: str) -> dict:
         a, b, c, d = st.columns(4)
         red = a.number_input("Reducción de la tasa de falla por preventivo (%)", 0.0, M.REDUCCION_MAX * 100, float(P["red_pm"]), 5.0, key=f"mce_red_{r}",
                              help=M.SUPUESTOS["reduccion_pm"].justificacion + ".")
-        cpm = b.number_input(C.esc("Costo del preventivo (MM$/año por equipo, para bajar a la mitad)"), 0.0, 1e4, float(P["costo_pm"]), 0.5,
+        cpm = b.number_input(C.esc("Costo del preventivo (M$/año por equipo, para bajar a la mitad)"), 0.0, 1e4, float(P["costo_pm"]), 0.5,
                              key=f"mce_cpm_{r}", help=M.SUPUESTOS["costo_pm_equipo"].justificacion + ".")
         oc = c.number_input("Costo de la capacidad ociosa (% del margen)", 0.0, 100.0, float(P["ocioso"]), 5.0, key=f"mce_oc_{r}",
                             help=M.SUPUESTOS["frac_ocioso"].justificacion + ".")
@@ -141,7 +141,9 @@ def mostrar():
     _ayuda()
     r = C.resumen_actual()
     demanda = (ss.get("desafio") or {}).get("demanda") or None
-    costeo = ss.get("costeo") if isinstance(ss.get("costeo"), dict) else None
+    costeo = C.costeo_vigente()              # PAT 137 (estado único): solo el costeo de la versión actual de la planta
+    if C.costeo_desactualizado():
+        st.caption("La planta cambió después del último costeo: se usa la inversión de Economía hasta que se abra Costeo de nuevo.")
     alcance0 = "planta" if costeo and (costeo.get("total_clp") or 0) > 0 else "recuperador"
     P = _parametros(pl, bool(demanda), alcance0)
     try:
@@ -163,7 +165,7 @@ def mostrar():
         st.warning("El alcance planta completa suma el margen de toda la producción, pero la inversión es la de Economía (el recuperador): "
                    "el VAN queda sobrestimado hasta que exista el costeo de la planta.")
     llave = (pl.rubro, repr(sorted(P.items())), repr(sorted((k, v) for k, v in E.items() if isinstance(v, (int, float, str)))),
-             repr(costeo and costeo.get("total_clp")), repr(demanda), repr(_fallas_linea(pl)), id(pl), pl.nombre)
+             repr(costeo and costeo.get("total_clp")), repr(demanda), repr(_fallas_linea(pl)), id(pl), pl.nombre, C.version_planta())   # PAT 136
     g = ss.get("mce_resultado")
     if not g or g[0] != llave:
         with st.spinner("Simulando…"):
@@ -180,7 +182,7 @@ def mostrar():
     x = res["estrategias"][est]
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("VAN medio", mm(x["media"]))
-    m2.metric("Percentiles 5 y 95", C.esc(C.fmt(x["p5"], 0) + " a " + C.fmt(x["p95"], 0) + " MM$"))
+    m2.metric("Percentiles 5 y 95", C.esc(C.fmt(x["p5"], 0) + " a " + C.fmt(x["p95"], 0) + " M$"))
     m3.metric("P(VAN < 0)", C.pct(x["prob_negativo"]))
     m4.metric("Nivel de servicio", C.pct(x["servicio"]))
 
@@ -190,7 +192,7 @@ def mostrar():
     clases = {k: M.histograma(res["estrategias"][k]["van"], 30, lo, hi) for k in vistas}
     marcas = [round((a + b) / 2, 1) for a, b, _c in clases[vistas[0]]]
     df = pd.DataFrame({M.NOMBRE_ESTRATEGIA[k]: [c for _a, _b, c in clases[k]] for k in vistas}, index=marcas)
-    st.bar_chart(df, x_label="VAN (MM$, marca de clase)", y_label="Réplicas", stack=False)
+    st.bar_chart(df, x_label="VAN (M$, marca de clase)", y_label="Réplicas", stack=False)
     st.caption(f"{C.fmt(res['n'], 0)} réplicas × {res['anios']} años × {res['periodos']} períodos con la semilla {res['semilla']}, "
                f"en {C.fmt(res['segundos'], 2)} s. Alcance: {M.NOMBRE_ALCANCE[res['alcance']].lower()}.")
 
@@ -201,23 +203,25 @@ def mostrar():
         filas.append(dict(n=y["nombre"], van=y["media"], p5=y["p5"], p50=y["p50"], p95=y["p95"], pneg=y["prob_negativo"], prod=y["produccion_t"],
                           dfc=y["deficit_t"], exc=y["exceso_t"], serv=y["servicio"], perd=cp["margen_perdido"], oc=cp["ocioso"], aj=cp["ajuste"],
                           ah=cp["ahorro"], fl=cp["flujo"], mp=cp["margen_produccion"]))
-    C.mostrar_tabla(filas, [("n", "Estrategia", "txt", 0), ("van", "VAN medio (MM$)", "mm", 1), ("p5", "Percentil 5 (MM$)", "mm", 1),
-                            ("p50", "Mediana (MM$)", "mm", 1), ("p95", "Percentil 95 (MM$)", "mm", 1), ("pneg", "P(VAN < 0)", "pct", 1),
+    C.mostrar_tabla(filas, [("n", "Estrategia", "txt", 0), ("van", "VAN medio (M$)", "mm", 1), ("p5", "Percentil 5 (M$)", "mm", 1),
+                            ("p50", "Mediana (M$)", "mm", 1), ("p95", "Percentil 95 (M$)", "mm", 1), ("pneg", "P(VAN < 0)", "pct", 1),
                             ("prod", "Producción (t/año)", "num", 0), ("dfc", "Déficit (t/año)", "num", 0), ("exc", "Exceso (t/año)", "num", 0),
                             ("serv", "Nivel de servicio", "pct", 1)])
     if res["alcance"] == "planta":
-        C.mostrar_tabla(filas, [("n", "Estrategia", "txt", 0), ("mp", "Margen de lo producido (MM$/año)", "mm", 1),
-                                ("ah", "Ahorro de energía (MM$/año)", "mm", 1), ("oc", "Capacidad ociosa (MM$/año)", "mm", 1),
-                                ("aj", "Ajuste de capacidad (MM$/año)", "mm", 1), ("fl", "Flujo medio (MM$/año)", "mm", 1),
-                                ("perd", "Margen perdido, informativo (MM$/año)", "mm", 1)])
-        st.caption(C.esc(f"Inversión de la planta: {C.fmt(res['inversion'], 1)} MM$. Preventivo: {C.fmt(res['costo_pm'], 1)} MM$/año. "
-                         f"Costo anual: {C.fmt(res['params']['costo_anual'], 1)} MM$/año. El margen perdido ya está en la menor producción."))
+        C.mostrar_tabla(filas, [("n", "Estrategia", "txt", 0), ("mp", "Margen de lo producido (M$/año)", "mm", 1),
+                                ("ah", "Ahorro de energía (M$/año)", "mm", 1), ("oc", "Capacidad ociosa (M$/año)", "mm", 1),
+                                ("aj", "Ajuste de capacidad (M$/año)", "mm", 1), ("fl", "Flujo medio (M$/año)", "mm", 1),
+                                ("perd", "Margen perdido, informativo (M$/año)", "mm", 1)])
+        # PAT 140: con el costeo, la inversión de la planta ya está en el aviso de arriba («En el alcance planta la inversión es…»)
+        inv_txt = "" if costeo and (costeo.get("total_clp") or 0) > 0 else f"Inversión de la planta: {C.fmt(res['inversion'], 1)} M$. "
+        st.caption(C.esc(inv_txt + f"Preventivo: {C.fmt(res['costo_pm'], 1)} M$/año. "
+                         f"Costo anual: {C.fmt(res['params']['costo_anual'], 1)} M$/año. El margen perdido ya está en la menor producción."))
     else:
-        C.mostrar_tabla(filas, [("n", "Estrategia", "txt", 0), ("ah", "Ahorro de energía (MM$/año)", "mm", 1),
-                                ("fl", "Flujo medio (MM$/año)", "mm", 1), ("perd", "Margen perdido, informativo (MM$/año)", "mm", 1),
-                                ("oc", "Capacidad ociosa, informativo (MM$/año)", "mm", 1)])
-        st.caption(C.esc(f"VAN incremental del recuperador con la inversión de Economía: {C.fmt(res['inversion'], 1)} MM$; costo anual "
-                         f"{C.fmt(res['params']['costo_anual'], 1)} MM$/año. Ahorro de diseño: {C.fmt(res['ahorro_diseno'], 1)} MM$/año. El margen "
+        C.mostrar_tabla(filas, [("n", "Estrategia", "txt", 0), ("ah", "Ahorro de energía (M$/año)", "mm", 1),
+                                ("fl", "Flujo medio (M$/año)", "mm", 1), ("perd", "Margen perdido, informativo (M$/año)", "mm", 1),
+                                ("oc", "Capacidad ociosa, informativo (M$/año)", "mm", 1)])
+        st.caption(C.esc(f"VAN incremental del recuperador con la inversión de Economía: {C.fmt(res['inversion'], 1)} M$; costo anual "
+                         f"{C.fmt(res['params']['costo_anual'], 1)} M$/año. Ahorro de diseño: {C.fmt(res['ahorro_diseno'], 1)} M$/año. El margen "
                          "perdido y la capacidad ociosa ocurren igual sin recuperador: no entran al VAN y se muestran como indicadores."))
     st.caption("Déficit y exceso en t de producto por año: indicadores operacionales en ambos alcances.")
 
@@ -248,7 +252,7 @@ def mostrar():
         C.mostrar_tabla([dict(n=f["nombre"], lo=C.fmt(f["valor_bajo"], 2), hi=C.fmt(f["valor_alto"], 2), vb=f["van_bajo"], va=f["van_alto"],
                               amp=f["amplitud"]) for f in t[1]],
                         [("n", "Variable", "txt", 0), ("lo", "Valor bajo", "cen", 0), ("hi", "Valor alto", "cen", 0),
-                         ("vb", "VAN con el bajo (MM$)", "mm", 1), ("va", "VAN con el alto (MM$)", "mm", 1), ("amp", "Amplitud (MM$)", "mm", 1)])
+                         ("vb", "VAN con el bajo (M$)", "mm", 1), ("va", "VAN con el alto (M$)", "mm", 1), ("amp", "Amplitud (M$)", "mm", 1)])
         st.caption("Cada variable va a su mínimo y a su máximo con las demás en el valor base; cada punto es un Montecarlo de hasta 400 "
                    "réplicas con la misma semilla. Rangos: precio, tasa e inversión como en Economía; margen ±30 %; variación de la demanda "
                    "de 5 a 30 %; MTBF y MTTR de 0,5 a 1,5 veces; holgura de 0 a 25 % (Supuesto PAT 135).")

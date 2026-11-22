@@ -8,6 +8,14 @@ from .equipos import Equipo, Sumidero
 TIPOS_SERVICIO = ("vapor", "electricidad", "gas", "aire", "calor")
 
 
+def corrientes_compatibles(tipo_salida: str, tipo_entrada: str) -> bool:
+    """Una salida alimenta una entrada del mismo tipo de corriente; un subproducto puede volver a proceso (la misma regla que
+    usa el lienzo, motor/lienzo.compatibles)."""
+    if tipo_salida == tipo_entrada:
+        return True
+    return tipo_salida == "subproducto" and tipo_entrada in ("producto", "biomasa")
+
+
 @dataclass
 class Conexion:
     origen: str; puerto_origen: str; destino: str; puerto_destino: str; reparto: float = 100.0
@@ -32,6 +40,11 @@ class Instrumento:
     # cada una {"senal", "tipo" (equipo, corriente o instrumento), "destino", "parametro"}.
     x: float | None = None; y: float | None = None; simbolo: str = ""
     conexiones: list = field(default_factory=list)
+    # PAT 142: información mínima de ISA-5.4 (diapositivas del curso, p. 32, requisitos 6 y 7; símbolos de las pp. 23, 26, 27 y 28).
+    # Opcionales con valor por defecto, para que los proyectos guardados antes se carguen igual. accion_falla: posición del elemento
+    # final en falla (FC cierra, FO abre, FL se bloquea, FI indeterminada); alimentacion: fuente («24 V c.c.», «aire AS 20 psig»,
+    # «L1, L2, G»); accion: del controlador (directa o inversa); consigna: punto de consigna con su unidad.
+    accion_falla: str = ""; alimentacion: str = ""; accion: str = ""; consigna: str = ""
 
 
 class Planta:
@@ -69,6 +82,21 @@ class Planta:
     def es_servicio(self, c: Conexion) -> bool:
         return self.tipo_conexion(c) in TIPOS_SERVICIO
 
+    def tipo_entrada(self, c: Conexion) -> str | None:
+        return next((p.tipo for p in self.equipos[c.destino].entradas if p.nombre == c.puerto_destino), None)
+
+    def incompatibles(self) -> list[Conexion]:
+        """PAT 143 (tarea 6): conexiones entre corrientes de distinto tipo, que la conexión libre del lienzo acepta y el
+        validador marca como error. Mientras exista una, la planta no se calcula."""
+        out = []
+        for c in self.conexiones:
+            if c.origen not in self.equipos or c.destino not in self.equipos:
+                continue
+            ts, te = self.tipo_conexion(c), self.tipo_entrada(c)
+            if te is not None and not corrientes_compatibles(ts, te):
+                out.append(c)
+        return out
+
     # ---------- resolución
     def orden(self) -> list[str]:
         proc = [c for c in self.conexiones if not self.es_servicio(c)]
@@ -87,6 +115,11 @@ class Planta:
 
     def _resolver_una_vez(self):
         self.avisos = []
+        malas = self.incompatibles()                 # PAT 143: la conexión libre no deja calcular con corrientes cruzadas
+        if malas:
+            c = malas[0]
+            raise ValueError(f"la corriente {c.nombre or 's/n'} ({c.origen}.{c.puerto_origen} → {c.destino}.{c.puerto_destino}) une "
+                             "corrientes de distinto tipo; el cálculo se detiene hasta corregirla")
         salidas: dict[tuple[str, str], Corriente] = {}
         for k in self.orden():
             eq = self.equipos[k]
@@ -204,7 +237,10 @@ class Planta:
                 ent = [self.salidas[(c.origen, c.puerto_origen)].fraccion(c.reparto / 100) for c in self.conexiones
                        if c.destino == k and not self.es_servicio(c)]
                 # el vapor vivo (tomate) y el aire de secado (biomasa) entran como servicio
-                m_in = sum(c.m for c in ent) + r.servicios.get("vapor_kgh", 0.0) + r.servicios.get("aire_kgh", 0.0); s_in = sum(c.s for c in ent)
+                # PAT 143 b: también el agua de proceso y los reactivos disueltos (agar: agua_kgh y reactivo_kgh, la soda es sólido)
+                m_in = (sum(c.m for c in ent) + r.servicios.get("vapor_kgh", 0.0) + r.servicios.get("aire_kgh", 0.0)
+                        + r.servicios.get("agua_kgh", 0.0) + r.servicios.get("reactivo_kgh", 0.0))
+                s_in = sum(c.s for c in ent) + r.servicios.get("reactivo_kgh", 0.0)
                 m_out = sum(c.m for c in r.salidas.values()); s_out = sum(c.s for c in r.salidas.values())
                 if not ent:   # alimentación de la planta
                     m_in, s_in = m_out, s_out

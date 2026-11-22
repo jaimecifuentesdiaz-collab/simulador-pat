@@ -26,10 +26,10 @@ class Supuesto:
     justificacion: str
 
 
-_P = "Valor del simulador del profesor (Scorm_pellet_profesor.html, función runShift)"
+_P = "Valor del simulador didáctico de referencia (SCORM de pellet, función runShift)"
 SUPUESTOS = {s.clave: s for s in [
     Supuesto("horas_turno", "Duración de un turno", 8.0, "h",
-             "Como el simulador del profesor; la planta basada en Agrozzi opera 24 h al día (DIA_Agrozzi_rev0.pdf), es decir, tres turnos de 8 h"),
+             "Como el simulador didáctico de referencia; la planta basada en Agrozzi opera 24 h al día (DIA_Agrozzi_rev0.pdf), es decir, tres turnos de 8 h"),
     Supuesto("p_falla", "Probabilidad de una falla no programada en un turno", 0.16, "—",
              _P + "; una falla cada seis turnos, para que se vea en pocas corridas"),
     Supuesto("disp_falla", "Capacidad disponible en un turno con falla", 0.36, "fracción", _P + ": la detención correctiva deja cerca de un tercio del turno"),
@@ -38,7 +38,7 @@ SUPUESTOS = {s.clave: s for s in [
     Supuesto("p_causa", "Probabilidad de una causa especial en la materia prima", 0.21, "—",
              _P + " (desviación de humedad en recepción); en el tomate es una desviación del °Brix del tomate que llega"),
     Supuesto("k_causa", "Corrimiento de la primera variable de calidad en un turno con causa especial", 3.0, "desviaciones estándar",
-             "PAT, didáctico: en el profesor la causa especial solo se anuncia; aquí corre la media de las muestras de ese turno para que el gráfico de control la muestre"),
+             "PAT, didáctico: en el simulador didáctico de referencia la causa especial solo se anuncia; aquí corre la media de las muestras de ese turno para que el gráfico de control la muestre"),
     Supuesto("merma_recepcion", "Merma máxima de la materia prima comprada", 0.015, "fracción", _P + ": llega hasta 1,5 % menos de lo comprado"),
     Supuesto("merma_patio", "Pérdida por turno del tomate que espera en el patio", 0.05, "fracción",
              "PAT, didáctico: el tomate fresco se procesa el mismo día de la cosecha y el que espera se ablanda y se descarta; sin dato de la planta"),
@@ -51,16 +51,16 @@ SUPUESTOS = {s.clave: s for s in [
     Supuesto("k_var_estado", "Aumento de la variabilidad de calidad por desgaste", 2.0, "—",
              "PAT, didáctico: la desviación estándar se multiplica por 1 + 2 × (1 − estado del equipo de control), 1,7 veces con el estado mínimo de 0,65; así el mantenimiento se ve en el control estadístico"),
     Supuesto("dem_media", "Demanda media por turno", 0.80, "fracción de la producción planificada del turno",
-             "El profesor usa 12,5 t por turno con ±4,5 t de variación periódica y ±2 t de ruido para su planta de pellet; aquí se expresa como fracción de la producción planificada para que sirva a cualquier planta: queda bajo la capacidad para formar inventario, pero algunos turnos la superan"),
+             "El simulador didáctico de referencia usa 12,5 t por turno con ±4,5 t de variación periódica y ±2 t de ruido para su planta de pellet; aquí se expresa como fracción de la producción planificada para que sirva a cualquier planta: queda bajo la capacidad para formar inventario, pero algunos turnos la superan"),
     Supuesto("dem_amp", "Amplitud de la variación periódica de la demanda", 0.28, "fracción de la producción planificada del turno", "Ver la demanda media"),
     Supuesto("dem_ruido", "Desviación estándar del ruido de la demanda", 0.12, "fracción de la producción planificada del turno", "Ver la demanda media"),
     Supuesto("stock_inicial", "Materia prima en el patio al partir", 0.5, "turnos de alimentación",
-             "El profesor parte con 65 t de biomasa; aquí medio turno de alimentación de la planta"),
-    Supuesto("conf_max", "Fracción conforme máxima", 0.99, "—", "El profesor limita la conformidad a 0,985 a 0,99: siempre hay pérdidas de llenado y reproceso"),
-    Supuesto("min_muestras_spc", "Muestras mínimas para estimar los límites de control", 8, "muestras", "Valor del simulador del profesor (función drawSPC)"),
-    Supuesto("min_muestras_cp", "Muestras mínimas para informar Cp y Cpk", 12, "muestras", "Valor del simulador del profesor (función drawSPC)"),
+             "El simulador didáctico de referencia parte con 65 t de biomasa; aquí medio turno de alimentación de la planta"),
+    Supuesto("conf_max", "Fracción conforme máxima", 0.99, "—", "El simulador didáctico de referencia limita la conformidad a 0,985 a 0,99: siempre hay pérdidas de llenado y reproceso"),
+    Supuesto("min_muestras_spc", "Muestras mínimas para estimar los límites de control", 8, "muestras", "Valor del simulador didáctico de referencia (función drawSPC)"),
+    Supuesto("min_muestras_cp", "Muestras mínimas para informar Cp y Cpk", 12, "muestras", "Valor del simulador didáctico de referencia (función drawSPC)"),
     Supuesto("racha", "Puntos seguidos al mismo lado de la línea central que se consideran señal", 8, "puntos",
-             "PAT: segunda regla de las reglas de Western Electric (Montgomery, 2020); el profesor revisa solo los puntos fuera de 3σ"),
+             "PAT: segunda regla de las reglas de Western Electric (Montgomery, 2020); el simulador didáctico de referencia revisa solo los puntos fuera de 3σ"),
 ]}
 S = {k: s.valor for k, s in SUPUESTOS.items()}
 D2 = 1.128   # constante d2 para rangos móviles de 2 observaciones (Montgomery, 2020, tabla de constantes de cartas de control)

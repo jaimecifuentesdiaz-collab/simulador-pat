@@ -46,13 +46,16 @@ def mostrar():
         filas.append(dict(n=n, tipo="Calor latente" if latente else "Calor sensible", Ti=v[1], To=None if latente else v[2], CP=v[3], Q=v[4]))
     C.mostrar_tabla(filas, [("n", "Corriente", "txt", 0), ("tipo", "Tipo", "txt", 0), ("Ti", "T de cesión (°C)", "num", 2), ("To", "T final (°C)", "num", 1),
                             ("CP", "CP (kW/K)", "num", 2), ("Q", "Calor (kW)", "num", 1)])
-    st.caption(f"Oferta total del mapa: {C.fmt(r['oferta'], 1)} kW, frente a una demanda de {C.fmt(r['Qsumidero'], 1)} kW.")
+    # PAT 140: la demanda ya está en la métrica del sumidero de arriba y, en la biomasa, la oferta en «Oferta de calor residual»
+    if r.get("combustible") != "biomasa" and r["Qsumidero"]:
+        st.caption(f"Oferta total del mapa: {C.fmt(r['oferta'], 1)} kW, el {C.pct(r['oferta'] / r['Qsumidero'])} del sumidero.")
 
     AT.tabla("cal_cascada", "Cascada en serie", 4)   # PAT 134: «?» de la tabla
     C.mostrar_tabla([dict(f) for f in r["cascada_filas"]],
                     [("corriente", "Corriente", "txt", 0), ("Q_kW", "Calor intercambiado (kW)", "num", 1), ("T_entra", "El tomate entra a (°C)", "num", 2), ("T_sale", "El tomate sale a (°C)", "num", 2)])
     st.markdown("#### Pinch")
-    st.markdown(f"Objetivo de recuperación: **{C.fmt(r['pinch'], 1)} kW** · calor externo mínimo: **{C.fmt(r['Q_externo_min'], 1)} kW** · "
+    # PAT 140: el objetivo de recuperación ya está arriba, en la métrica «Objetivo pinch»
+    st.markdown(f"Calor externo mínimo: **{C.fmt(r['Q_externo_min'], 1)} kW** · "
                 f"temperatura de pinch: **{', '.join(C.fmt(t, 2) for t in r['T_pinch'])} °C**.")
 
     from . import s_red                      # PAT 133, mejora 3: red de intercambiadores desde el pinch

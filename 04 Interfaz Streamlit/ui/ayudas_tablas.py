@@ -14,17 +14,18 @@ def _t(como: str, para: str, por: str) -> str:
 TEXTOS = {
     # ------------------------------------------------------------------------------------------------ Escenario
     "esc_proyectos": _t(
-        "Lista de los proyectos de la base de datos SQLite local de la aplicación: nombre, rubro, número de versiones guardadas y fecha "
-        "de la última modificación. Cada «Guardar» agrega una versión; aquí no se calcula nada.",
-        "Elegir y recuperar una versión anterior de la planta con los selectores de abajo.",
+        "Lista de las plantas de ejemplo (planta basada en Agrozzi, pellet, chip y leña) y de los proyectos guardados antes de PAT 138 "
+        "en la base de datos SQLite local: nombre, rubro, número de versiones y fecha de la última modificación. Los proyectos de cada "
+        "persona («Proyecto de <nombre> <n>») se guardan y se cargan en la pantalla Proyectos; aquí no se calcula nada.",
+        "Elegir y recuperar una planta de ejemplo o una versión antigua con los selectores de abajo.",
         "El estudio compara la planta basada en Agrozzi con sus variantes y con los rubros de biomasa; guardar versiones deja la traza "
-        "de cada caso evaluado y permite volver a la planta base del Capítulo 1."),
+        "de cada caso evaluado y permite volver a la planta base."),
     "dp_cambios": _t(
         "Una fila por cada fila de la plantilla CSV que trae valor. «Antes» es el valor actual del parámetro con su categoría "
         "(Supuesto, literatura o fabricante) y «Medido» el valor leído con coma decimal; unidad, fuente, fecha y nota son las que usted "
         "escribió. Es una vista previa sobre una copia: la planta de la sesión no cambia hasta presionar «Aplicar».",
         "Revisar qué parámetros cambian y en cuánto antes de aplicarlos.",
-        "Cada cifra del informe debe tener fuente y fecha; reemplazar supuestos por datos de placa o medidos baja la incertidumbre del "
+        "Cada cifra de un informe técnico debe tener fuente y fecha; reemplazar supuestos por datos de placa o medidos baja la incertidumbre del "
         "calor recuperable y del ahorro de combustible, tanto en la planta de tomate como en la de biomasa."),
     "dp_rechazos": _t(
         "Filas de la plantilla que la validación no pudo aplicar, con el motivo que entrega el motor (motor/datos_planta.py): por ejemplo, "
@@ -36,7 +37,7 @@ TEXTOS = {
         "Parámetros de la planta actual que tienen la categoría «Medido»: valor, unidad y la fuente con su fecha que se registraron al "
         "aplicarlos (desde la plantilla o desde el Excel de ida y vuelta).",
         "Ver de un vistazo qué datos de la planta ya no son supuestos.",
-        "Separa lo medido de lo supuesto, como exige el informe del PAT: las conclusiones sobre el calor recuperable pesan más cuando "
+        "Separa lo medido de lo supuesto, como exige un informe técnico: las conclusiones sobre el calor recuperable pesan más cuando "
         "descansan en datos medidos."),
     # ------------------------------------------------------------------------------------------------ Diseño
     "dis_corrientes": _t(
@@ -46,25 +47,30 @@ TEXTOS = {
         "Leer el estado de cada corriente como en la tabla de corrientes de un diagrama de flujo ISO 10628; es la misma tabla del informe.",
         "Las corrientes calientes de esta tabla son la oferta de calor residual, y la corriente que se calienta, el sumidero; de ellas sale "
         "todo el cálculo de recuperación de calor en el tomate y en la biomasa."),
-    "dis_capacidad": _t(
-        "Por equipo: entrada y salida de proceso (t/h) del balance; capacidad nominal y estado son parámetros del equipo; capacidad efectiva = "
-        "nominal × estado; procesado = mínimo entre la carga y la capacidad efectiva; utilización = carga / capacidad efectiva; acumulación = "
-        "lo que llega sobre la capacidad efectiva; cierre de energía = energía que entra − energía que sale (kW). Como la tabla «Balance por "
-        "equipo» del simulador del profesor.",
-        "Encontrar el recurso crítico (mayor utilización) y las sobrecargas según la teoría de restricciones.",
-        "El calor residual solo se recupera si la línea produce: un cuello de botella baja las horas y la carga efectiva, y con ellas el gas "
-        "o la biomasa que la recuperación puede desplazar."),
-    # ------------------------------------------------------------------------------------------------ Instrumentación
+    # ------------------------------------------------------------------------------------------------ Lazos de control (PAT 142)
     "ins_lazos": _t(
-        "Una fila por instrumento de la planta: identificación ISA-5.1 (letras y número), símbolo y ubicación (Carballo y Romero, 2011, "
-        "Tablas 3, 4, 15 y 17), equipo, la lectura de las letras que arma el motor, la descripción, el parámetro del equipo que gobierna, el "
-        "elemento final y las líneas de señal dibujadas en el lienzo.",
+        "Una fila por instrumento de la planta: su lazo (número compartido por los instrumentos del lazo), identificación ISA-5.1 (letras y "
+        "número), símbolo y ubicación (Carballo y Romero, 2011, Tablas 3, 4, 15 y 17), equipo, la lectura de las letras que arma el motor, la "
+        "descripción, el parámetro del equipo que gobierna, el elemento final, las líneas de señal dibujadas en el lienzo y las conexiones con "
+        "otros lazos (una línea de señal entre instrumentos de lazos distintos, con su relación: cascada, razón, prealimentación o enclavamiento).",
         "Revisar la lista de lazos del diagrama de cañerías e instrumentación sin abrir el lienzo.",
         "Los lazos de temperatura de los intercambiadores de recuperación y del calentamiento definen qué se puede controlar cuando el calor "
         "residual varía; sin ellos la recuperación no es operable."),
+    "ins_revision": _t(   # PAT 142
+        "Reglas que revisa el motor (pat_sim/motor/instrumentacion.revisar_lazos) en cada lazo: misma primera letra en todos sus instrumentos "
+        "(ISA p. 19); un lazo con controlador tiene medición y elemento final unidos en el orden medición, controlador, elemento final (ejemplos "
+        "de ISA pp. 18 y 34); la medición unida a proceso y el elemento final sobre una corriente o un equipo; el convertidor I/P recibe señal "
+        "eléctrica y entrega neumática (p. 18); acción en falla del elemento final y fuente de alimentación del lazo (p. 32, requisitos 6 y 7); "
+        "acción y consigna del controlador (pp. 27 y 28) y una sola señal de mando por elemento final (buena práctica). Además: etiqueta "
+        "con letras válidas y número de lazo (p. 12), etiquetas sin repetir (pp. 8, 12 y 13), tipos de señal y ubicaciones de ISA-5.1 "
+        "(pp. 10, 11 y 17), elemento primario unido al transmisor por proceso o capilar, título del lazo (p. 32), letra X declarada "
+        "(p. 15) y una sola medición por controlador. Los errores (lazo incompleto o mal armado) van en la advertencia sobre el lienzo, "
+        "que no deja avanzar, con su botón «Pista»; esta tabla muestra los avisos (falta un dato), que no bloquean.",
+        "Saber qué dato falta en cada lazo y cómo completarlo.",
+        "Un lazo incompleto no controla la variable: la recuperación de calor solo es operable si sus lazos de temperatura cierran."),
     "ins_senales": _t(
-        "Líneas de señal del lazo elegido, tomadas del lienzo: instrumento de origen, tipo de señal según ISA-5.1, destino y parámetro del "
-        "equipo que mueve la señal.",
+        "Líneas de señal del lazo elegido, tomadas del lienzo: instrumento de origen, tipo de señal según ISA-5.1, destino, parámetro del "
+        "equipo que mueve la señal y, si la línea llega a otro lazo, su relación.",
         "Revisar que el lazo esté completo: medición, controlador y elemento final conectados.",
         "Un lazo cerrado sobre el calentamiento permite usar primero el calor recuperado y completar con la caldera o el generador solo lo "
         "que falta."),
@@ -97,7 +103,7 @@ TEXTOS = {
         "Las salidas calientes que no se aprovechan son la oferta de calor residual del proyecto."),
     # ------------------------------------------------------------------------------------------------ Recuperación de calor
     "cal_mapa": _t(
-        "Corrientes residuales calientes del balance de la propia planta (Capítulo 1). Calor sensible: Q = CP × (T de cesión − T final), con "
+        "Corrientes residuales calientes del balance de la propia planta. Calor sensible: Q = CP × (T de cesión − T final), con "
         "la T final de la pestaña; calor latente: Q es el calor de condensación a la T de cesión, sin CP.",
         "Reunir la oferta de calor residual que puede ir al sumidero.",
         "Es el punto de partida del proyecto: cuánto calor y a qué temperatura hay para precalentar el tomate o el aire de secado de la biomasa."),
@@ -129,11 +135,11 @@ TEXTOS = {
         "(Amon et al., 2015, analizan esa reutilización en una planta de pasta de tomate)."),
     # ------------------------------------------------------------------------------------------------ Alternativas
     "alt_comparacion": _t(
-        "Las cuatro alternativas del Capítulo 3 con el balance actual. Calor (kW) y cobertura = calor / sumidero; equipos; área con U medio; "
+        "Las cuatro alternativas de recuperación de calor con el balance actual. Calor (kW) y cobertura = calor / sumidero; equipos; área con U medio; "
         "inversión de Shamoushaki et al. (2021) actualizada con el PPI de septiembre de 2026 y factor de instalación 2,5 (Danish Energy Agency, "
         "2026), y bomba de calor a 1,20 MEUR por MW (Danish Energy Agency, 2026); U de Amon et al. (2015) y Sangrame et al. (2000){u_bio}. "
         "Precio de equilibrio: precio del combustible con VAN cero; VAN al precio de Economía después de impuesto (27 %) con depreciación lineal "
-        "en 15 años (SII, Res. Ex. 43/2002), como en el Capítulo 4. Puntaje: suma ponderada con normalización por rango de cobertura, precio de "
+        "en 15 años (SII, Res. Ex. 43/2002). Puntaje: suma ponderada con normalización por rango de cobertura, precio de "
         "equilibrio y equipos; «gana en el barrido» = % de las combinaciones de pesos (paso 0,01) en que la alternativa queda primera.",
         "Elegir la alternativa que evalúa la pestaña Economía con un criterio declarado y ver qué tan robusta es esa elección.",
         "Es la decisión central del proyecto: cuál forma de recuperar calor conviene en la planta de tomate o en la de biomasa."),
@@ -164,7 +170,7 @@ TEXTOS = {
     "rg_tornado": _t(
         "Cada supuesto (precio del combustible, dólar, tasa, inversión y fracción de recuperación) se lleva a su valor bajo y alto con los demás "
         "en el valor de la sesión y se recalcula el VAN de la cascada; amplitud = |VAN alto − VAN bajo|. Rangos en el «?» del Tornado "
-        "(Capítulo 4, sección 4.7.7, y Supuestos declarados).",
+        "(Supuestos declarados).",
         "Leer en números el gráfico de tornado y ordenar los supuestos por su efecto en el VAN.",
         "Indica qué dato conviene precisar primero para decidir la inversión en recuperación de calor."),
     "rg_percentiles": _t(
@@ -182,7 +188,7 @@ TEXTOS = {
         "Un turno por fila, el más reciente arriba. La producción sale de la capacidad del turno (estado del equipo crítico, fallas y "
         "mantenimiento), la fracción conforme del laboratorio, las ventas = mínimo entre el producto conforme disponible y la demanda, y el "
         "faltante = demanda − ventas. El combustible evitado es el calor de la cascada × horas del turno, a la producción de ese turno.",
-        "Seguir la operación turno a turno, como en el simulador del profesor.",
+        "Seguir la operación turno a turno, como en el simulador didáctico de referencia.",
         "Une la operación con la energía: la recuperación de calor solo ahorra gas o biomasa en las horas en que la planta produce."),
     "op_estado": _t(
         "Estado de cada equipo (1 = buen estado), que baja entre 0,002 y 0,004 por turno hasta 0,65 y sube con el mantenimiento del equipo "
@@ -192,7 +198,7 @@ TEXTOS = {
     "op_supuestos": _t(
         "Supuestos de la operación y del laboratorio guardados en el motor (motor/operacion.py), cada uno con su valor, unidad y justificación.",
         "Saber con qué datos trabaja la operación por turnos.",
-        "Declara qué cifras son supuestos didácticos y cuáles vienen de una fuente, como exige el informe."),
+        "Declara qué cifras son supuestos didácticos y cuáles vienen de una fuente, como exige un informe técnico."),
     "cal_lab": _t(
         "Último resultado de cada ensayo recibido del laboratorio virtual, la especificación de la variable y su estado (dentro o fuera). La "
         "fuente de cada límite está en la tabla «Variables de calidad» al final de la pestaña.",
@@ -220,7 +226,7 @@ TEXTOS = {
     "tem_supuestos": _t(
         "Supuestos de la temporada del rubro guardados en el motor (motor/temporada.py), con valor, unidad y justificación.",
         "Saber con qué datos se simulan la llegada de materia prima y el programa.",
-        "Declara qué cifras son supuestos y por qué, como exige el informe."),
+        "Declara qué cifras son supuestos y por qué, como exige un informe técnico."),
     "din_balance": _t(
         "Integrales en el tiempo de la simulación (kWh): calor entregado, calor que sale con el producto, calor acumulado en el acero y cierre "
         "= entregado − producto − acumulado; el calor entregado se reparte entre lo cubierto con recuperación y el externo (caldera o generador).",
@@ -252,7 +258,7 @@ TEXTOS = {
     "ln_supuestos": _t(
         "Supuestos de la simulación de la línea (motor/linea_fluida.py) con valor, unidad y justificación.",
         "Saber con qué datos se simuló.",
-        "Declara qué cifras son supuestos, como exige el informe."),
+        "Declara qué cifras son supuestos, como exige un informe técnico."),
     "ln_fallas_usadas": _t(
         "Expresión de las distribuciones de falla y reparación que usó la corrida, el reloj de falla y su origen (formulario o Datos de "
         "entrada). Gamma y lognormal con coeficiente de variación 0,5 y uniforme de 0,5 a 1,5 veces la media cuando solo se da la media "
@@ -307,7 +313,7 @@ TEXTOS = {
     "aj_supuestos": _t(
         "Supuestos del ajuste guardados en motor/ajuste.py, con su justificación.",
         "Saber qué decisiones de método hay detrás de la tabla de ajuste.",
-        "Declara los supuestos, como exige el informe."),
+        "Declara los supuestos, como exige un informe técnico."),
     "xl_cambios": _t(
         "Una fila por celda del Excel subido que difiere de la planta: destino (planta, temporada, economía o datos medidos), hoja y fila, "
         "equipo o tabla, parámetro, valor antes y después, unidad y nota de la validación (motor/libro_planta.py).",
@@ -344,11 +350,11 @@ TEXTOS = {
         "Puntos de cada criterio de la evaluación automática al finalizar (motor/operacion.py), con su máximo y el total sobre 100. Usa "
         "indicadores de actividad y logros; no interpreta el contenido de las justificaciones.",
         "Ver el resultado de la práctica por criterio.",
-        "Incluye 15 puntos por recuperación de calor, el aporte del PAT al simulador del profesor."),
+        "Incluye 15 puntos por recuperación de calor, el aporte de esta aplicación al simulador didáctico de referencia."),
     "ev_criterios": _t(
-        "Criterios de la evaluación con sus puntos en esta aplicación, el peso que tienen en el simulador del profesor y cómo se mide cada uno.",
+        "Criterios de la evaluación con sus puntos en esta aplicación, el peso que tienen en el simulador didáctico de referencia y cómo se mide cada uno.",
         "Saber de antemano qué se evalúa.",
-        "Muestra que la recuperación de calor, que no existe en el simulador del profesor, se evalúa aquí como criterio propio."),
+        "Muestra que la recuperación de calor, que no existe en el simulador didáctico de referencia, se evalúa aquí como criterio propio."),
     "cur_variante": _t(
         "Cada parámetro de su variante sale del identificador con SHA-256: un número estable entre 0 y 1 que se lleva al rango del curso y se "
         "redondea al paso declarado (motor/curso.py). La fuente de cada rango es la de la columna Fuente.",
@@ -356,7 +362,7 @@ TEXTOS = {
         "Cada estudiante resuelve una planta distinta pero comparable, con la recuperación de calor medida sobre sus propios datos."),
     "cur_profesor": _t(
         "Una fila por estudiante inscrito: número de entregas, último y mejor puntaje y fecha de la última entrega, leídos de la base de datos "
-        "local con la clave del profesor.",
+        "local con la clave del docente.",
         "Seguir las entregas del curso y exportarlas a CSV.",
         "Permite usar el simulador y su módulo de recuperación de calor como actividad evaluada del curso."),
     # ------------------------------------------------------------------------------------------------ Informe (vista previa y archivo)

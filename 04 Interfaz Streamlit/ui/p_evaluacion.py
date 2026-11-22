@@ -67,7 +67,7 @@ def mostrar():
     with izq:
         st.markdown("#### Justificación e informe técnico")
         nombre = st.text_input("Nombre del estudiante (fija la semilla de su escenario)", value=op.estudiante, key="ev_estudiante",
-                               disabled=bool(op.turnos), help="Como el simulador del profesor: el nombre define la semilla de las fallas, la demanda y "
+                               disabled=bool(op.turnos), help="Como el simulador didáctico de referencia: el nombre define la semilla de las fallas, la demanda y "
                                                               "los resultados de laboratorio. Solo se puede cambiar antes del primer turno.")
         if not op.turnos and nombre.strip() != op.estudiante:
             op.estudiante = nombre.strip(); op.semilla = OP.semilla_texto(op.estudiante or "escenario")
@@ -124,7 +124,7 @@ def mostrar():
         with st.expander("Criterios y ponderaciones", expanded=False):
             AT.tabla("ev_criterios", "Criterios y ponderaciones")   # PAT 134: «?» de la tabla
             C.mostrar_tabla([dict(n=n, m=m, p=PESOS_PROFESOR[k_], c=COMO[k_]) for k_, n, m in OP.CRITERIOS],
-                            [("n", "Criterio", "txt", 0), ("m", "Puntos en esta aplicación", "num", 0), ("p", "Peso en el simulador del profesor", "cen", 0),
+                            [("n", "Criterio", "txt", 0), ("m", "Puntos en esta aplicación", "num", 0), ("p", "Peso en el simulador didáctico de referencia", "cen", 0),
                              ("c", "Cómo se mide", "txt", 0)])
-            st.caption("El simulador del profesor registra 85 puntos automáticos normalizados a 100 y califica el informe docente (15 %) por separado. "
+            st.caption("El simulador didáctico de referencia registra 85 puntos automáticos normalizados a 100 y califica el informe docente (15 %) por separado. "
                        "Esta aplicación conserva sus cinco criterios y agrega 15 puntos de recuperación de calor, el aporte del PAT.")

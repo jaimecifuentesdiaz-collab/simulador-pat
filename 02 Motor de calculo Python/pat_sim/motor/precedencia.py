@@ -207,3 +207,98 @@ def violaciones(pl, precedencia=None) -> list[tuple]:
             if m:
                 out.append((i, c, m))
     return out
+
+
+# ---------------------------------------------------------------- PAT 136 (T22): precedencia en los equipos de las 10 plantas
+# Punto 8 de los comentarios del profesor Torres (13-11-2026): «restricciones en todos los equipos». La tabla del mantenedor trae
+# los cuatro rubros de PAT 135; los seis tipos de planta nuevos (catalogos/plantas_genericas.py) traen sus estados del material y su
+# cadena de operaciones. tabla_plantas() las junta en una sola tabla para el motor, sin cambiar las filas que ya existían.
+PREFIJO_SIMPLE = "simple_"      # versiones de balance simplificado de catalogos/iso_generico.py
+
+
+def _filas_planta(planta_id: str) -> list[dict]:
+    """Filas de precedencia de un tipo de planta: las de su cadena, las de sus alternativas y las de sus versiones simplificadas.
+    Un estado de entrada que ninguna operación entrega (la rama del licor de prensa en la harina de pescado) se acepta también
+    con el estado anterior de la cadena: el equipo que lo produce entrega una sola corriente (Supuesto declarado)."""
+    from ..catalogos import plantas_genericas as PG
+    p = PG.planta(planta_id)
+    filas = [dict(f) for f in PG.precedencia(planta_id)]
+    entregados = {o["salida"] for o in p["operaciones"]}
+    codigos = [e["codigo"] for e in PG.estados_material(planta_id)]
+    for f, o in zip(filas, p["operaciones"]):
+        acepta = list(lista_codigos(f["acepta"]))
+        for c in list(acepta):
+            if c not in entregados and c in codigos and codigos.index(c) > 0:
+                previo = codigos[codigos.index(c) - 1]
+                if previo not in acepta:
+                    acepta.append(previo)
+                    f["fuente"] = (f.get("fuente") or "") + (f"; PAT 136: «{c}» sale del mismo equipo que «{previo}», que entrega una sola "
+                                                             "corriente (Supuesto de la planta automática)")
+        f["acepta"] = ", ".join(acepta)
+    tipos = {f["tipo"] for f in filas}
+    extra = []
+    for f, o in zip(list(filas), p["operaciones"]):
+        # PAT 143 b: los equivalentes (equipos con modelo propio del escenario del rubro) llevan la misma fila que las alternativas
+        for alt in tuple(o.get("alternativas") or ()) + tuple(o.get("equivalentes") or ()):
+            if alt not in tipos:
+                extra.append(dict(f, tipo=alt)); tipos.add(alt)
+    for f in filas + extra:
+        s = PREFIJO_SIMPLE + f["tipo"]
+        if s not in tipos:
+            extra.append(dict(f, tipo=s)); tipos.add(s)
+    return filas + extra
+
+
+def tabla_plantas(base=None) -> dict:
+    """Tabla {estados, precedencia, libre} con los rubros de la base (la del mantenedor; sin ella, su semilla) más los tipos de planta
+    de catalogos/plantas_genericas.py cuyo rubro no tenga estados en la base. A los rubros de la base se les agregan solo las filas
+    de las versiones simplificadas que falten. Lista para Precedencia.desde()."""
+    from ..catalogos import plantas_genericas as PG
+    if base is None:
+        from ..datos.mantenedor import semilla_estados, semilla_precedencia
+        base = dict(estados=semilla_estados(), precedencia=semilla_precedencia(), libre=False)
+    elif isinstance(base, Precedencia):
+        base = dict(estados=[e for es in base.estados.values() for e in es],
+                    precedencia=[dict(rubro=r, tipo=t, acepta=", ".join(f["acepta"]), entrega=f["entrega"], opcional=f["opcional"])
+                                 for (r, t), f in base.filas.items()], libre=base.libre)
+    estados = [dict(e) for e in base.get("estados") or ()]
+    filas = [dict(f) for f in base.get("precedencia") or ()]
+    con_estados = {str(e.get("rubro") or "").strip() for e in estados}
+    claves = {(str(f.get("rubro") or "").strip(), str(f.get("tipo") or "").strip()) for f in filas}
+    for pid, p in PG.PLANTAS.items():
+        r = p["rubro"]
+        if r not in con_estados:
+            estados += PG.estados_material(pid); con_estados.add(r)
+            for f in _filas_planta(pid):
+                if (r, f["tipo"]) not in claves:
+                    filas.append(f); claves.add((r, f["tipo"]))
+        else:
+            for f in [f for f in filas if str(f.get("rubro") or "").strip() == r]:
+                s = PREFIJO_SIMPLE + str(f.get("tipo") or "").strip()
+                if (r, s) not in claves:
+                    filas.append(dict(f, tipo=s)); claves.add((r, s))
+    return dict(estados=estados, precedencia=filas, libre=bool(base.get("libre", False)))
+
+
+def de_planta(planta_id: str, base=None) -> Precedencia:
+    """Precedencia lista para el motor con los rubros de la base y los 10 tipos de planta."""
+    return Precedencia.desde(tabla_plantas(base))
+
+
+def cobertura(t: Precedencia | dict | None = None) -> list[dict]:
+    """Por tipo de planta: cuántas operaciones tienen fila de precedencia en su rubro y cuáles faltan (para la prueba y la ayuda)."""
+    from ..catalogos import plantas_genericas as PG
+    t = Precedencia.desde(t) if t is not None else Precedencia.desde(tabla_plantas())
+    out = []
+    for pid, p in PG.PLANTAS.items():
+        faltan = [o["tipo_equipo"] for o in p["operaciones"] if t.fila(p["rubro"], o["tipo_equipo"]) is None]
+        out.append(dict(planta_id=pid, rubro=p["rubro"], operaciones=len(p["operaciones"]), con_fila=len(p["operaciones"]) - len(faltan),
+                        faltan=faltan, activa=t.activa(p["rubro"]), cadena=t.cadena(p["rubro"])))
+    return out
+
+
+def mensaje_claro(m: str | None) -> str | None:
+    """Mensaje de una conexión rechazada, para la interfaz: dice qué hacer (el motor lo devuelve sin cambiar su texto)."""
+    if not m:
+        return None
+    return "No se conectó. " + m + " Conecte primero los equipos de las etapas que faltan, en el orden del proceso."

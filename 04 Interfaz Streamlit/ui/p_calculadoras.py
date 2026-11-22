@@ -80,8 +80,8 @@ def _hx(pl):
 
 
 def _pinch(pl):
-    C.ayuda("Tabla del problema, curvas compuestas y metas de servicios (Aspen Energy Analyzer, PinCH). Caliente: entrada mayor que salida. "   # PAT 134
-            "Un calor latente se escribe como una corriente que baja 1 °C con CP igual a su calor.")
+    # PAT 140: cómo escribir las corrientes calientes y los calores latentes ya está en el «?» de la tabla «Corrientes del problema»
+    C.ayuda("Tabla del problema, curvas compuestas y metas de servicios (Aspen Energy Analyzer, PinCH).")   # PAT 134
     filas = []
     if pl.resuelta:
         Tf = float(pl.globales.get("T_final_residual", 30.0))

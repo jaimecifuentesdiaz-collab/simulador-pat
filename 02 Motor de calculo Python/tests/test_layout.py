@@ -351,3 +351,20 @@ def test_estado_layout_con_red_electrica(pl):
     lay2 = LY.estado_layout(pl, dict(lay, ccm=[2, 3, 0], tension=400.0, bombas_linea=False))
     assert lay2["ccm"] == [2.0, 3.0, 0] and set(lay2["cables_m"]) == {"AL-W2", "AL-W3"}
     assert all(c["U_V"] == 400.0 for c in lay2["cables"])
+
+
+def test_elevacion_cotas_dentro_y_sin_encimarse():
+    """PAT 140 i: en las elevaciones cada cota de altura va dentro del contorno del equipo (flecha y número con fondo claro) o, si el
+    equipo es angosto, en una llamada fuera; ningún número ni nombre se monta sobre otro, en los cuatro rubros."""
+    import re
+    for m in (agrozzi, pellet, chip, lena):
+        p = m.crear().resolver(); lay = LY.estado_layout(p)
+        for v in ("frontal", "lateral"):
+            svg = LY.elevacion_svg(lay["posiciones"], lay["dims"], v, LY.H_RACK_M, lay["red"])
+            fondos = [tuple(map(float, x)) for x in re.findall(
+                r'<rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" height="([\d.]+)" rx="2"', svg)]
+            assert 0 < len(fondos) <= len(lay["posiciones"]) + 1                  # una cota por equipo visible y la sala eléctrica
+            cajas = [(x, y, x + w, y + h) for x, y, w, h in fondos]
+            for i, a in enumerate(cajas):
+                for b in cajas[i + 1:]:
+                    assert not (a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]), (m.__name__, v, a, b)

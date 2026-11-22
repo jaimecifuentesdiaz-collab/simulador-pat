@@ -2,7 +2,7 @@
 usa el Montecarlo y crear la planta vacía del rubro elegido con los precios de venta del desafío.
 
 Un desafío es un diccionario (así se guarda en la tabla desafios de datos/mantenedor.py):
-    titulo, enunciado («diseñar una planta de…», se lee después de «don Jaime Cifuentes, su desafío es»), producto, rubro,
+    titulo, enunciado («diseñar una planta de…», se lee después de «Jaime Cifuentes, su desafío es»), producto, rubro,
     demanda = {periodo, unidad, valores, etiquetas (opcional), fuente}, precios = [{producto, precio, moneda, unidad, fuente}],
     autor, fecha, activo.
 Idea de la reunión del 04-11-2026 con el profesor Torres (indicación 4): la herramienta parte de un desafío en blanco.
@@ -150,8 +150,8 @@ def desafio_de_planta(pl) -> dict | None:
     return p.get("desafio") if isinstance(p, dict) else None
 
 
-def saludo(nombre: str, tratamiento: str = "don") -> str:
-    """«don Jaime Cifuentes, su desafío es». Sin nombre: «Su desafío es»."""
+def saludo(nombre: str, tratamiento: str = "") -> str:
+    """«Jaime Cifuentes, su desafío es». Sin nombre: «Su desafío es»."""
     nombre = " ".join(str(nombre or "").split())
     if not nombre:
         return "Su desafío es"
@@ -159,7 +159,7 @@ def saludo(nombre: str, tratamiento: str = "don") -> str:
     return f"{trato + ' ' if trato else ''}{nombre}, su desafío es"
 
 
-def estado_sesion(d: dict, nombre: str = "", tratamiento: str = "don") -> dict:
+def estado_sesion(d: dict, nombre: str = "", tratamiento: str = "") -> dict:
     """Lo que la pantalla Desafío deja en st.session_state["desafio"]: datos del desafío y la serie de demanda."""
     exigir_valido(d)
     dem = d["demanda"]

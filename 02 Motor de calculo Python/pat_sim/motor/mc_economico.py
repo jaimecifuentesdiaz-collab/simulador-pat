@@ -70,6 +70,12 @@ _JM = ("Orden de magnitud didáctico del margen de contribución (precio de vent
        + _SD + ". Se reemplaza con el precio de venta del desafío o de la empresa")
 MARGEN = {"tomate": 200000.0, "pellet": 60000.0, "chip": 6000.0, "lena": 35000.0}     # $/t de producto, Supuesto PAT 135
 ESTACIONALIDAD = {"tomate": 0.0, "pellet": 0.35, "chip": 0.15, "lena": 0.35}            # amplitud del coseno, Supuesto PAT 135
+# PAT 143 b: agar agar. Margen derivado (Supuesto) de Herrera-Rodríguez, Parejo-Palacio y González-Delgado (2018), Chemical Engineering
+# Transactions 70, 2029-2034: precio de 15 US$/kg (sec. 3.3), alga a 2.000 US$/t (Tabla 1) con el rendimiento global del escenario
+# (0,1718 kg de agar por kg de alga, escenarios/agar.py) y costos variables normalizados de 2.738 US$/t (sec. 3.3), al dólar de
+# costos.DOLAR. Estacionalidad: la de la demanda de ejemplo del agar de datos/mantenedor.py (40 a 60 t por mes, Supuesto ilustrativo).
+MARGEN["agar"] = round((15000.0 - 2000.0 / 0.1718 - 2738.0) * 990.35, -3)
+ESTACIONALIDAD["agar"] = 0.20
 ALCANCES = ("recuperador", "planta")
 NOMBRE_ALCANCE = dict(recuperador="Recuperador (VAN incremental)", planta="Planta completa con recuperador")
 SUPUESTOS = {s.clave: s for s in [
@@ -89,7 +95,7 @@ SUPUESTOS = {s.clave: s for s in [
              "Contratar, capacitar o despedir turnos y arrancar o detener equipos; " + _SD),
     Supuesto("reduccion_pm", "Reducción de la tasa de falla por mantenimiento preventivo", 0.0, "fracción",
              "Parte en 0: las fallas de la pestaña Línea son las de un mantenimiento correctivo; con más preventivo baja la tasa de falla"),
-    Supuesto("costo_pm_equipo", "Costo del preventivo para bajar a la mitad la tasa de falla de un equipo", 3.0, "MM$/año por equipo",
+    Supuesto("costo_pm_equipo", "Costo del preventivo para bajar a la mitad la tasa de falla de un equipo", 3.0, "M$/año por equipo",
              "Plan de inspección, lubricación y cambio de piezas de un equipo durante la temporada; el costo crece en proporción a la "
              "reducción pedida; " + _SD),
     Supuesto("recuperador", "Fallas del recuperador", LF.FALLAS_TIPO["termico"][0], "h de MTBF",
@@ -253,7 +259,7 @@ def contexto(pl, r: dict, E: dict, periodo: str = "semana", demanda: list | None
     if inv_c and inv_c > 0:
         base["inversion_planta"] = inv_c / 1e6
         txt = f"{inv_c / 1e6:,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        avisos.append(f"En el alcance planta la inversión es el costo total de la planta del costeo: {txt} MM$.")
+        avisos.append(f"En el alcance planta la inversión es el costo total de la planta del costeo: {txt} M$.")
     disp = 1.0
     if aplicar_programa:
         try:
@@ -287,7 +293,7 @@ def _stats(v: np.ndarray) -> dict:
 def simular(ctx: dict, params: dict | None = None, n: int = 2000, semilla: int = 135, estrategias=ESTRATEGIAS) -> dict:
     """Montecarlo vectorizado: n réplicas × años × períodos. Devuelve, por estrategia, el VAN de cada réplica con su media,
     desviación, percentiles 5, 50 y 95 y P(VAN < 0), déficit, exceso y producción medios por año (t de producto), los
-    componentes medios del flujo anual (MM$) y las series medias por período. params reemplaza valores de ctx["base"]."""
+    componentes medios del flujo anual (M$) y las series medias por período. params reemplaza valores de ctx["base"]."""
     t0 = time.perf_counter()
     p = dict(ctx["base"]); p.update(params or {})
     per = ctx["periodos"]; dem0 = per["demanda"]; h = per["horas"]; mp = per["mp_por_t"]
@@ -313,7 +319,7 @@ def simular(ctx: dict, params: dict | None = None, n: int = 2000, semilla: int =
         f_rec = np.ones(forma); caida_rec = np.zeros(P)
     planta = p["alcance"] == "planta"
     inversion = float(p.get("inversion_planta") or p["inversion"]) if planta else float(p["inversion"])
-    m_mp = float(p["margen"]) / mp / 1e6                                     # MM$ por t de materia prima
+    m_mp = float(p["margen"]) / mp / 1e6                                     # M$ por t de materia prima
     df = 1.0 / (1.0 + float(p["tasa"])) ** np.arange(1, A + 1)
     out = {}
     for est in estrategias:

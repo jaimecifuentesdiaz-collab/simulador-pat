@@ -15,10 +15,13 @@ PAT 135: restricción de precedencia al conectar (motor/precedencia.py). Si la p
 atributo pl.precedencia, que la interfaz carga desde el mantenedor), una conexión de producto se rechaza cuando el estado del
 material que sale del origen no está entre los que acepta el destino, con un mensaje que nombra las etapas que faltan. La
 misma regla rige «Secuencia sugerida» y «Diagnóstico». Sin tabla, o con «Permitir conexiones libres», todo es como antes.
+PAT 142: vista «lazos» (pantalla Lazos de control): los equipos y las corrientes se dibujan como en la Planta ficticia sin editarse;
+los instrumentos sí se agregan, mueven, editan, conectan y quitan, y se sueltan lazos típicos sobre un equipo (evento agregar_lazo,
+pat_sim.motor.instrumentacion.agregar_lazo). Los eventos instrumento y senal aceptan los datos de ISA-5.4 y la relación entre lazos.
 """
 from __future__ import annotations
 import json, math, time
-from .planta import Planta, TIPOS_SERVICIO
+from .planta import Planta, TIPOS_SERVICIO, corrientes_compatibles
 from .corrientes import TIPOS as TIPOS_CORRIENTE
 from ..simbolos import iso10628
 from .equipos import OPCIONALES
@@ -33,10 +36,9 @@ GRILLA = 20
 
 
 def compatibles(tipo_salida: str, tipo_entrada: str) -> bool:
-    """Una salida se puede conectar a una entrada del mismo tipo de corriente; un subproducto puede volver a proceso."""
-    if tipo_salida == tipo_entrada:
-        return True
-    return tipo_salida == "subproducto" and tipo_entrada in ("producto", "biomasa")
+    """Una salida se puede conectar a una entrada del mismo tipo de corriente; un subproducto puede volver a proceso.
+    PAT 143: la regla vive en motor/planta.corrientes_compatibles, que también usa el cálculo."""
+    return corrientes_compatibles(tipo_salida, tipo_entrada)
 
 
 def siguiente_id(pl: Planta, letra: str) -> str:
@@ -79,12 +81,12 @@ def _convertir(p, valor):
     actual = p.valor
     if isinstance(actual, bool):
         return bool(valor)
+    if isinstance(actual, str):                 # PAT 140: etiqueta de texto; vacía es válida
+        return "" if valor is None else str(valor)
     if valor is None or valor == "":
         if p.clave in OPCIONALES:
             return None
         raise ValueError(f"{p.nombre}: falta el valor")
-    if isinstance(actual, str):
-        return str(valor)
     v = float(valor)
     if not math.isfinite(v):
         raise ValueError(f"{p.nombre}: valor no válido")
@@ -123,15 +125,21 @@ def _regla_conectar(pl: Planta, precedencia=None):
     return None if t is None or t.libre else t
 
 
-def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None, precedencia=None) -> dict:
+def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None, precedencia=None, libre: bool | None = None) -> dict:
     """Aplica un evento del lienzo a la planta. Devuelve {ok, mensaje, recalcular}.
 
     Los errores de edición (puerto inexistente, tipos incompatibles, ciclo, precedencia) no lanzan excepción: vuelven con
     ok=False y la planta queda como estaba. precedencia: tabla de motor/precedencia.py (si no, pl.precedencia o ninguna).
+    PAT 143 (tarea 6): libre=True (o el atributo pl.conexion_libre que fija la interfaz) es la conexión libre: se aceptan las
+    conexiones entre corrientes de distinto tipo y las que no respetan la precedencia, y las marca el validador
+    (motor/validador.py), que no deja avanzar mientras existan. Siguen rechazados el equipo consigo mismo, el puerto inexistente,
+    la conexión repetida y el ciclo de corrientes de proceso (el cálculo secuencial no lo resuelve).
     """
     if tipos is None:
         from ..catalogos.registro import TIPOS as tipos
     e = ev.get("evento"); d = ev.get("datos") or {}
+    if libre is None:
+        libre = bool(getattr(pl, "conexion_libre", False))
     try:
         if e == "agregar":
             cls = tipos[d["tipo"]]
@@ -153,12 +161,13 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None, precedencia=
             ps = next((p for p in a.salidas if p.nombre == po), None); pe = next((p for p in b.entradas if p.nombre == pd_), None)
             if ps is None or pe is None:
                 raise ValueError("Puerto inexistente")
-            if not compatibles(ps.tipo, pe.tipo):
+            distinto = not compatibles(ps.tipo, pe.tipo)
+            if distinto and not libre:
                 raise ValueError(f"Tipos incompatibles: la salida {o}.{po} es {TIPOS_CORRIENTE[ps.tipo][0].lower()} "
                                  f"y la entrada {de}.{pd_} espera {TIPOS_CORRIENTE[pe.tipo][0].lower()}")
             if any((c.origen, c.puerto_origen, c.destino, c.puerto_destino) == (o, po, de, pd_) for c in pl.conexiones):
                 raise ValueError(f"Ya existe la conexión {o}.{po} → {de}.{pd_}")
-            regla = _regla_conectar(pl, precedencia)              # PAT 135: precedencia de los estados del material
+            regla = None if libre else _regla_conectar(pl, precedencia)   # PAT 135: precedencia (PAT 143: la revisa el validador)
             if regla is not None:
                 m_ = PR.revisar(pl, regla, o, po, de, pd_)
                 if m_:
@@ -183,6 +192,9 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None, precedencia=
             msg = f"Conectado {o}.{po} → {de}.{pd_} (corriente {nombre}, {c.reparto:g} %)."
             if usado + c.reparto > 100.01:
                 msg += f" El puerto {o}.{po} reparte ahora {usado + c.reparto:g} %: ajuste los repartos."
+            if distinto:                                            # PAT 143: conexión libre entre corrientes de distinto tipo
+                msg += " Atención: une corrientes de distinto tipo; el diseño queda con un error hasta corregirla."
+                return dict(ok=True, mensaje=msg, recalcular=True, tipo="aviso")
             return dict(ok=True, mensaje=msg, recalcular=True)
         if e == "reparto":
             _, c = _buscar_conexion(pl, d)
@@ -261,8 +273,13 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None, precedencia=
             return dict(ok=True, mensaje=f"Agregado {k} · {nm}" + (f", unido a {ins.equipo}" if ins.equipo else "") +
                         f". Escriba en Propiedades {que}, el número de lazo, la ubicación y la descripción; conéctelo arrastrando "
                         "desde el punto azul de su borde.", recalcular=False, id=k, sel="ins")
+        if e == "agregar_lazo":                  # PAT 142: lazo típico soltado sobre un equipo
+            r = IN.agregar_lazo(pl, d.get("variable"), d.get("equipo"), d.get("parametro") or None, d.get("x"), d.get("y"),
+                                d.get("corriente") or None, d.get("numero") or None)
+            return dict(ok=True, mensaje=r["mensaje"], recalcular=False, id=r["controlador"], sel="ins", numero=r["numero"])
         if e == "instrumento":
-            cambios = {c: v for c, v in d.items() if c in ("letras", "numero", "ubicacion", "descripcion", "equipo", "parametro", "elemento_final", "simbolo")}
+            cambios = {c: v for c, v in d.items() if c in ("letras", "numero", "ubicacion", "descripcion", "equipo", "parametro", "elemento_final", "simbolo",
+                                                           "accion_falla", "alimentacion", "accion", "consigna")}   # PAT 142: ISA-5.4
             nid = IN.editar(pl, d["id"], cambios)
             msg = f"{nid}: {IN.lectura(IN.buscar(pl, nid))}." if nid != d["id"] or "letras" in cambios else None
             return dict(ok=True, mensaje=msg, recalcular=False, id=nid, sel="ins")
@@ -278,7 +295,7 @@ def aplicar_evento(pl: Planta, ev: dict, tipos: dict | None = None, precedencia=
             return dict(ok=True, mensaje=f"Línea de {nm} de {d['origen']} a {IN.nombre_destino(pl, d['tipo'], d['destino'])}.", recalcular=False,
                         id=d["origen"], sel="ins")
         if e == "senal":
-            IN.editar_senal(pl, d["clave"], {c: v for c, v in d.items() if c in ("senal", "parametro")})
+            IN.editar_senal(pl, d["clave"], {c: v for c, v in d.items() if c in ("senal", "parametro", "relacion")})   # PAT 142: relación
             return dict(ok=True, mensaje=None, recalcular=False)
         if e == "quitar_senal":
             IN.quitar_senal(pl, d["clave"])
@@ -317,7 +334,7 @@ def secuencia_sugerida(pl: Planta, precedencia=None) -> int:
                 cands.sort(key=lambda aq: PR.estados_salida(pl, regla, aq[0].id) is None)    # primero los de estado conocido
                 for a, q in cands:
                     r = aplicar_evento(pl, dict(evento="conectar", datos=dict(origen=a.id, puerto_origen=q.nombre, destino=eq.id,
-                                                                            puerto_destino=p.nombre)), precedencia=precedencia)
+                                                                            puerto_destino=p.nombre)), precedencia=precedencia, libre=False)
                     if r["ok"]:
                         n += 1
                         break
@@ -329,7 +346,7 @@ def secuencia_sugerida(pl: Planta, precedencia=None) -> int:
                 continue
             a, q = fuente
             r = aplicar_evento(pl, dict(evento="conectar", datos=dict(origen=a.id, puerto_origen=q.nombre, destino=eq.id, puerto_destino=p.nombre)),
-                               precedencia=precedencia)
+                               precedencia=precedencia, libre=False)
             n += 1 if r["ok"] else 0
     return n
 
@@ -493,7 +510,8 @@ _ETIQUETAS = {"agregar": "agregar {id}", "mover": "mover {id}", "conectar": "con
               # PAT 134
               "agregar_instrumento": "agregar el instrumento {id}", "instrumento": "cambiar el instrumento {id}",
               "mover_instrumento": "mover {id}", "quitar_instrumento": "quitar el instrumento {id}",
-              "conectar_senal": "conectar la señal {origen} → {destino}", "senal": "cambiar la señal {clave}", "quitar_senal": "quitar la señal {clave}"}
+              "conectar_senal": "conectar la señal {origen} → {destino}", "senal": "cambiar la señal {clave}", "quitar_senal": "quitar la señal {clave}",
+              "agregar_lazo": "agregar el lazo típico de {variable} en {equipo}"}   # PAT 142
 
 
 def etiqueta_evento(ev: dict, r: dict | None = None) -> str:
@@ -517,7 +535,7 @@ def _grupo(ev: dict):
 
 
 def aplicar_con_historial(pl: Planta, ev: dict, hist: Historial, tipos: dict | None = None, ahora: float | None = None,
-                          precedencia=None) -> dict:
+                          precedencia=None, libre: bool | None = None) -> dict:
     """Aplica un evento del lienzo con deshacer y rehacer: «deshacer» y «rehacer» mueven la planta por el historial; cualquier
     otro evento que cambie la planta apila el estado anterior (y vacía rehacer). Devuelve lo mismo que aplicar_evento."""
     e = ev.get("evento")
@@ -530,7 +548,7 @@ def aplicar_con_historial(pl: Planta, ev: dict, hist: Historial, tipos: dict | N
         return dict(ok=True, mensaje=("Deshecho: " if e == "deshacer" else "Rehecho: ") + (et or "último cambio") + ".", recalcular=True,
                     restaurada=True)
     antes = instantanea(pl)
-    r = aplicar_evento(pl, ev, tipos, precedencia)
+    r = aplicar_evento(pl, ev, tipos, precedencia, libre)
     if r.get("ok") and instantanea(pl) != antes:
         hist.apilar(antes, etiqueta_evento(ev, r), _grupo(ev), ahora)
     return r
@@ -584,6 +602,90 @@ def restricciones(pl: Planta, sol: Planta | None, f: float = 1.0) -> dict | None
     restr = max(con, key=lambda k: eqs[k]["util_demanda"]) if con else None
     return dict(equipos=eqs, produccion_plan=plan if hay else None, produccion_real=real if hay else None, restrictivo=restr,
                 limitantes=[k for k in con if eqs[k]["sobrecarga"] > 1e-6])
+
+
+# ---------------------------------------------------------------- PAT 139b (14-11-2026): curva de eficiencia de la línea
+# Pedido del profesor Torres (14-11-2026): curva característica de eficiencia, eje x la producción y eje y la eficiencia, con un
+# máximo en el punto de diseño. Reemplaza en el lienzo a la recta «producción real contra alimentación».
+ZONA_BUENA = (0.70, 1.20)
+FUENTE_ZONA = ("Zona de buen rendimiento: el recurso crítico opera entre 70 % y 120 % de su punto de diseño, la región de operación "
+               "preferida de las bombas rotodinámicas del Hydraulic Institute (ANSI/HI 9.6.3; https://www.pumps.org/product/ansi-hi-9-6-3/ y "
+               "https://www.introtopumps.com/pump-terms/por-preferred-operating-range/, consultados el 14-11-2026: «in most cases extends "
+               "from 70% to 120% of flow at the best efficiency point»). Supuesto: se extiende a todos los equipos de la línea")
+FUENTE_CURVA = ("η(q) de cada etapa con la curva de motor/costo_total.py (eta_relativa, Supuesto «a_curva» y punto de diseño en la capacidad "
+                "por unidad en operación, Supuesto «q_peak»). Eficiencia de la línea = energía ideal / energía real = Σ E_i / Σ (E_i / η_i), con "
+                "E_i el consumo de servicios del balance de la etapa (kW, que no usa la curva); sin consumos, pesos iguales (Supuesto)")
+
+
+def _carga_por_unidad(pl: Planta, k: str, cap: float) -> tuple[float, int, int]:
+    """(capacidad de diseño de una unidad en t/h de carga, n, k): con selección comercial las k unidades necesarias se reparten la
+    carga y la de reserva espera detenida (Supuesto «reparto» de costo_total.py); sin selección, una unidad del tamaño de la etapa."""
+    from . import seleccion as SEL
+    eq = pl.equipos.get(k)
+    act = SEL.seleccion_actual(eq) if eq is not None and "unidades" in eq.params else None
+    n, kk = (int(act["n"]), int(act["k"])) if act else (1, 1)
+    n, kk = max(1, n), max(1, min(kk, max(1, n)))
+    return cap / n, n, kk
+
+
+def curva_eficiencia_linea(pl: Planta, sol: Planta | None, puntos: int = 41) -> dict | None:
+    """Curva característica de eficiencia de la línea (PAT 139b): para la producción de 0 a la capacidad de la línea (donde se satura
+    el recurso crítico), la eficiencia relativa η/η_max de cada etapa (motor/costo_total.eta_relativa con la carga por unidad en
+    operación), la del recurso crítico y la de la línea (media armónica ponderada por la energía de cada etapa). Marca el punto de
+    operación actual (alimentación planificada o, si hay sobrecarga, la capacidad de la línea), el punto de diseño de la línea (máximo de
+    su curva) y la zona de buen rendimiento (recurso crítico entre 70 % y 120 % de su punto de diseño, ZONA_BUENA). None sin balance."""
+    from . import costo_total as CT
+    tr = restricciones(pl, sol, 1.0)
+    if tr is None or not tr.get("produccion_plan"):
+        return None
+    P_plan = float(tr["produccion_plan"])
+    etapas = []
+    for k, v in tr["equipos"].items():
+        cap, dem = _num(v.get("efectiva")), _num(v.get("demanda"))
+        if not cap or cap <= 0 or dem is None or dem <= 0:
+            continue
+        q_unidad, n, kk = _carga_por_unidad(pl, k, cap)
+        eq = (sol.equipos.get(k) if sol is not None else None) or pl.equipos[k]
+        r = eq.resultado
+        peso = sum(abs(_num(x) or 0.0) for x in (r.servicios.values() if r is not None else []))
+        etapas.append(dict(id=k, nombre=pl.equipos[k].nombre, n=n, k=kk, q_diseno_t_h=q_unidad, carga_t_h=dem, util=dem / cap,
+                           u_plan=(dem / kk) / q_unidad, peso_kW=peso))
+    if not etapas:
+        return None
+    if not any(e["peso_kW"] > 0 for e in etapas):
+        for e in etapas:
+            e["peso_kW"] = 1.0
+    f_sat = min(1.0 / e["util"] for e in etapas)                # alimentación (fracción de la planificada) que satura la línea
+    crit = max(etapas, key=lambda e: e["util"])["id"]
+    sw = sum(e["peso_kW"] for e in etapas)
+
+    def etas(f):
+        es = {e["id"]: CT.eta_relativa(f * e["u_plan"], 1.0) for e in etapas}
+        lin = sw / sum(e["peso_kW"] / es[e["id"]] for e in etapas)
+        return es, lin
+
+    puntos = max(5, int(puntos))
+    fs = [f_sat * i / (puntos - 1) for i in range(puntos)]
+    x, lin, cr, por = [], [], [], {e["id"]: [] for e in etapas}
+    for f in fs:
+        es, l = etas(f)
+        x.append(round(P_plan * f, 4)); lin.append(round(l, 5)); cr.append(round(es[crit], 5))
+        for k, v in es.items():
+            por[k].append(round(v, 5))
+    finos = [f_sat * i / 400 for i in range(401)]
+    f_dis = max(finos, key=lambda f: etas(f)[1])
+    f_op = min(1.0, f_sat)
+    es_op, l_op = etas(f_op)
+    ec = next(e for e in etapas if e["id"] == crit)
+    z0, z1 = ZONA_BUENA[0] / ec["u_plan"], min(ZONA_BUENA[1] / ec["u_plan"], f_sat)
+    zona = [round(P_plan * z0, 4), round(P_plan * z1, 4)] if z0 < z1 else None
+    return dict(x=x, eta_linea=lin, eta_critico=cr, critico=crit, capacidad_linea=round(P_plan * f_sat, 4), produccion_plan=P_plan,
+                etapas=[dict(id=e["id"], nombre=e["nombre"], n=e["n"], k=e["k"], q_diseno_t_h=_num(e["q_diseno_t_h"]), peso_kW=_num(e["peso_kW"]),
+                             carga_rel=_num(f_op * e["u_plan"]), eta_op=_num(es_op[e["id"]]), eta=por[e["id"]]) for e in etapas],
+                operacion=dict(produccion=round(P_plan * f_op, 4), eta_linea=_num(l_op), eta_critico=_num(es_op[crit]),
+                               carga_rel_critico=_num(f_op * ec["u_plan"]), sobrecarga=f_sat < 1.0),
+                diseno=dict(produccion=round(P_plan * f_dis, 4), eta_linea=_num(etas(f_dis)[1])),
+                zona=zona, fuente=FUENTE_CURVA, fuente_zona=FUENTE_ZONA)
 
 
 def curva_linea(pl: Planta, sol: Planta | None) -> list[list[float]] | None:
@@ -643,7 +745,8 @@ def resolver_parcial(pl: Planta) -> tuple[Planta | None, str | None]:
     except Exception as x:          # falta de alimentación, ciclo o parámetro fuera de rango
         motivo = str(x)
     pl.resuelta = False
-    proc = [c for c in pl.conexiones if not pl.es_servicio(c)]
+    malas = {id(c) for c in pl.incompatibles()}       # PAT 143: la parte alimentada no usa las corrientes cruzadas
+    proc = [c for c in pl.conexiones if not pl.es_servicio(c) and id(c) not in malas]
     ok = set(pl.equipos); cambio = True
     while cambio:
         cambio = False
@@ -659,7 +762,7 @@ def resolver_parcial(pl: Planta) -> tuple[Planta | None, str | None]:
                     break
     sub = Planta(pl.nombre, pl.rubro); sub.globales = pl.globales
     sub.equipos = {k: e for k, e in pl.equipos.items() if k in ok}
-    sub.conexiones = [c for c in pl.conexiones if c.origen in ok and c.destino in ok]
+    sub.conexiones = [c for c in pl.conexiones if c.origen in ok and c.destino in ok and id(c) not in malas]
     sub.especs = [s for s in pl.especs if s.equipo_var in ok and s.equipo_obj in ok]
     for k, e in pl.equipos.items():
         if k not in ok:
@@ -738,6 +841,34 @@ def catalogo_lienzo(rubros: dict, catalogo) -> dict:
     return out
 
 
+def catalogo_taxonomia(catalogo) -> dict:
+    """PAT 136 (T22, punto 7): catálogo del lienzo con taxonomía. «Todos los equipos (ISO 10628)» primero (completo, como
+    catalogo_lienzo), después una lista por función de proceso agrupada por familia de la ISO 10628 y una por tipo de planta (con
+    la clave del rubro, para que el lienzo abra en la de la planta), y la instrumentación al final. Las listas de función y de planta
+    llevan solo {tipo, grupo, buscar}: el lienzo toma el resto de «todos». «buscar» es el texto sin tildes del buscador."""
+    from ..catalogos import taxonomia as TX
+    base = catalogo_lienzo({}, catalogo)
+    isa = base.pop("isa")
+    fs = TX.fichas()
+    texto = {f["tipo"]: TX.normalizar(" ".join([f["nombre"], f["tipo"], f["letra"], f["simbolo_nombre"], f["familia_nombre"]]
+                                              + f["funcion_nombres"] + f["plantas_nombres"])) for f in fs}
+    for e in base["todos"]["equipos"]:
+        e["buscar"] = texto.get(e["tipo"], TX.normalizar(e["nombre"]))
+    tipos = {e["tipo"] for e in base["todos"]["equipos"]}
+    out = {"todos": base["todos"]}
+    for r in TX.resumen_plantas(fs):
+        from ..catalogos import plantas_genericas as PG
+        rub = PG.PLANTAS[r["planta_id"]]["rubro"]
+        eqs = [dict(tipo=f["tipo"], grupo=f["funcion_nombres"][0]) for f in r["equipos"] if f["tipo"] in tipos]
+        out[rub] = dict(nombre=f"Planta: {r['planta']} ({len(eqs)})", equipos=eqs)
+    for g in TX.arbol(fs):
+        eqs = [dict(tipo=f["tipo"], grupo=f"{fam['familia']} · {fam['nombre']}") for fam in g["familias"] for f in fam["equipos"]
+               if f["tipo"] in tipos]
+        out["fun_" + g["funcion"]] = dict(nombre=f"Función: {g['nombre']} ({len(eqs)})", equipos=eqs)
+    out["isa"] = isa
+    return out
+
+
 def _corriente(pl, sol, c):
     """Caudal (kg/h), temperatura, °Brix o humedad y calor de una conexión, si hay resultados."""
     f = dict(m=None, T=None, brix=None, hum=None, q=None)
@@ -764,53 +895,220 @@ def _corriente(pl, sol, c):
 
 def diagnostico(pl: Planta, motivo: str | None, tr: dict | None = None, precedencia=None) -> list[dict]:
     """Reglas como las del simulador del profesor: sin alimentación, repartos, sobrecarga, falta de servicio térmico.
-    PAT 135: también las conexiones existentes que no respetan la precedencia (error; aviso si las conexiones son libres)."""
+    PAT 135: también las conexiones existentes que no respetan la precedencia (error; aviso si las conexiones son libres).
+    PAT 143: cada observación lleva su código de regla («regla», P00 a P15), que usa motor/validador.py para sus pistas."""
     out = []
     if motivo:
-        out.append(dict(nivel="error", texto=f"La planta no se puede resolver: {motivo}"))
+        out.append(dict(nivel="error", regla="P00", texto=f"La planta no se puede resolver: {motivo}"))
     proc = [c for c in pl.conexiones if not pl.es_servicio(c)]
     for k, eq in pl.equipos.items():
         if eq.tipo.startswith("caldera"):
             if not any(c.origen == k for c in pl.conexiones):
-                out.append(dict(nivel="aviso", equipo=k, texto=f"{k} ({eq.nombre}) no entrega su servicio a ningún equipo"))
+                out.append(dict(nivel="aviso", regla="P07", equipo=k, texto=f"{k} ({eq.nombre}) no entrega su servicio a ningún equipo"))
             continue
         faltan = [p.nombre for p in eq.entradas if p.tipo not in TIPOS_SERVICIO and not any(c.destino == k and c.puerto_destino == p.nombre for c in proc)]
         if faltan:
-            out.append(dict(nivel="error", equipo=k, texto=f"{k} ({eq.nombre}) no tiene alimentación en {', '.join(faltan)}"))
+            out.append(dict(nivel="error", regla="P03", equipo=k, puertos=faltan, texto=f"{k} ({eq.nombre}) no tiene alimentación en {', '.join(faltan)}"))
         for p in eq.entradas:
             if p.tipo in ("vapor", "calor") and not any(c.destino == k and c.puerto_destino == p.nombre for c in pl.conexiones):
-                out.append(dict(nivel="aviso", equipo=k, texto=f"{k} ({eq.nombre}) no tiene servicio térmico conectado en {p.nombre} "
+                out.append(dict(nivel="aviso", regla="P06", equipo=k, puerto=p.nombre, tipo=p.tipo,
+                                texto=f"{k} ({eq.nombre}) no tiene servicio térmico conectado en {p.nombre} "
                                                                f"({TIPOS_CORRIENTE[p.tipo][0].lower()}): su demanda no llega a la caldera"))
         for p in eq.salidas:
             cs = [c for c in pl.conexiones if c.origen == k and c.puerto_origen == p.nombre]
             tot = sum(c.reparto for c in cs)
             if cs and abs(tot - 100) > 0.01 and p.tipo not in TIPOS_SERVICIO:
-                out.append(dict(nivel="error" if tot > 100.01 else "aviso", equipo=k,
+                out.append(dict(nivel="error" if tot > 100.01 else "aviso", regla="P05", equipo=k, puerto=p.nombre, total=tot,
                                 texto=f"El reparto de {k}.{p.nombre} suma {tot:.1f} % (debe sumar 100 %)"))
         v = (tr or {}).get("equipos", {}).get(k)
         if v and v["util_demanda"] is not None and 0.8 <= v["util_demanda"] <= 1 + 1e-9:
-            out.append(dict(nivel="aviso", equipo=k, texto=f"Cuello de botella en rojo: {k} ({eq.nombre}) trabaja al {_f(100 * v['util_demanda'], 0)} % "
+            out.append(dict(nivel="aviso", regla="P11", equipo=k, texto=f"Cuello de botella en rojo: {k} ({eq.nombre}) trabaja al {_f(100 * v['util_demanda'], 0)} % "
                                                            "de su capacidad efectiva (semáforo: rojo de 80 a 100 %)"))
         if v and v["sobrecarga"] > 1e-6:
-            out.append(dict(nivel="error", equipo=k, texto=f"Sobrecarga o acumulación en {k} ({eq.nombre}): recibe {_f(v['demanda'])} t/h y su "
+            out.append(dict(nivel="error", regla="P12", equipo=k, texto=f"Sobrecarga o acumulación en {k} ({eq.nombre}): recibe {_f(v['demanda'])} t/h y su "
                                                            f"capacidad efectiva es {_f(v['efectiva'])} t/h; se acumulan {_f(v['sobrecarga'])} t/h"))
     t_ = PR.regla(pl, precedencia)                                  # PAT 135
     for _i, c, m in PR.violaciones(pl, t_):
-        out.append(dict(nivel="aviso" if t_.libre else "error", equipo=c.destino,
+        out.append(dict(nivel="aviso" if t_.libre else "error", regla="P02", equipo=c.destino, conexion=_clave_conexion(c), motivo=m,
                         texto=f"La conexión {c.origen}.{c.puerto_origen} → {c.destino}.{c.puerto_destino} no respeta el orden del proceso: {m}"))
     if pl.equipos and tr is not None and tr["produccion_plan"] is None:
-        out.append(dict(nivel="aviso", texto="Falta una salida de producto final: ninguna salida de producto queda libre al final de la línea"))
+        out.append(dict(nivel="aviso", regla="P13", texto="Falta una salida de producto final: ninguna salida de producto queda libre al final de la línea"))
     for a in pl.avisos:
-        out.append(dict(nivel="aviso", texto=a))
+        out.append(dict(nivel="aviso", regla="P14", texto=a))
     if not pl.equipos:
-        out.append(dict(nivel="aviso", texto="La planta está vacía: arrastre equipos desde el catálogo"))
+        out.append(dict(nivel="aviso", regla="P15", texto="La planta está vacía: arrastre equipos desde el catálogo"))
     if not out:
         out.append(dict(nivel="ok", texto="Sin observaciones: todos los equipos tienen alimentación, los repartos suman 100 % y no hay sobrecargas."))
     return out
 
 
+# ---------------------------------------------------------------- PAT 138: tres pantallas de construcción con el mismo lienzo
+VISTAS = ("ficticia", "real", "auxiliares", "lazos")   # PAT 142: «lazos», pantalla Lazos de control
+# PAT 142: eventos que acepta la vista «lazos» (los equipos y las corrientes no se editan ahí)
+EVENTOS_LAZOS = ("agregar_instrumento", "instrumento", "mover_instrumento", "quitar_instrumento", "conectar_senal", "senal",
+                 "quitar_senal", "agregar_lazo", "deshacer", "rehacer")
+
+
+def catalogo_lazos() -> dict:
+    """PAT 142: catálogo del lienzo en la vista «lazos»: el grupo «Lazos típicos» más los grupos de instrumentación ISA-5.1 y ISA-5.4."""
+    return {"lazos": dict(nombre="Lazos típicos e instrumentación ISA-5.1 y ISA-5.4", equipos=[], instrumentos=IN.catalogo(),
+                          tipicos=IN.catalogo_tipicos())}
+
+
+# PAT 139b (14-11-2026, pedido de Jaime): una etapa con n unidades en paralelo se dibuja con n símbolos iguales dentro de la etapa,
+# con un colector de entrada y uno de salida. Tope de 6 dibujados (2 columnas de 3): más símbolos no caben legibles en el recuadro de
+# 64 px del equipo; el resto se indica con «+r» y el total queda en la etiqueta «n × capacidad» y en la ficha.
+TOPE_PARALELO = 6
+
+
+def dibujo_paralelo(n, k=None) -> dict:
+    """Cómo dibuja el lienzo n unidades en paralelo de las que se necesitan k: n_dibujados = min(n, TOPE_PARALELO), n_resto (las que no
+    se dibujan), n_reserva = n − k (se dibujan con borde punteado, las últimas), columnas (1 hasta 3 unidades, 2 desde 4) y filas."""
+    try:
+        n = max(1, int(n))
+    except (TypeError, ValueError):
+        n = 1
+    try:
+        k = n if k is None else max(1, min(int(k), n))
+    except (TypeError, ValueError):
+        k = n
+    m = min(n, TOPE_PARALELO)
+    col = 1 if m <= 3 else 2
+    return dict(n=n, k=k, n_dibujados=m, n_resto=n - m, n_reserva=n - k, n_reserva_dibujadas=max(0, m - min(k, m)),
+                columnas=col, filas=math.ceil(m / col))
+
+
+def capa_real(pl: Planta) -> dict:
+    """Planta real (PAT 138): lo que la selección comercial (motor/seleccion.py, aplicar) dejó en cada equipo: modelo (con su
+    fabricante cuando la ficha lo trae), unidades en paralelo n, necesarias k, capacidad instalada y por unidad (t/h de carga),
+    MTBF y MTTR de una unidad, disponibilidad de la unidad A = MTBF/(MTBF + MTTR) y de la etapa k de n (binomial). Los equipos
+    que admiten selección y no la tienen quedan con seleccion=False (el lienzo dibuja el equipo teórico). A_linea es el producto
+    de las disponibilidades de las etapas con selección (línea en serie, mismo supuesto de seleccion.py)."""
+    from . import seleccion as SEL
+    eqs, As = {}, []
+    for k, eq in pl.equipos.items():
+        if "unidades" not in eq.params or "capacidad" not in eq.params or SEL._excluido(eq):
+            continue
+        act = SEL.seleccion_actual(eq)
+        if not act:
+            eqs[k] = dict(seleccion=False)
+            continue
+        n, kk = int(act["n"]), int(act["k"])
+        mt, mr = act.get("mtbf_h"), act.get("mttr_h")
+        A = SEL.disponibilidad(mt, mr) if mt and mr is not None and mt > 0 and mr >= 0 else None
+        Ae = SEL.k_de_n(A, n, kk) if A is not None else None
+        if Ae is not None:
+            As.append(Ae)
+        cap = _num(act.get("capacidad_t_h"))
+        p = eq.params.get("modelo")
+        eqs[k] = dict(seleccion=True, modelo=act["modelo"], n=n, k=kk, capacidad_instalada=cap,
+                      capacidad_unidad=_num(cap / n) if cap and n else None, mtbf_h=_num(mt), mttr_h=_num(mr),
+                      A_unidad=_num(A), A_etapa=_num(Ae), fuente=(p.fuente if p is not None else "") or "", categoria=(p.categoria if p is not None else ""),
+                      dibujo=dibujo_paralelo(n, kk))
+    con = sum(1 for v in eqs.values() if v["seleccion"])
+    return dict(equipos=eqs, seleccionables=len(eqs), con_seleccion=con,
+                A_linea=_num(math.prod(As)) if As else None,
+                aviso=None if con else "Sin selección: aplique una combinación abajo. El lienzo muestra el equipo teórico de la Planta ficticia.")
+
+
+def _con_entre(pl: Planta, a: str, b: str, nombre: str | None = None):
+    """Conexión de proceso de a hacia b (si hay varias, la que tiene ese nombre de línea)."""
+    cs = [c for c in pl.conexiones if c.origen == a and c.destino == b and not pl.es_servicio(c)]
+    if nombre:
+        for c in cs:
+            if (c.nombre or f"{c.origen} → {c.destino}") == nombre:
+                return c
+    return cs[0] if cs else None
+
+
+def capa_auxiliares(pl: Planta, aux: dict | None) -> dict:
+    """Equipos auxiliares (PAT 138) puestos sobre el lienzo: cada bomba y cada válvula sobre su línea de líquido (clave de la
+    conexión), cada estanque pulmón sobre la línea entre sus dos equipos, el diámetro nominal de cada cañería y el resumen de
+    servicios. aux: resultado de motor/auxiliares.auxiliares (la pantalla lo calcula con sus parámetros); sin él, capa vacía."""
+    out = dict(bombas=[], valvulas=[], estanques=[], canerias=[], servicios=[], n_bloqueo=0, n_retencion=0, totales={}, avisos=[])
+    if not aux:
+        out["avisos"].append("Resuelva la planta para ver sus equipos auxiliares.")
+        return out
+    b = aux.get("bombas") or {}
+    for x in b.get("filas") or []:
+        c = _con_entre(pl, x["origen"], x["destino"], x.get("linea"))
+        out["bombas"].append(dict(id=x["id"], linea=x["linea"], origen=x["origen"], destino=x["destino"], con=_clave_conexion(c) if c else None,
+                                  Q_m3h=_num(x["Q_m3h"]), H_m=_num(x["H_m"]), D_mm=_num(x["D_mm"]), potencia_kW=_num(x["potencia_kW"]),
+                                  en_diagrama=bool(x["en_diagrama"]), costo_usd=_num(x.get("costo_usd")), fuente=x.get("fuente_costo", "")))
+    v = aux.get("valvulas") or {}
+    out["n_bloqueo"], out["n_retencion"] = int(v.get("n_bloqueo") or 0), int(v.get("n_retencion") or 0)
+    lazo = {(i.elemento_final or "").strip(): i.equipo for i in getattr(pl, "instrumentos", []) or []}
+    for x in v.get("control") or []:
+        en_diag = x["id"] in pl.equipos
+        eq = x["id"] if en_diag else lazo.get(x["id"])
+        c = None
+        if not en_diag and eq:
+            proc = [cc for cc in pl.conexiones if not pl.es_servicio(cc)]
+            liq = {(f["origen"], f["destino"]) for f in b.get("filas") or []}
+            c = (next((cc for cc in proc if cc.destino == eq and (cc.origen, cc.destino) in liq), None)
+                 or next((cc for cc in proc if cc.destino == eq), None) or next((cc for cc in proc if cc.origen == eq), None))
+        out["valvulas"].append(dict(id=x["id"], nombre=x["nombre"], Cv=_num(x.get("Cv")), equipo=eq, en_diagrama=en_diag,
+                                    con=_clave_conexion(c) if c else None, costo_usd=_num(x.get("costo_usd")), nota=x.get("nota", "")))
+    e = aux.get("estanques") or {}
+    for x in e.get("filas") or []:
+        c = _con_entre(pl, x["antes"], x["despues"])
+        out["estanques"].append(dict(id="TK " + x["id"], antes=x["antes"], despues=x["despues"], con=_clave_conexion(c) if c else None,
+                                     masa_t=_num(x["masa_t"]), v_util_m3=_num(x["v_util_m3"]), v_geo_m3=_num(x["v_geo_m3"]), D_m=_num(x["D_m"]),
+                                     H_m=_num(x["H_m"]), costo_usd=_num(x.get("costo_usd")), metodo=e.get("metodo")))
+    for x in (aux.get("canerias") or {}).get("lineas") or []:
+        c = _con_entre(pl, x["origen"], x["destino"], x.get("linea"))
+        if c is not None:
+            out["canerias"].append(dict(con=_clave_conexion(c), DN=x["DN"], pulgadas=x["pulgadas"], largo_m=_num(x["largo_m"])))
+    for x in (aux.get("servicios") or {}).get("filas") or []:
+        out["servicios"].append(dict(servicio=x["servicio"], demanda=_num(x["demanda"]), unidad=x["unidad"], genera=x["genera"]))
+    out["totales"] = dict(total_clp=_num(aux.get("total_clp")), total_instalado_clp=_num(aux.get("total_instalado_clp")),
+                          bombeo_kW=_num(b.get("total_kw")), pulmones_m3=_num(sum(x["v_geo_m3"] for x in e.get("filas") or [])),
+                          canerias_m=_num((aux.get("canerias") or {}).get("total_m")))
+    out["avisos"] = list(aux.get("avisos") or [])
+    # PAT 140 g: posición de cada auxiliar que el estudiante dejó fuera de su línea (motor/eleccion_auxiliares.CLAVE_POS); el lienzo lo
+    # dibuja ahí, unido a su línea por un trazo
+    pos = ((getattr(pl, "_p", None) or {}).get("posiciones_auxiliares") or {}) if isinstance(getattr(pl, "_p", None), dict) else {}
+    for grupo in ("bombas", "valvulas", "estanques"):
+        for x in out[grupo]:
+            q = pos.get(x["id"])
+            if isinstance(q, dict) and _num(q.get("x")) is not None and _num(q.get("y")) is not None:
+                x["pos"] = dict(x=_num(q["x"]), y=_num(q["y"]))
+    return out
+
+
 def datos_lienzo(pl: Planta, sol: Planta | None, motivo: str | None, catalogo: dict, ultimo_seq: int = 0,
-                 mensajes: list | None = None, kpis_extra: dict | None = None, historial: dict | None = None, precedencia=None) -> dict:
+                 mensajes: list | None = None, kpis_extra: dict | None = None, historial: dict | None = None, precedencia=None,
+                 vista: str = "ficticia", aux: dict | None = None, libre: bool = False, validacion: dict | None = None) -> dict:
+    """Lo que el lienzo dibuja. PAT 138: vista «ficticia» (Diseño, editable, como antes), «real» (más la selección comercial de
+    cada equipo, solo lectura) o «auxiliares» (más la selección y los equipos auxiliares de aux, solo lectura). PAT 142: «lazos»
+    (equipos y corrientes de solo lectura, instrumentos editables con editar_instrumentos y la lista «lazos» de lazos_lienzo).
+    PAT 143 (tarea 6): libre=True habilita la conexión libre en el navegador (puertos de distinto tipo en la Planta ficticia y
+    candidatos que no calzan en la Planta real y en Equipos auxiliares); validacion (resultado de motor/validador.revisar) reemplaza
+    la lista del botón «Diagnóstico»: los errores quedan en la advertencia sobre el lienzo y la caja muestra los avisos."""
+    if vista not in VISTAS:
+        raise ValueError(f"Vista desconocida: {vista}. Use {', '.join(VISTAS)}")
+    d = _datos_lienzo(pl, sol, motivo, catalogo, ultimo_seq, mensajes, kpis_extra, historial, precedencia)
+    d["vista"] = vista
+    d["libre"] = bool(libre)                                              # PAT 143
+    if validacion is not None:
+        from . import validador as VAL
+        d["diagnostico"] = VAL.para_lienzo(validacion)
+        d["validacion"] = dict(errores=len(validacion.get("errores") or []), avisos=len(validacion.get("avisos") or []))
+    d["solo_lectura"] = vista != "ficticia"
+    d["editar_instrumentos"] = vista in ("ficticia", "lazos")              # PAT 142
+    if vista == "lazos":
+        d["lazos"] = IN.lazos_lienzo(pl, TAM)
+    if vista in ("real", "auxiliares"):
+        d["real"] = capa_real(pl)
+        d["kpis"].update(A_linea=d["real"]["A_linea"], con_seleccion=d["real"]["con_seleccion"], seleccionables=d["real"]["seleccionables"])
+    if vista == "auxiliares":
+        d["auxiliares"] = capa_auxiliares(pl, aux)
+        d["kpis"].update({"aux_" + k: v for k, v in d["auxiliares"]["totales"].items()})
+    return d
+
+
+def _datos_lienzo(pl: Planta, sol: Planta | None, motivo: str | None, catalogo: dict, ultimo_seq: int = 0,
+                  mensajes: list | None = None, kpis_extra: dict | None = None, historial: dict | None = None, precedencia=None) -> dict:
     fijados = {(s.equipo_var, s.param): s.descripcion or s.param for s in pl.especs}
     equipos = []
     for k, eq in pl.equipos.items():
@@ -819,13 +1117,13 @@ def datos_lienzo(pl: Planta, sol: Planta | None, motivo: str | None, catalogo: d
         ent, sal = _puertos(eq)
         params = []
         for clave, p in eq.params.items():
-            if isinstance(p.valor, str) and clave != "capacidad":
-                continue                      # etiquetas de texto: se editan en el formulario
-            tipo = "bool" if isinstance(p.valor, bool) else ("int" if isinstance(p.valor, int) else "float")
-            lo, hi = (None, None) if tipo == "bool" else _rango(p, carga)
-            params.append(dict(clave=clave, nombre=p.nombre, valor=p.valor if tipo == "bool" else _num(p.valor), unidad=p.unidad,
-                               deslizador=clave != "costo", opcional=clave in OPCIONALES, justificacion=p.justificacion,
-                               tipo=tipo, min=lo, max=hi, paso=None if tipo == "bool" else _paso(lo, hi, tipo == "int"),
+            # PAT 140: las etiquetas de texto (modelo, materia, etiquetas de corrientes…) también llegan al cuadro «Propiedades»
+            # (tipo «texto»); antes solo se editaban en el formulario «Todos los parámetros de un equipo», que se eliminó.
+            tipo = "bool" if isinstance(p.valor, bool) else ("texto" if isinstance(p.valor, str) else ("int" if isinstance(p.valor, int) else "float"))
+            lo, hi = (None, None) if tipo in ("bool", "texto") else _rango(p, carga)
+            params.append(dict(clave=clave, nombre=p.nombre, valor=p.valor if tipo in ("bool", "texto") else _num(p.valor), unidad=p.unidad,
+                               deslizador=clave != "costo" and tipo != "texto", opcional=clave in OPCIONALES, justificacion=p.justificacion,
+                               tipo=tipo, min=lo, max=hi, paso=None if tipo in ("bool", "texto") else _paso(lo, hi, tipo == "int"),
                                categoria=p.categoria, fuente=p.fuente, fijado=fijados.get((k, clave)),
                                minimo=_num(p.minimo), maximo=_num(p.maximo)))   # PAT 134: límites duros del motor
         cap = _num(eq.params["capacidad"].valor) if "capacidad" in eq.params else None
@@ -895,11 +1193,12 @@ def datos_lienzo(pl: Planta, sol: Planta | None, motivo: str | None, catalogo: d
             alim.append(dict(id=k, nombre=eq.nombre, valor=carga, editable=editable, max=max(10.0, round(carga * 2, -1))))
     return dict(nombre=pl.nombre, rubro=pl.rubro, resuelta=pl.resuelta, motivo=motivo, equipos=equipos, conexiones=conexiones,
                 kpis=kpis, diagnostico=diagnostico(pl, motivo, tr, precedencia), pistas=pistas(pl, sol, motivo, tr), catalogo=catalogo,
-                curva=curva_linea(pl, sol), especs=especs, alimentaciones=alim,
+                curva_eficiencia=curva_eficiencia_linea(pl, sol), especs=especs, alimentaciones=alim,      # PAT 139b
                 tipos={k: dict(nombre=v[0], color=v[1], grosor=v[2], servicio=k in TIPOS_SERVICIO) for k, v in TIPOS_CORRIENTE.items()},
                 globales={k: _num(v) for k, v in pl.globales.items() if _num(v) is not None},
                 ultimo_seq=ultimo_seq, mensajes=mensajes or [], tam=TAM,
                 instrumentos=IN.datos(pl, TAM),                                       # PAT 134
                 isa=dict(senales={k: v[0] for k, v in isa51.SENALES.items()}, lugares=isa51.LUGARES, ubicaciones=isa51.UBICACIONES,
-                         funciones=isa51.FUNCIONES),
+                         funciones=isa51.FUNCIONES, relaciones=IN.RELACIONES, acciones_falla=IN.ACCIONES_FALLA, acciones=IN.ACCIONES,
+                         alimentaciones=list(IN.ALIMENTACIONES)),                       # PAT 142
                 historial=historial or dict(deshacer=0, rehacer=0, etiqueta_deshacer="", etiqueta_rehacer=""))   # PAT 133

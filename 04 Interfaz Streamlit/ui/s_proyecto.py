@@ -1,37 +1,29 @@
 """Proyecto y versión (PAT 134): lo que estaba en la barra lateral pasa al final de la pantalla Escenario, porque la barra
 lateral queda solo para el índice de pantallas. Datos de la planta cargada, guardar versión, base de datos y formato de
-los campos numéricos."""
+los campos numéricos. PAT 138: «Guardar» usa el sistema de proyectos del usuario (ui/proyectos.py)."""
 from __future__ import annotations
 import streamlit as st
-from pat_sim.motor.resumen import resumen_planta
 from . import comun as C
 
 
 def mostrar():
+    from . import proyectos as PRY                 # PAT 138: un solo sistema de guardado (pantalla Proyectos y barra lateral)
     ss = st.session_state; bd = C.obtener_bd(); pl = C.planta()
     st.divider()
     st.markdown("#### Proyecto y versión")
-    proy = bd.obtener_proyecto(ss.pid) if ss.get("pid") else None
-    linea = f"**Planta:** {pl.nombre} · **Proyecto:** {proy['nombre'] if proy else 'sin guardar'}"
-    if ss.get("vid"):
-        v = next((x for x in bd.listar_versiones(ss.pid) if x["id"] == ss.vid), None)
-        if v:
-            linea += f" · versión cargada v{v['numero']} del {v['fecha']}"
-    st.markdown(linea)
+    ab = PRY.abierto()
+    linea = f"**Proyecto abierto:** {ab['nombre'] if ab else 'ninguno (sin guardar)'}"   # PAT 140: el nombre de la planta ya está arriba, en «Planta actual»
+    if ab:
+        linea += f" · versión {ab['version']}"
+    st.markdown(C.esc(linea))
     a, b = st.columns([3, 1], vertical_alignment="bottom")
     nota = a.text_input("Nota de la versión", placeholder="Qué cambió", key="pry_nota")
-    if b.button("Guardar versión en la base de datos", type="primary", width="stretch", key="pry_guardar"):
-        try:
-            if not ss.get("pid"):
-                ss.pid = bd.crear_proyecto(pl.nombre if bd.obtener_proyecto(pl.nombre) is None else f"{pl.nombre} ({len(bd.listar_proyectos()) + 1})", pl.rubro)
-            v = bd.guardar_version(ss.pid, pl, nota)
-            ss.vid = v["id"]
-            if pl.resuelta:
-                bd.guardar_corrida(v["id"], resumen_planta(pl, cop=ss.cop))
-            st.success(f"Guardada la versión {v['numero']}" + (" con su corrida." if pl.resuelta else " (planta sin resolver, sin corrida)."))
-        except Exception as e:
-            st.error(f"No se pudo guardar: {e}")
+    if b.button("Guardar proyecto", type="primary", width="stretch", key="pry_guardar",
+                help="Lo mismo que «Guardar proyecto» de la barra lateral: guarda en el proyecto abierto o crea uno nuevo."):
+        r = PRY.guardar(nota=nota)
+        (st.success if r["ok"] else st.error)(C.esc(r["mensaje"]))
     st.toggle("Coma decimal en los campos numéricos", value=ss.get("formato_cl", True), key="formato_cl",
               help="Formato chileno: 1.234,5. Desactívelo para volver a los campos con flechas de Streamlit.")   # PAT 133, mejora 21
-    n = bd.contar()
-    st.caption(f"Base: {n['proyectos']} proyectos · {n['versiones']} versiones · {n['corridas']} corridas · {n['fuentes']} fuentes · archivo: {bd.ruta}")
+    n = bd.contar(); m = bd.contar_proyectos_usuario()
+    st.caption(f"Base: {m['proyectos']} proyectos de usuarios ({m['versiones']} versiones) · {n['proyectos']} plantas de ejemplo y "
+               f"proyectos antiguos · {n['versiones']} versiones antiguas · {n['fuentes']} fuentes · archivo: {bd.ruta}")

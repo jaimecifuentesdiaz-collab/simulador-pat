@@ -62,10 +62,11 @@ def test_precarga_agrozzi_y_es_idempotente(bd):
     p = bd.obtener_proyecto(NOMBRE_AGROZZI); assert p and p["rubro"] == "tomate"
     pl = bd.cargar_version(bd.ultima_version(p["id"]))
     assert math.isclose(resumen_planta(pl)["cascada"], 9073.8, abs_tol=0.1)
-    from pat_sim.datos.bd import CSV_FUENTES_BIOMASA
+    from pat_sim.datos.bd import CSV_FUENTES_BIOMASA, CSV_FUENTES_AGAR
     import csv
     n_bio = len(list(csv.DictReader(open(CSV_FUENTES_BIOMASA, encoding="utf-8"))))
-    assert n1["fuentes"] == 55 + n_bio and n1["corridas"] == 4 and n1["proyectos"] == 4     # Agrozzi y los tres rubros de biomasa
+    n_agar = len(list(csv.DictReader(open(CSV_FUENTES_AGAR, encoding="utf-8"))))      # PAT 143 b: fuentes y proyecto del agar agar
+    assert n1["fuentes"] == 55 + n_bio + n_agar and n1["corridas"] == 5 and n1["proyectos"] == 5     # Agrozzi, biomasa y agar
     for nombre, rubro in (("Planta de pellet de madera (escenario base)", "pellet"), ("Planta de chip de madera (escenario base)", "chip"),
                           ("Planta de leña seca (escenario base)", "lena")):
         q = bd.obtener_proyecto(nombre); assert q and q["rubro"] == rubro

@@ -43,6 +43,10 @@ details.ayuda[open]>summary .q{background:var(--verde);border-color:var(--verde)
 details.ayuda .ayuda-txt{background:#f1f7f5;border:1px solid #d7e7e0;border-left:3px solid var(--verde);border-radius:6px;padding:5px 8px;margin:4px 0;
   font-size:12.5px;line-height:1.45;color:#3b5562}
 details.ayuda .ayuda-txt ol{margin:3px 0 0 16px;padding:0}
+details.ayuda .qi{color:#4f6f7e;font-size:15px;line-height:1.15;flex:0 0 auto;user-select:none;transition:color .15s}
+details.ayuda>summary:hover .qi,details.ayuda[open]>summary .qi{color:var(--verde)}
+.comp .c-et details.ayuda>summary{align-items:flex-start;gap:4px}
+.comp .c-et .ayuda-txt{font-size:11.5px;font-weight:400}
 details.ayuda.sin-ayuda>summary{pointer-events:none;cursor:default}
 details.ayuda.sin-ayuda .q,details.ayuda.sin-ayuda .ayuda-txt{display:none}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:5px;margin:0 0 6px}
@@ -59,9 +63,36 @@ details.ayuda.sin-ayuda .q,details.ayuda.sin-ayuda .ayuda-txt{display:none}
 details.exp{border:1px solid var(--borde);border-radius:8px;background:var(--panel);padding:6px 10px;margin:8px 0}
 details.exp>summary{cursor:pointer;font-weight:600;color:#25485a}
 details.exp>summary h4{display:inline;margin:0}
-.cajon{position:absolute;right:216px;top:60px;bottom:6px;width:284px;background:#fffffff5;border:1px solid var(--borde);border-radius:9px;box-shadow:0 6px 20px #12344922;padding:8px;overflow:auto;z-index:4}
-.cajon-cab{display:flex;justify-content:space-between;align-items:center}
-.cajon-cab button{padding:0 8px;font-size:16px;line-height:20px}
+/* PAT 139b (pedido de Jaime, 14-11-2026): la ficha es un cuadro grande superpuesto al lienzo, con las secciones en columnas */
+.cajon{position:absolute;left:10px;right:10px;top:10px;bottom:10px;background:#fffffffa;border:1px solid var(--borde);border-radius:11px;box-shadow:0 10px 34px #12344940;padding:10px 14px;overflow:auto;z-index:8}
+.cajon-cab{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--borde);margin-bottom:6px;padding-bottom:4px}
+.cajon-cab h3{margin:0}
+.cajon-cab button{padding:0 10px;font-size:18px;line-height:24px}
+.cajon .cab{margin-bottom:6px}
+.cajon .secs{columns:3 300px;column-gap:18px;column-rule:1px solid #e3ecef}
+.cajon .sec{break-inside:avoid;display:inline-block;width:100%;margin:0 0 8px}
+.cajon .sec>h4:first-child,.cajon .sec>details:first-child{margin-top:0}
+/* PAT 140 c (pedido de Jaime, 16-11-2026): ficha comparativa de las 3 opciones de una etapa, una columna por opción, filas alineadas,
+   el valor más conveniente de cada fila en verde suave; el cuadro crece hacia abajo (la página se alarga) en vez de quedar cortado */
+.cajon.largo{bottom:auto;min-height:calc(100% - 20px);overflow:visible}
+.lienzo.con-ficha{overflow:visible}
+.comp{display:grid;grid-template-columns:minmax(150px,0.9fr) repeat(var(--nop,3),minmax(0,1.2fr));border:1px solid #dbe7eb;border-radius:8px;overflow:hidden;font-size:12.5px}
+.comp>div{padding:4px 8px;border-bottom:1px solid #edf2f4;min-width:0;overflow-wrap:anywhere}
+.comp .c-h{background:#f6fafb;font-weight:600;border-bottom:2px solid #cfe0e6;line-height:1.3}
+.comp .c-h small{display:block;font-weight:400;color:var(--suave);font-size:11.5px}
+.comp .c-h a{font-weight:400;font-size:11px;color:var(--azul)}
+.comp .c-sec{grid-column:1/-1;background:#eef3f0;font-weight:700;color:#25485a}
+.comp .c-et{color:#30505f}
+.comp .c-v{text-align:center;font-variant-numeric:tabular-nums}
+.comp .c-v.txt{text-align:left}
+.comp .c-v.usd{text-align:right}
+.comp .c-v.conv{background:#e3f4ec;font-weight:700;color:#145c44}
+.comp .c-nota{grid-column:1/-1;color:var(--suave);font-size:11.5px;background:#fbfdfd}
+.comp .c-apl{display:inline-block;background:#dff3ea;color:#1b7a5a;border-radius:8px;padding:0 6px;font-size:11px;margin-left:4px}
+.comp button.c-elegir{width:100%;padding:5px 6px}
+.comp-graf{margin:6px 0 8px}
+.comp-ley{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:#30505f;margin:2px 0 4px}
+.comp-ley i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:4px}
 .panel{background:var(--panel);border:1px solid var(--borde);border-radius:9px;padding:8px;min-width:0}
 .cat-lista{max-height:420px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding-right:2px}
 .item{display:flex;gap:8px;align-items:center;padding:6px 7px;border:1px solid #cfe2e6;border-radius:7px;background:#f2f8f8;margin:0 0 5px;cursor:grab;user-select:none;touch-action:none}
@@ -91,6 +122,20 @@ details.exp>summary h4{display:inline;margin:0}
   background:#16485a;color:#fff;box-shadow:0 4px 14px #0003;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:5}
 .toast.ver{opacity:1}
 .toast.error{background:#a8392f}
+.toast.ok{background:#1b7a5a}
+/* PAT 140 g: destinos marcados mientras se arrastra un candidato, equipo recién elegido que parpadea y auxiliares fuera de su línea */
+.anillo-dest{fill:none;stroke-width:2.6;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none}
+.anillo-dest.propio{stroke:#1b7a5a}
+.anillo-dest.otro{stroke:#2a78d6}
+.anillo-dest.nocalza{stroke:#e0891a}
+.pto.libre{stroke:#e0891a;stroke-width:2.5;stroke-dasharray:2 2}
+.anillo-dest.sobre{stroke-width:4.5;fill:#1b7a5a1f}
+.etq-dest{pointer-events:none;font-weight:700}
+.parpadeo{fill:#ffd85c;fill-opacity:0;stroke:#d99a00;stroke-width:4;vector-effect:non-scaling-stroke;pointer-events:none;animation:parpadeo .45s ease-in-out 6 alternate}
+@keyframes parpadeo{from{stroke-opacity:1;fill-opacity:.45}to{stroke-opacity:.2;fill-opacity:0}}
+.linea-dest{fill:none;stroke:#2a78d6;stroke-opacity:.35;stroke-width:14;vector-effect:non-scaling-stroke;pointer-events:none;stroke-linecap:round}
+.trazo-aux{fill:none;stroke:#1f5f8a;stroke-width:1.4;stroke-dasharray:4 3;vector-effect:non-scaling-stroke;pointer-events:none}
+.fantasma.cand-f .no{color:#a8392f}
 .caja{margin:8px 0 0;padding:8px 10px;border-radius:6px;background:#eef7f9;border-left:4px solid #258a9b;font-size:13px}
 .caja ul{margin:4px 0 0;padding-left:18px}
 .caja li{margin:2px 0;cursor:default}
@@ -114,6 +159,9 @@ details.exp>summary h4{display:inline;margin:0}
 .fila{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:2px 6px;align-items:center;margin:0 0 7px}
 .fila .et{grid-column:1/-1;font-size:12.5px;color:#30505f;line-height:1.25}
 .fila .et small{color:#7a8f99}
+.fila input[type=text]{width:100%;box-sizing:border-box}
+.fila label.chk{white-space:normal;font-size:12.5px;align-items:flex-start;margin-left:0}
+.fila label.chk small{color:#7a8f99}
 .fila input[type=range]{width:100%}
 .fila.solo{grid-template-columns:1fr}
 .info{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:50%;background:#e1eef3;color:#125d72;font-size:10px;font-weight:700;cursor:help;margin-left:3px}
@@ -149,6 +197,54 @@ svg text{font-family:"Source Sans Pro","Segoe UI",Arial,sans-serif}
 .senlista button{padding:0 6px;font-size:12px}
 #prop select{max-width:100%}
 @media (max-width:760px){.bajo{grid-template-columns:1fr}}
+/* PAT 138: Planta real y Equipos auxiliares usan este mismo lienzo en solo lectura (sin catálogo ni botones de edición) */
+body.solo .cols{grid-template-columns:minmax(0,1fr)}
+body.solo .izq,body.solo .editar{display:none}
+body.solo .eq{cursor:pointer}
+.aux{cursor:pointer}
+.aux:hover>*{stroke-width:2.4}
+/* PAT 139 (punto 6): elección en vivo en Planta real y Equipos auxiliares: lista de candidatos que se arrastra sobre el lienzo */
+.elec{display:none}
+body.eleccion .cols{grid-template-columns:300px minmax(0,1fr)}
+body.eleccion .izq{display:block}
+body.eleccion .izq>details.tit3,body.eleccion #rubro,body.eleccion #buscar-eq,body.eleccion #catalogo{display:none}
+body.eleccion .elec{display:block}
+body.eleccion #b-deshacer,body.eleccion #b-rehacer,body.eleccion #b-generar{display:inline-block}
+#b-generar{display:none}
+body.eleccion .eq{cursor:grab}
+/* PAT 142: vista «lazos» (Lazos de control): equipos de solo lectura, catálogo de lazos típicos e instrumentos editables */
+body.solo.lazos .cols{grid-template-columns:264px minmax(0,1fr)}
+body.solo.lazos .izq{display:block}
+body.solo.lazos #rubro,body.solo.lazos #buscar-eq{display:none}
+body.solo.lazos #b-deshacer,body.solo.lazos #b-rehacer,body.solo.lazos #o-senal{display:inline-block}
+.item.tipico{background:#eef6f1;border-color:#b9dcc8}
+.item.tipico svg{flex:0 0 40px}
+.lazo-caja{fill:none;stroke-width:1.6;stroke-dasharray:7 5;pointer-events:none}
+body.eleccion .aux{cursor:grab}
+.elec-lista{max-height:640px;overflow-y:auto;overflow-x:hidden;margin-top:6px;padding-right:2px}
+.elec-grupo{font-size:12px;font-weight:700;color:#125d72;margin:8px 0 4px;padding-bottom:2px;border-bottom:1px solid #cfe2e6}
+.obj{border:1px solid var(--borde);border-radius:8px;margin:0 0 6px;background:#fbfdfd}
+.obj.sel{border-color:var(--verde);box-shadow:0 0 0 1px var(--verde) inset}
+.obj-cab{padding:5px 7px;cursor:pointer;font-size:13px;line-height:1.3}
+.obj-cab b{font-weight:600}
+.obj-cab .ok{color:var(--verde)}
+.obj-cab .falta{color:var(--suave)}
+.cand{padding:5px 7px;border-top:1px solid #e5eef1;cursor:grab;user-select:none;touch-action:none;font-size:12.5px;line-height:1.3}
+.cand:hover{background:#e2f2f0}
+.cand.elegido{background:#dff3ea;box-shadow:inset 4px 0 0 var(--verde)}
+.cand .c-cab{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.cand .c-cab b{font-weight:600}
+.cand .c-num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;font-weight:600}
+.cand .c-det{color:var(--suave);font-size:11.5px;display:flex;justify-content:space-between;gap:6px}
+.cand .c-det span:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.c-org{display:inline-block;padding:0 5px;border-radius:9px;font-size:11px;background:#eef5f7;color:#16485a;margin-right:3px}
+.c-org.Tavily{background:#e4edff;color:#1d4ed8}
+.c-org.Williams{background:#fff4df;color:#7a4b0c}
+.fantasma.cand-f{padding:5px 8px;font-size:12.5px;max-width:270px;line-height:1.3}
+.aviso-vista{position:absolute;left:8px;top:40px;font-size:13.5px;padding:4px 9px;border-radius:7px;background:#fff4df;color:#7a4b0c;border:1px solid #ecc98a;pointer-events:none;max-width:68%;z-index:3}
+.leyenda .serv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 6px;font-size:12.5px}
+.leyenda .serv span{display:block}
+.leyenda .serv span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums;color:var(--tinta)}
 </style>
 </head>
 <body>
@@ -157,30 +253,42 @@ svg text{font-family:"Source Sans Pro","Segoe UI",Arial,sans-serif}
   <aside class="panel izq">
     <details class="ayuda tit3"><summary><h3>Catálogo de equipos</h3><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt">Arrastre un equipo al lienzo o haga clic. Varias unidades = líneas en paralelo.</div></details>
     <select id="rubro" style="width:100%"></select>
+    <input id="buscar-eq" type="search" placeholder="Buscar equipo: nombre, letra o función" title="PAT 136: busca en todos los equipos, sin tildes ni mayúsculas" style="width:100%;box-sizing:border-box;margin-top:4px">
     <div id="catalogo" class="cat-lista"></div>
+    <div id="elec" class="elec">
+      <details class="ayuda tit3"><summary><h3 id="elec-tit">Candidatos</h3><span class="q" title="Ayuda: clic para ver u ocultar">?</span></summary><div class="ayuda-txt">Cada candidato muestra C = C_inv + C_op + C_inef (US$ por año), su disponibilidad A, la eficiencia η en operación, el origen y la fuente: compárelos y decida usted. La lista se puede ordenar por cualquiera de esos valores. Arrastre un candidato al lienzo: mientras lo arrastra, su equipo queda marcado con un borde punteado verde y los del mismo tipo con capacidad parecida (±20 %), con uno azul. Suéltelo en un lugar libre y se aplica a su equipo, que queda donde lo soltó, unido a su línea; suéltelo sobre otro equipo marcado y se aplica a ese. También puede hacer clic en él para aplicarlo. En Equipos auxiliares, una bomba arrastrada sobre otra línea queda conectada a ella. Clic en una etapa del lienzo: solo sus candidatos. Los equipos se mueven arrastrándolos (cambio del <i>layout</i>); Ctrl+Z deshace y Ctrl+Y rehace.</div></details>
+      <div id="elec-nota" class="nota"></div>
+      <label class="nota" style="display:flex;gap:6px;align-items:center;margin:3px 0;white-space:nowrap">Ordenar por <select style="flex:1;min-width:0" id="elec-orden" title="Orden de los candidatos de cada etapa">
+        <option value="C">C (menor primero)</option><option value="Ci">C_inv (menor primero)</option><option value="Co">C_op (menor primero)</option>
+        <option value="Cf">C_inef (menor primero)</option><option value="A">A (mayor primero)</option><option value="eta">η en operación (mayor primero)</option>
+        <option value="org">Origen</option></select></label>
+      <div id="elec-lista" class="elec-lista"></div>
+    </div>
   </aside>
   <section class="centro">
     <div class="barra" id="barra">
-      <button id="b-deshacer" title="Deshacer el último cambio (Ctrl+Z)" disabled>↶ Deshacer</button>
-      <button id="b-rehacer" title="Rehacer (Ctrl+Y o Ctrl+Mayús+Z)" disabled>↷ Rehacer</button>
-      <button id="b-duplicar" title="Duplicar el equipo seleccionado con sus parámetros, sin sus conexiones (Ctrl+C y Ctrl+V; Mayús+clic para elegir varios)" disabled>Duplicar</button>
+      <button id="b-deshacer" class="editar" title="Deshacer el último cambio (Ctrl+Z)" disabled>↶ Deshacer</button>
+      <button id="b-rehacer" class="editar" title="Rehacer (Ctrl+Y o Ctrl+Mayús+Z)" disabled>↷ Rehacer</button>
+      <button id="b-generar" class="prim" title="Aplica en cada etapa el candidato de menor C, sin juzgar las demás razones de elegir (un solo paso de deshacer)">Generar automáticamente</button>
+      <button id="b-duplicar" class="editar" title="Duplicar el equipo seleccionado con sus parámetros, sin sus conexiones (Ctrl+C y Ctrl+V; Mayús+clic para elegir varios)" disabled>Duplicar</button>
       <button id="b-layout" class="activo" title="Diagrama con las posiciones que usted define">Layout</button>
       <button id="b-etapas" title="Ordena los equipos por etapa del proceso (no cambia sus posiciones guardadas)">Por etapas</button>
       <span class="sep"></span>
       <button id="b-diag" title="Revisa alimentación, repartos, sobrecargas y servicios">Diagnóstico</button>
       <button id="b-pista" title="Una orientación según la situación actual; no cambia el diseño">Solicitar pista</button>
-      <button id="b-sec" title="Conecta las entradas libres con el equipo anterior y la caldera">Secuencia sugerida</button>
-      <button id="b-cap" title="Capacidad nominal = carga actual + holgura, en los equipos que no la tienen (supuesto del diseñador)">Asignar capacidades</button><select id="b-holg" title="Holgura de diseño de las capacidades asignadas"><option value="10">+10 %</option><option value="25">+25 %</option><option value="50" selected>+50 %</option><option value="100">+100 %</option></select>
-      <button id="b-guardar" class="prim" title="Guarda una versión de la planta en la base de datos (como el botón de la barra lateral)">Guardar</button>
+      <button id="b-sec" class="editar" title="Conecta las entradas libres con el equipo anterior y la caldera">Secuencia sugerida</button>
+      <button id="b-cap" class="editar" title="Capacidad nominal = carga actual + holgura, en los equipos que no la tienen (supuesto del diseñador)">Asignar capacidades</button><select id="b-holg" class="editar" title="Holgura de diseño de las capacidades asignadas"><option value="10">+10 %</option><option value="25">+25 %</option><option value="50" selected>+50 %</option><option value="100">+100 %</option></select>
+      <button id="b-guardar" class="prim editar" title="Guarda el proyecto en la base de datos, igual que «Guardar proyecto» de la barra lateral: en el proyecto abierto o en uno nuevo">Guardar</button>
     </div>
     <div id="lienzo" class="lienzo">
       <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
       <div id="estado" class="estado"></div>
+      <div id="aviso-vista" class="aviso-vista" hidden></div>
       <div class="zoom">
         <label class="chk"><input type="checkbox" id="o-etq" checked>Etiquetas</label>
         <label class="chk"><input type="checkbox" id="o-flujo" checked>Flujos</label>
         <label class="chk" title="Muestra u oculta los instrumentos ISA-5.1, los elementos de lazo ISA-5.4 y sus líneas de señal"><input type="checkbox" id="o-ins" checked>Instrumentos</label>
-        <select id="o-senal" title="Tipo de señal ISA-5.1 de la próxima línea que arrastre desde un instrumento"></select>
+        <select id="o-senal" class="editar" title="Tipo de señal ISA-5.1 de la próxima línea que arrastre desde un instrumento"></select>
         <select id="b-exp" title="Exportar el diagrama"><option value="">Exportar…</option><option value="svg">SVG</option><option value="png">PNG</option><option value="jpg">JPG</option><option value="mmd">Mermaid</option></select>
         <button id="z-menos" title="Alejar">−</button><button id="z-mas" title="Acercar">+</button><button id="z-ajustar" title="Ajustar a la vista">Ajustar</button>
       </div>
@@ -253,6 +361,38 @@ let drag = null, rubro = null, timers = {}, altoPrevio = 0, firmaProp = "", firm
 let FL = {}, PM = {}, POS = {}, ajustePendiente = false, vistaManual = false, rubroPlanta = null;
 // PAT 133: selección múltiple (Mayús+clic) y portapapeles interno de equipos para copiar y pegar
 let multi = new Set(), portapapeles = null;
+// PAT 138: tres pantallas de construcción con este mismo lienzo: «ficticia» (Diseño, editable), «real» (selección comercial) y
+// «auxiliares» (bombas, válvulas, estanques pulmón, cañerías y servicios). Las dos últimas son de solo lectura.
+const SOLO = () => !!(D && D.solo_lectura);
+// PAT 139 (punto 6): con «eleccion» la Planta real y Equipos auxiliares eligen en vivo (candidatos que se arrastran) y mueven equipos
+const ELEC = () => !!(D && D.eleccion && D.vista !== "ficticia");
+// PAT 142: vista «lazos» (pantalla Lazos de control). EDIT_INS: los instrumentos se agregan, mueven, editan, conectan y quitan
+// (verdadero en «ficticia» y en «lazos», aunque en «lazos» los equipos sean de solo lectura)
+const LAZOS = () => !!(D && D.vista === "lazos");
+const EDIT_INS = () => !!(D && (!D.solo_lectura || D.editar_instrumentos));
+// PAT 143 (tarea 6): conexión libre. Se puede unir cualquier salida con cualquier entrada y soltar un candidato sobre otro equipo de
+// su clase aunque no calce; el validador del motor (motor/validador.py) marca los errores y la pantalla no deja avanzar.
+const LIBRE = () => !!(D && D.libre);
+let abiertos = new Set(), objAnterior = null;
+let fichaOculta = null;                    // PAT 139b: al elegir o mover, la ficha (cuadro grande sobre el lienzo) no se abre sola
+const NOMBRE_VISTA = {ficticia: "Planta ficticia", real: "Planta real", auxiliares: "Equipos auxiliares", lazos: "Lazos de control"};   // PAT 142
+let AUXC = {}, DNC = {};
+const realDe = e => (D && D.real && D.real.equipos) ? (D.real.equipos[e.id] || null) : null;
+const auxD = () => (D && D.auxiliares) || {bombas: [], valvulas: [], estanques: [], canerias: [], servicios: []};
+function indexarAux() {                    // PAT 138: equipos auxiliares por conexión y diámetro nominal de cada línea
+  AUXC = {}; DNC = {};
+  if (!D || D.vista !== "auxiliares") return;
+  const a = auxD(), add = (c, tipo, x) => { if (!c) return; (AUXC[c] = AUXC[c] || {estanques: [], bombas: [], valvulas: []})[tipo].push(x); };
+  for (const x of a.estanques) add(x.con, "estanques", x);
+  for (const x of a.bombas) if (!x.en_diagrama) add(x.con, "bombas", x);
+  for (const x of a.valvulas) if (!x.en_diagrama) add(x.con, "valvulas", x);
+  for (const x of a.canerias) DNC[x.con] = `DN ${x.DN}`;
+}
+function auxPor(id) {
+  const a = auxD();
+  for (const [t, l] of [["bomba", a.bombas], ["valvula", a.valvulas], ["estanque", a.estanques]]) { const x = l.find(y => y.id === id); if (x) return [t, x]; }
+  return [null, null];
+}
 
 window.addEventListener("message", e => {
   const m = e.data;
@@ -272,7 +412,9 @@ function vaciarDiferidos() {          // PAT 133: antes de deshacer se envía lo
   for (const [k, v] of Object.entries(timers)) { clearTimeout(v.t); delete timers[k]; emitir(v.evento, v.datos); }
 }
 function altura() {
-  const h = Math.ceil(document.body.getBoundingClientRect().height) + 6;
+  const cj = $("cajon");                  // PAT 140 c: la ficha comparativa puede crecer bajo el lienzo; el marco de Streamlit la acompaña
+  const hc = cj && !cj.hidden ? Math.ceil(cj.getBoundingClientRect().bottom + window.scrollY) + 12 : 0;
+  const h = Math.max(Math.ceil(document.body.getBoundingClientRect().height) + 6, hc);
   if (Math.abs(h - altoPrevio) > 2) { altoPrevio = h; aST("streamlit:setFrameHeight", {height: h}); }
 }
 
@@ -289,6 +431,19 @@ function optimista(e) {
   else if (e.evento === "renombrar") { const q = eqPor(d.id); if (q) q.nombre = d.nombre; }
   else if (e.evento === "reparto") { const c = conPor(d.clave); if (c) { if (d.reparto != null) c.reparto = d.reparto; if (d.nombre != null) c.nombre = d.nombre; } }
   else if (e.evento === "mover_instrumento") { const i = insPor(d.id); if (i) moverInsLocal(i, d.x, d.y); }
+  else if (e.evento === "elegir" && ELEC()) {   // PAT 139; PAT 140 g: con destino, el candidato se aplicó a otro equipo; con pos, quedó ahí
+    const o = (D.eleccion.objetivos || []).find(x => x.id === d.objetivo);
+    if (o && !(d.destino && d.destino !== d.objetivo)) o.elegido = d.candidato;
+    if (o && d.pos) ponerPos((o.dianas || [])[0], d.pos);
+  }
+  else if (e.evento === "mover_aux") ponerPos(d.id, d.pos);              // PAT 140 g
+}
+function ponerPos(id, pos) {              // PAT 140 g: posición (unidades de la planta) de un auxiliar o de una etapa soltada en el lienzo
+  if (!id) return;
+  const [, x] = auxPor(id);
+  if (x) { if (pos) x.pos = {x: pos.x, y: pos.y}; else delete x.pos; return; }
+  const e = D && eqPor(id);
+  if (e && pos) { e.x = r20(pos.x); e.y = r20(pos.y); }
 }
 function moverInsLocal(i, x, y) {          // PAT 134: posición absoluta y relativa a su equipo (para que lo siga)
   i.x = x; i.y = y; i.auto = false;
@@ -298,6 +453,9 @@ function moverInsLocal(i, x, y) {          // PAT 134: posición absoluta y rela
 
 function recibir(datos) {
   D = JSON.parse(JSON.stringify(datos));
+  document.body.classList.toggle("solo", SOLO()); indexarAux();      // PAT 138
+  document.body.classList.toggle("eleccion", ELEC());                 // PAT 139
+  document.body.classList.toggle("lazos", LAZOS());                   // PAT 142
   seq = Math.max(seq, D.ultimo_seq || 0);
   pend = pend.filter(e => e.seq > (D.ultimo_seq || 0));
   pend.forEach(optimista);
@@ -316,12 +474,13 @@ function recibir(datos) {
     if (D.rubro !== rubroPlanta && D.catalogo[D.rubro]) {   // cambió el rubro en Escenario: el catálogo lo sigue (PAT 132)
       rubroPlanta = D.rubro; rubro = D.rubro; $("rubro").value = rubro; pintarCatalogo(); pintarLeyenda();
     }
-    for (const m of D.mensajes) if (m.seq > ultimoMsg) { ultimoMsg = m.seq; aviso(m.texto, m.tipo); if (m.id) sel = m.sel === "ins" ? {t: "ins", id: m.id} : {t: "eq", id: m.id}; }
+    for (const m of D.mensajes) if (m.seq > ultimoMsg) { ultimoMsg = m.seq; aviso(m.texto, m.tipo); if (m.id) { sel = m.sel === "ins" ? {t: "ins", id: m.id} : {t: "eq", id: m.id}; fichaOculta = m.id; } }
   }
   if (sel && sel.t === "eq" && !eqPor(sel.id)) sel = null;
   if (sel && sel.t === "con" && !conPor(sel.clave)) sel = null;
   if (sel && sel.t === "ins" && !insPor(sel.id)) sel = null;
   if (sel && sel.t === "sen" && !senPor(sel.clave)[0]) sel = null;
+  if (sel && sel.t === "aux" && !auxPor(sel.id)[0]) sel = null;          // PAT 138
   // PAT 134: con todos los eventos ya aplicados, los campos muestran el valor que usó el motor (por ejemplo el mínimo)
   if (!pend.length) document.querySelectorAll("[data-editando]").forEach(x => { delete x.dataset.editando; clearTimeout(x._t); });
   for (const id of [...multi]) if (!eqPor(id)) multi.delete(id);
@@ -332,8 +491,11 @@ function recibir(datos) {
 
 // ------------------------------------------------------------------ geometría
 const T = () => (D && D.tam) || 64;
+let ESC = {x: 1, y: 1};
 function calcularPosiciones() {
   POS = {};
+  // PAT 138: en Equipos auxiliares el dibujo se separa (sin cambiar las posiciones guardadas) para que quepan bombas y estanques
+  ESC = D.vista === "auxiliares" ? {x: 1.6, y: 1.2} : {x: 1, y: 1};
   if (modo === "etapas") {
     const proc = D.conexiones.filter(c => !c.servicio), nivel = {};
     const ids = D.equipos.map(e => e.id);
@@ -352,9 +514,9 @@ function calcularPosiciones() {
     for (const [n, lst] of Object.entries(col)) {
       lst.sort((a, b) => (a.tipo.startsWith("caldera") ? 1 : 0) - (b.tipo.startsWith("caldera") ? 1 : 0) || a.y - b.y);
       const banda = Math.floor(Number(n) / POR_FILA), c = Number(n) % POR_FILA;
-      lst.forEach((e, i) => { POS[e.id] = {x: 40 + c * 200, y: 80 + banda * (filas * 175 + 70) + i * 175}; });
+      lst.forEach((e, i) => { POS[e.id] = {x: 40 + c * 200 * ESC.x, y: 80 + banda * (filas * 175 + 70) + i * 175}; });
     }
-  } else for (const e of D.equipos) POS[e.id] = {x: e.x, y: e.y};
+  } else for (const e of D.equipos) POS[e.id] = {x: e.x * ESC.x, y: e.y * ESC.y};
   FL = {};
   for (const e of D.equipos) {
     let s = 0;
@@ -378,7 +540,7 @@ function calcularPosiciones() {
 function posIns(i) {                       // PAT 134: los instrumentos de un equipo lo siguen (también en la vista por etapas)
   const P = i.equipo && POS[i.equipo];
   if (P && i.dx != null && i.dy != null) return {x: P.x + i.dx, y: P.y + i.dy};
-  return {x: i.x, y: i.y};
+  return {x: i.x * ESC.x, y: i.y * ESC.y};
 }
 function puertos(e) {
   const t = T(), fl = FL[e.id], P = POS[e.id], r = [];
@@ -449,7 +611,49 @@ function etiquetaCorriente(c, completo) {
   if (c.m_real != null && c.m_real < c.m * 0.999) s = `${fmt(c.m_real / 1000, 1)} de ${fmt(c.m / 1000, 1)} t/h`;
   if (completo && c.T != null) s += ` · ${fmt(c.T, 0)} °C`;
   if (c.reparto < 99.95) s += ` (${fmt(c.reparto, 0)} %)`;
+  if (DNC[c.clave]) s += ` · ${DNC[c.clave]}`;          // PAT 138: diámetro nominal de la cañería
   return s;
+}
+// PAT 139b (pedido de Jaime, 14-11-2026): una etapa con n unidades iguales en paralelo se dibuja con n símbolos dentro de su recuadro,
+// con un colector de entrada a la izquierda y uno de salida a la derecha. Hasta 3 unidades en una columna y de 4 a 6 en dos columnas;
+// con más de 6 se dibujan 6 y el resto se indica con «+r» (motor/lienzo.dibujo_paralelo, TOPE_PARALELO). Las unidades de reserva
+// (n − k) van al final con borde punteado. Vale para la Planta real, Equipos auxiliares y las calderas elegidas en auxiliares.
+function paraleloDe(e, R) {
+  if (R && R.seleccion && R.dibujo) return R.dibujo;
+  if (R && R.seleccion && R.n > 1) return dibujoParalelo(R.n, R.k);
+  const p = D && D.eleccion && D.eleccion.paralelo;
+  return p && p[e.id] ? p[e.id] : null;
+}
+function dibujoParalelo(n, k) {             // igual que motor/lienzo.dibujo_paralelo (respaldo si no viene del motor)
+  n = Math.max(1, n | 0); k = Math.max(1, Math.min(k || n, n));
+  const m = Math.min(n, 6), col = m <= 3 ? 1 : 2;
+  return {n, k, n_dibujados: m, n_resto: n - m, n_reserva: n - k, n_reserva_dibujadas: Math.max(0, m - Math.min(k, m)), columnas: col, filas: Math.ceil(m / col)};
+}
+function dibujarParalelo(e, P, t, A, fs, fsP, R) {
+  const o = [], m = A.n_dibujados, col = A.columnas, fil = A.filas, xl = P.x + 1, xr = P.x + t - 1, g = 4;
+  const cel = Math.min((t - 10 - (col - 1) * 8) / col, (t - (fil + 1) * g) / fil), lin = 'stroke="#2c4a58" stroke-width="1.1" fill="none" vector-effect="non-scaling-stroke"';
+  const ys = [], ux = [];
+  for (let i = 0; i < m; i++) {
+    const c = col === 1 ? 0 : i % col, f = col === 1 ? i : Math.floor(i / col);
+    const x = col === 1 ? P.x + (t - cel) / 2 : P.x + 5 + c * (cel + 8), y = P.y + g + f * (cel + g) + ((t - fil * cel - (fil + 1) * g) / 2);
+    ux.push(x); ys.push(y);
+  }
+  const yc = ys.map(y => y + cel / 2);
+  o.push(`<path d="M${xl} ${Math.min(...yc)} V${Math.max(...yc)} M${xr} ${Math.min(...yc)} V${Math.max(...yc)}" ${lin}/>`);
+  for (let i = 0; i < m; i++) {
+    const x = ux[i], y = ys[i], c = col === 1 ? 0 : i % col, yy = yc[i];
+    if (c === 0) o.push(`<path d="M${xl} ${yy} H${x}" ${lin}/>`);
+    else o.push(`<path d="M${xl} ${y - g / 2} H${x - 3} V${yy} H${x}" ${lin}/>`);
+    if (c === col - 1) o.push(`<path d="M${x + cel} ${yy} H${xr}" ${lin}/>`);
+    else o.push(`<path d="M${x + cel} ${yy} H${x + cel + 3} V${y + cel + g / 2} H${xr}" ${lin}/>`);
+    const reserva = i >= m - A.n_reserva_dibujadas;
+    o.push(`<g><title>${esc(`Unidad ${i + 1} de ${A.n}${reserva ? " (de reserva)" : ""}${R && R.modelo ? ": " + R.modelo : ""}`)}</title>`
+      + `<rect x="${x - 1}" y="${y - 1}" width="${cel + 2}" height="${cel + 2}" rx="3" fill="#fff" stroke="${reserva ? "#7b93a0" : "#2c4a58"}" stroke-width="1"${reserva ? ' stroke-dasharray="3 2"' : ""} vector-effect="non-scaling-stroke"/>`
+      + `<g transform="translate(${x},${y}) scale(${cel / 60})"${reserva ? ' opacity=".6"' : ""}>${e.simbolo}</g></g>`);
+  }
+  if (A.n_resto > 0) o.push(`<g><title>${esc(`${A.n} unidades en paralelo: se dibujan ${m} y ${A.n_resto} más`)}</title><rect x="${P.x + t - 20 * fs / 11}" y="${P.y + t - 6 * fs / 11}" width="${26 * fs / 11}" height="${13 * fs / 11}" rx="${5 * fs / 11}" fill="#16485a"/>`
+    + `<text x="${P.x + t - 7 * fs / 11}" y="${P.y + t + 4 * fs / 11}" font-size="${fsP * 0.85}" text-anchor="middle" fill="#fff" font-weight="700">+${A.n_resto}</text></g>`);
+  return o.join("");
 }
 function mundo(exportar) {
   const t = T(), k = exportar ? 1 : vista.k, fs = Math.max(11, 9.5 / k), fsP = Math.max(10, 8.5 / k), o = [];
@@ -483,8 +687,10 @@ function mundo(exportar) {
     const P = POS[e.id], [fondo, borde, dsh] = colorEq(e), crit = e.id === restr, s = (sel && sel.t === "eq" && sel.id === e.id) || multi.has(e.id);
     o.push(`<g class="eq" data-eq="${e.id}"><title>${esc(`${e.id} · ${e.nombre} (${e.simbolo_nombre}; ISO 10628, categoría ${e.categoria}, letra ${e.letra})`)}</title>`);
     if (s) o.push(`<rect x="${P.x - 12}" y="${P.y - 12}" width="${t + 24}" height="${t + 24}" rx="12" fill="none" stroke="${"#2563eb"}" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`);
+    const R = realDe(e), PAR = paraleloDe(e, R);   // PAT 139b: n unidades en paralelo = n símbolos dentro de la etapa
     o.push(`<rect x="${P.x - 7}" y="${P.y - 7}" width="${t + 14}" height="${t + 14}" rx="10" fill="${fondo}" stroke="${borde}" stroke-width="${crit ? 4 : (e.efectiva != null ? 2.2 : 1.4)}"${dsh ? ` stroke-dasharray="${dsh}"` : ""} vector-effect="non-scaling-stroke"/>`);
-    o.push(`<g transform="translate(${P.x},${P.y}) scale(${t / 60})">${e.simbolo}</g>`);
+    if (PAR && PAR.n > 1) o.push(dibujarParalelo(e, P, t, PAR, fs, fsP, R));
+    else o.push(`<g transform="translate(${P.x},${P.y}) scale(${t / 60})">${e.simbolo}</g>`);
     const u = e.util_demanda ?? e.utilizacion;
     if (u != null) o.push(`<g><rect x="${P.x + t - 16 * fs / 11}" y="${P.y - 16 * fs / 11}" width="${34 * fs / 11}" height="${14 * fs / 11}" rx="${6 * fs / 11}" fill="${semaforo(u).barra}"/>`
       + `<text x="${P.x + t + 1 * fs / 11}" y="${P.y - 5.5 * fs / 11}" font-size="${fsP * 0.85}" text-anchor="middle" fill="#fff" font-weight="700">${fmt(100 * u, 0)} %</text></g>`);
@@ -499,11 +705,22 @@ function mundo(exportar) {
     if (e.efectiva != null) o.push(`<text x="${cx}" y="${y0 + fsP * 2.35}" font-size="${fsP}" text-anchor="middle" fill="#406273" ${halo}>cap. ef. ${fmt(e.efectiva, 1)} t/h</text>`);
     if (crit) o.push(`<text x="${cx}" y="${y0 + fsP * (e.efectiva != null ? 3.5 : 2.35)}" font-size="${fsP}" font-weight="700" text-anchor="middle" fill="${lim.has(e.id) ? "#8f1d14" : "#173243"}" ${halo}>${lim.has(e.id) ? "★ Recurso crítico · sobrecarga" : "★ Recurso crítico"}</text>`);
     else if (lim.has(e.id)) o.push(`<text x="${cx}" y="${y0 + fsP * 3.5}" font-size="${fsP}" font-weight="700" text-anchor="middle" fill="#9c3329" ${halo}>Sobrecarga</text>`);
-    if (!exportar) for (const g of puertos(e)) {
+    if (R && (ops.etq || exportar || s)) {    // PAT 138: modelo, capacidad instalada y disponibilidad k de n debajo del equipo
+      let i = crit ? (e.efectiva != null ? 3 : 2) : (lim.has(e.id) ? 3 : (e.efectiva != null ? 2 : (l2 ? 1 : 0)));
+      const linea = (txt, color, peso) => { i += 1; o.push(`<text x="${cx}" y="${y0 + fsP * (1.2 + 1.15 * (i - 1))}" font-size="${fsP}" text-anchor="middle" fill="${color}"${peso ? ' font-weight="700"' : ""} ${halo}>${esc(txt)}</text>`); };
+      const d1 = v => fmt(v, v >= 100 ? 0 : 1);
+      if (R.seleccion) {
+        linea(corto(R.modelo, k >= 1 ? 34 : 22), "#16485a", true);
+        if (R.capacidad_instalada != null) linea(`${R.n} × ${d1(R.capacidad_unidad)} = ${d1(R.capacidad_instalada)} t/h instaladas`, "#406273");
+        if (R.A_etapa != null) linea(`disponibilidad ${fmt(100 * R.A_etapa, 1)} % (${R.k} de ${R.n})`, "#406273");
+      } else linea("sin selección comercial", "#a46c20", true);
+    }
+    if (!exportar && !SOLO()) for (const g of puertos(e)) {
       let cls = "pto";
       if (drag && drag.m === "con") {
-        const ok = drag.desde.lado !== g.lado && drag.desde.eq !== g.eq && (drag.desde.lado === "out" ? compatibles(drag.desde.p.tipo, g.p.tipo) : compatibles(g.p.tipo, drag.desde.p.tipo));
-        cls += ok ? " compat" : " incompat";
+        const otro = drag.desde.lado !== g.lado && drag.desde.eq !== g.eq;
+        const ok = otro && (drag.desde.lado === "out" ? compatibles(drag.desde.p.tipo, g.p.tipo) : compatibles(g.p.tipo, drag.desde.p.tipo));
+        cls += ok ? " compat" : (otro && LIBRE() ? " libre" : " incompat");      // PAT 143: con conexión libre se puede soltar igual
         if (drag.destino && drag.destino.clave === g.clave) cls += " destino";
       }
       const rr = Math.max(4.5, 5.2 / k);
@@ -511,6 +728,8 @@ function mundo(exportar) {
     }
     o.push("</g>");
   }
+  if (D.vista === "auxiliares") o.push(dibujarAux(exportar, k, fs, fsP));   // PAT 138
+  if (ops.ins && D.lazos) o.push(dibujarLazos(exportar, k, fsP));     // PAT 142: rectángulo y rótulo de cada lazo
   if (ops.ins) o.push(dibujarInstrumentos(exportar, k, fsP));          // PAT 134
   if (!exportar && drag && drag.m === "sen") {
     const c = INS[drag.id], b = drag.obj ? drag.obj.p : {x: drag.x, y: drag.y};
@@ -522,6 +741,101 @@ function mundo(exportar) {
     o.push(`<path d="M${a.x} ${a.y} L${b.x} ${b.y}" stroke="${a.p.color}" stroke-width="2.2" stroke-dasharray="6 4" fill="none" vector-effect="non-scaling-stroke"/>`);
   }
   return o.join("");
+}
+// ------------------------------------------------------------------ PAT 138: equipos auxiliares sobre las líneas
+// Símbolos simples en la línea de la ISO 10628 (bomba centrífuga, válvula, válvula de retención, válvula de control y recipiente):
+// bomba con una válvula de bloqueo antes, y una de retención y otra de bloqueo después; estanque pulmón entre los dos equipos.
+const COLOR_AUX = "#1f5f8a";
+function tramoLargo(pts) {
+  let m = [pts[0], pts[0]], L = -1;
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); if (l > L) { L = l; m = [pts[i - 1], pts[i]]; } }
+  return {a: m[0], b: m[1]};
+}
+const enTramo = (tr, f) => ({x: tr.a.x + (tr.b.x - tr.a.x) * f, y: tr.a.y + (tr.b.y - tr.a.y) * f, ang: Math.atan2(tr.b.y - tr.a.y, tr.b.x - tr.a.x) * 180 / Math.PI});
+const SIM_AUX = {
+  vb: x => `<path d="M${x - 5} -4.5 L${x + 5} 4.5 L${x + 5} -4.5 L${x - 5} 4.5 Z" fill="#fff" stroke="#1f2f3a" stroke-width="1.3" stroke-linejoin="round"/>`,
+  vr: x => `<path d="M${x - 5} -4.5 L${x} 0 L${x - 5} 4.5 Z" fill="#1f2f3a" stroke="#1f2f3a" stroke-width="1.3"/><path d="M${x + 5} -4.5 L${x} 0 L${x + 5} 4.5 Z" fill="#fff" stroke="#1f2f3a" stroke-width="1.3"/>`,
+  vc: x => SIM_AUX.vb(x) + `<path d="M${x} 0 V-9 M${x - 5} -9 A5 5 0 0 1 ${x + 5} -9 Z" fill="#fff" stroke="#1f2f3a" stroke-width="1.3"/>`,
+  bomba: () => `<circle r="8" fill="#fff" stroke="${COLOR_AUX}" stroke-width="1.7"/><path d="M-3.5 -5 L6 0 L-3.5 5 Z" fill="${COLOR_AUX}"/>`,
+  estanque: () => `<rect x="-8" y="-13" width="16" height="26" rx="7" fill="#eef5f7" stroke="#16485a" stroke-width="1.6"/><path d="M-8 -1 H8" stroke="#7aa6c2" stroke-width="1.2" stroke-dasharray="2 2"/>`};
+// PAT 139b: auxiliar elegido con n unidades en paralelo (por ejemplo 2 bombas, una de reserva): n copias del símbolo apiladas en
+// perpendicular a la línea, con un colector antes y otro después (ext = [x del colector de entrada, x del de salida, separación]).
+function cuerpoParalelo(cuerpo, A, ext, rotar, ang) {
+  if (!A || A.n <= 1 || !ext) return cuerpo;
+  const m = A.n_dibujados, [x0, x1, dy] = ext, ys = [...Array(m).keys()].map(i => (i - (m - 1) / 2) * dy), o = [];
+  const lin = 'stroke="#1f2f3a" stroke-width="1.3" fill="none"';
+  if (m % 2 === 0) o.push(`<path d="M${x0 + 1} 0 H${x1 - 1}" stroke="#fff" stroke-width="5"/>`);   // la línea no pasa por el medio
+  o.push(`<path d="M${x0} ${ys[0]} V${ys[m - 1]} M${x1} ${ys[0]} V${ys[m - 1]}" ${lin}/>`);
+  ys.forEach((y, i) => {
+    const reserva = i >= m - A.n_reserva_dibujadas;
+    o.push(`<path d="M${x0} ${y} H${x1}" ${lin}/><g transform="translate(0 ${y})${rotar ? "" : ` rotate(${-ang})`}"${reserva ? ' opacity=".55"' : ""}>${cuerpo}</g>`);
+  });
+  if (A.n_resto > 0) o.push(`<text x="${x1 + 3}" y="${ys[m - 1] + 4}" font-size="10" font-weight="700" fill="#16485a">+${A.n_resto}</text>`);
+  return o.join("");
+}
+function simboloAux(id, titulo, p, cuerpo, rotar, sc, exportar, fsP, k, ext) {
+  const s = sel && sel.t === "aux" && sel.id === id;
+  const A = D && D.eleccion && D.eleccion.paralelo ? D.eleccion.paralelo[id] : null;
+  if (A && A.n > 1 && ext) { cuerpo = cuerpoParalelo(cuerpo, A, ext, rotar, p.ang || 0); rotar = true; titulo += ` · ${A.n} unidades en paralelo (${A.k} necesarias)`; }
+  return `<g class="aux" data-aux="${esc(id)}"><title>${esc(titulo)}</title>`
+    + (s ? `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${f1(18 * sc)}" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>` : "")
+    + `<g transform="translate(${f1(p.x)} ${f1(p.y)})${rotar ? ` rotate(${f1(p.ang)})` : ""} scale(${sc.toFixed(3)})">${exportar ? "" : '<circle r="14" fill="transparent"/>'}${cuerpo}</g>`
+    + ((ops.etq || exportar || s) ? `<text x="${f1(p.x + 11 * sc)}" y="${f1(p.y + 16 * sc)}" font-size="${f1(fsP * 0.82)}" fill="${COLOR_AUX}" font-weight="600" paint-order="stroke" stroke="#fff" stroke-width="${3 / k}">${esc(id)}</text>` : "")
+    + "</g>";
+}
+let PAUX = {};                              // PAT 140 g: centro dibujado de cada auxiliar (para arrastrarlo y marcarlo)
+const posAux = x => (x.pos && modo === "layout") ? {x: x.pos.x * ESC.x, y: x.pos.y * ESC.y, ang: 0} : null;
+function trazoAux(p, q, k) {                // auxiliar fuera de su línea: trazo punteado que lo une a su línea
+  return `<path class="trazo-aux" d="M${f1(p.x)} ${f1(p.y)} L${f1(q.x)} ${f1(q.y)}"/><circle cx="${f1(q.x)}" cy="${f1(q.y)}" r="${f1(3 / k)}" fill="${COLOR_AUX}" pointer-events="none"/>`;
+}
+function dibujarAux(exportar, k, fs, fsP) {
+  const o = [], tz = [], sc = fs / 11, t = T();
+  PAUX = {};
+  const poner = (x, p0, ruta) => {         // posición final del símbolo y, si el estudiante lo dejó fuera de la línea, su trazo
+    const p = posAux(x) || p0;
+    if (p !== p0) tz.push(trazoAux(p, ruta ? cercaRuta(ruta, p) : p0, k));
+    PAUX[x.id] = {x: p.x, y: p.y, r: 20 * sc};
+    return p;
+  };
+  if (!exportar && drag && drag.m === "aux" && drag.linea && RUTAS[drag.linea]) tz.push(`<path class="linea-dest" d="${dPath(RUTAS[drag.linea])}"/>`);
+  for (const c of D.conexiones) {
+    const g = AUXC[c.clave]; if (!g || !RUTAS[c.clave]) continue;
+    const tr = tramoLargo(RUTAS[c.clave]);
+    g.estanques.forEach((x, i) => {
+      const p = poner(x, enTramo(tr, 0.2 + 0.08 * i), RUTAS[c.clave]);
+      o.push(simboloAux(x.id, `Estanque pulmón ${x.id}: ${fmt(x.masa_t, 1)} t, ${fmt(x.v_geo_m3, 1)} m³ geométricos (D ${fmt(x.D_m, 2)} m × H ${fmt(x.H_m, 2)} m)`, p, SIM_AUX.estanque(), false, sc, exportar, fsP, k, [-13, 13, 30]));
+    });
+    g.bombas.forEach((x, i) => {
+      const p = poner(x, enTramo(tr, 0.6 + 0.1 * i), RUTAS[c.clave]);
+      o.push(simboloAux(x.id, `Bomba ${x.id}: ${fmt(x.Q_m3h, 1)} m³/h, ${fmt(x.H_m, 1)} m, ${fmt(x.potencia_kW, 1)} kW; válvula de bloqueo antes, de retención y de bloqueo después`, p,
+        SIM_AUX.vb(-15) + SIM_AUX.bomba() + SIM_AUX.vr(15) + SIM_AUX.vb(27), true, sc, exportar, fsP, k, [-25, 37, 22]));
+    });
+    g.valvulas.forEach((x, i) => {
+      const p = poner(x, enTramo(tr, 0.88 - 0.06 * i), RUTAS[c.clave]);
+      o.push(simboloAux(x.id, `Válvula de control ${x.id}${x.Cv != null ? `: Cv ${fmt(x.Cv, 1)}` : ""} (${x.nombre})`, p, SIM_AUX.vc(0), true, sc, exportar, fsP, k, [-11, 11, 24]));
+    });
+  }
+  const a = auxD();
+  for (const x of a.estanques) if (!x.con && POS[x.antes] && POS[x.despues]) {
+    const p = poner(x, {x: (POS[x.antes].x + POS[x.despues].x) / 2 + t / 2, y: (POS[x.antes].y + POS[x.despues].y) / 2 - 34, ang: 0}, null);
+    o.push(simboloAux(x.id, `Estanque pulmón ${x.id} entre ${x.antes} y ${x.despues}`, p, SIM_AUX.estanque(), false, sc, exportar, fsP, k, [-13, 13, 30]));
+  }
+  for (const x of a.valvulas) if (!x.en_diagrama && !x.con && x.equipo && POS[x.equipo]) {
+    const p = poner(x, {x: POS[x.equipo].x - 24, y: POS[x.equipo].y + t / 2, ang: 0}, null);
+    o.push(simboloAux(x.id, `Válvula de control ${x.id} (${x.nombre})`, p, SIM_AUX.vc(0), false, sc, exportar, fsP, k, [-11, 11, 24]));
+  }
+  return tz.join("") + o.join("");
+}
+function lineaBajo(pt, id) {               // PAT 140 g: línea con bomba bajo el puntero, distinta de la de la bomba id (o null)
+  const [t, x] = auxPor(id);
+  if (t !== "bomba" || !x || x.en_diagrama) return null;
+  let mejor = null, dmin = 14 / vista.k;
+  for (const b of auxD().bombas) {
+    if (b.en_diagrama || !b.con || !RUTAS[b.con]) continue;
+    const q = cercaRuta(RUTAS[b.con], pt);
+    if (q.d < dmin) { dmin = q.d; mejor = b.con; }
+  }
+  return mejor && mejor !== x.con ? mejor : null;
 }
 // ------------------------------------------------------------------ PAT 134: instrumentos ISA-5.1 y líneas de señal
 const f1 = v => (+v).toFixed(1);
@@ -580,6 +894,25 @@ function extremoSenal(i, s) {
   else if (s.tipo === "instrumento") { const q = INS[s.destino]; if (q) b = recorte(q, c, R_INS); }
   return b ? {a: recorte(c, b, R_INS), b: {x: b.x, y: b.y}} : null;
 }
+// PAT 142: cada lazo se encierra en un rectángulo de esquinas redondeadas a trazos en su color, con el rótulo «Lazo 101 · control
+// de temperatura». La caja sigue a los instrumentos dibujados (también al arrastrarlos o en la vista por etapas).
+function cajaLazo(L) {
+  const pts = (L.miembros || []).map(id => INS[id]).filter(Boolean);
+  if (!pts.length) return L.caja ? {x: L.caja.x * ESC.x, y: L.caja.y * ESC.y, w: L.caja.ancho, h: L.caja.alto} : null;
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y), x0 = Math.min(...xs) - 28, y0 = Math.min(...ys) - 34;
+  return {x: x0, y: y0, w: Math.max(...xs) + 28 - x0, h: Math.max(...ys) + 28 - y0};
+}
+function dibujarLazos(exportar, k, fsP) {
+  const o = [], fs = Math.max(9, fsP * 0.85);
+  for (const L of D.lazos || []) {
+    const b = cajaLazo(L); if (!b) continue;
+    const s = sel && sel.t === "ins" && (L.miembros || []).includes(sel.id);
+    o.push(`<g class="lazo" data-lazo="${esc(L.numero)}"><title>${esc(L.titulo + (L.relaciones && L.relaciones.length ? ` · relación con ${L.relaciones.map(r => `el lazo ${r.lazo} (${r.nombre})`).join(", ")}` : ""))}</title>`
+      + `<rect class="lazo-caja" x="${f1(b.x)}" y="${f1(b.y)}" width="${f1(b.w)}" height="${f1(b.h)}" rx="12" stroke="${L.color}"${s ? ' stroke-width="2.6"' : ""} vector-effect="non-scaling-stroke"/>`
+      + `<text x="${f1(b.x + 8)}" y="${f1(b.y + fs + 2)}" font-size="${f1(fs)}" font-weight="700" fill="${L.color}" paint-order="stroke" stroke="#fff" stroke-width="${f1(3 / k)}" pointer-events="none">${esc(L.titulo)}</text></g>`);
+  }
+  return o.join("");
+}
 function dibujarInstrumentos(exportar, k, fsP) {
   const L = [], S = [];
   for (const i of insLista()) {
@@ -593,6 +926,10 @@ function dibujarInstrumentos(exportar, k, fsP) {
       if (ss) L.push(`<path d="${d}" stroke="#93b4f5" stroke-width="8" fill="none" vector-effect="non-scaling-stroke" stroke-linecap="round"/>`);
       L.push(lineaSenal(ex.a, ex.b, s.senal, k));
       if (s.parametro_nombre && (ops.etq || exportar || ss)) L.push(`<text x="${f1(ex.b.x + 4)}" y="${f1(ex.b.y - 4)}" font-size="${f1(fsP * 0.85)}" fill="#33508f" paint-order="stroke" stroke="#fff" stroke-width="${f1(3 / k)}">${esc(corto(s.parametro_nombre, 24))}</text>`);
+      if (s.entre_lazos) {                // PAT 142: rótulo de la relación entre lazos en la mitad de la línea
+        const mx = (ex.a.x + ex.b.x) / 2, my = (ex.a.y + ex.b.y) / 2;
+        L.push(`<text x="${f1(mx)}" y="${f1(my - 5)}" font-size="${f1(fsP * 0.85)}" font-weight="700" text-anchor="middle" fill="#7c3aed" paint-order="stroke" stroke="#fff" stroke-width="${f1(3 / k)}">${esc(s.relacion_nombre || "sin relación")}</text>`);
+      }
       if (!exportar && s.clave) L.push(`<path class="hit" d="${d}" fill="none" stroke="transparent" stroke-width="12" vector-effect="non-scaling-stroke"/>`);
       L.push("</g>");
     }
@@ -634,10 +971,21 @@ function pintarSVG() {
   if (!D.equipos.length) { est.textContent = "Planta vacía: arrastre equipos desde el catálogo"; est.className = "estado mal"; }
   else if (D.resuelta) { est.textContent = `Planta resuelta · ${D.equipos.length} equipos · ${D.conexiones.length} corrientes${insLista().length ? ` · ${insLista().length} instrumentos` : ""}${modo === "etapas" ? " · vista por etapas" : ""}`; est.className = "estado"; }
   else { est.textContent = `Sin resolver: ${D.motivo || "revise el diagnóstico"}`; est.className = "estado mal"; }
+  if (SOLO() && D.equipos.length) est.textContent += ELEC() ? ` · ${NOMBRE_VISTA[D.vista] || ""}: arrastre un candidato al lienzo`
+    : LAZOS() ? ` · ${(D.lazos || []).length} lazos · suelte un lazo típico sobre un equipo`      // PAT 142
+    : ` · ${NOMBRE_VISTA[D.vista] || ""} (solo lectura)`;      // PAT 138 y 139
+  const av = $("aviso-vista");
+  const txt = ELEC() ? (D.vista === "real" && D.real && !D.real.con_seleccion && (D.eleccion.objetivos || []).length
+    ? "Sin equipos elegidos: arrastre al lienzo un candidato de la izquierda o use «Generar automáticamente»." : null)
+    : (SOLO() && D.real ? D.real.aviso : null);
+  av.hidden = !txt; if (txt) av.textContent = txt;
+  if (ELEC() && D.vista === "auxiliares") rotularElegidos();          // PAT 139
+  if (ELEC()) pintarDestinos();                                        // PAT 140 g
 }
 function caja_bbox() {
   const t = T(); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const e of D.equipos) { const P = POS[e.id]; x0 = Math.min(x0, P.x - 40); y0 = Math.min(y0, P.y - 30); x1 = Math.max(x1, P.x + t + 60); y1 = Math.max(y1, P.y + t + 75); }
+  const extra = SOLO() ? 45 : 0;          // PAT 138: rótulos de la planta real
+  for (const e of D.equipos) { const P = POS[e.id]; x0 = Math.min(x0, P.x - 40); y0 = Math.min(y0, P.y - 30); x1 = Math.max(x1, P.x + t + 60); y1 = Math.max(y1, P.y + t + 75 + extra); }
   if (ops.ins) for (const i of insLista()) { const c = INS[i.id]; if (!c) continue; x0 = Math.min(x0, c.x - 34); y0 = Math.min(y0, c.y - 30); x1 = Math.max(x1, c.x + 40); y1 = Math.max(y1, c.y + 40); }
   if (!isFinite(x0)) return {x0: 0, y0: 0, x1: 800, y1: 400};
   return {x0, y0, x1, y1};
@@ -662,7 +1010,26 @@ function zoom(f, cx, cy) {
 }
 function pintarLeyenda() {
   const usar = ["producto", "biomasa", "subproducto", "vapor", "condensado", "aire", "calor", "electricidad"];
-  $("leyenda").innerHTML = "<b>Utilización</b>" + SEMAFORO.map(x => `<span><i style="background:${x.barra};height:11px;width:11px;flex-basis:11px;border-radius:50%"></i>${x.txt}</span>`).join("") + "<b>Tipos de corriente</b>" + usar.filter(k => D.tipos[k]).map(k => `<span><i style="background:${D.tipos[k].color}"></i>${esc(D.tipos[k].nombre)}</span>`).join("") + '<b>Equipo</b><span><i style="background:none;height:auto;width:auto;flex-basis:16px;color:#c98c31;font-size:15px;line-height:1">★</i>recurso crítico</span>';
+  $("leyenda").innerHTML = "<b>Utilización</b>" + SEMAFORO.map(x => `<span><i style="background:${x.barra};height:11px;width:11px;flex-basis:11px;border-radius:50%"></i>${x.txt}</span>`).join("") + "<b>Tipos de corriente</b>" + usar.filter(k => D.tipos[k]).map(k => `<span><i style="background:${D.tipos[k].color}"></i>${esc(D.tipos[k].nombre)}</span>`).join("") + '<b>Equipo</b><span><i style="background:none;height:auto;width:auto;flex-basis:16px;color:#c98c31;font-size:15px;line-height:1">★</i>recurso crítico</span>' + leyendaVista();
+}
+function leyendaVista() {                  // PAT 138: símbolos de la planta real y de los equipos auxiliares, y resumen de servicios
+  if (!SOLO()) return "";
+  const ico = (cuerpo, vb = "-20 -16 40 32") => `<svg width="26" height="20" viewBox="${vb}" style="flex:0 0 26px;margin-right:6px">${cuerpo}</svg>`;
+  if (LAZOS()) return "<b>Lazos de control</b>"      // PAT 142
+    + `<span>${ico('<rect x="-16" y="-10" width="32" height="20" rx="6" fill="none" stroke="#1b7a5a" stroke-width="1.6" stroke-dasharray="5 3"/>')}rectángulo a trazos: instrumentos de un lazo</span>`
+    + '<span><b style="color:#7c3aed;margin-right:6px">cascada</b>relación entre lazos en la línea de señal</span>';
+  let h = "<b>Planta real</b>"
+    + `<span>${ico('<path d="M-17 -7 V7 M17 -7 V7 M-17 -7 H-6 M6 -7 H17 M-17 7 H-6 M6 7 H17" stroke="#2c4a58" fill="none"/><rect x="-6" y="-12" width="12" height="10" rx="2" fill="#fff" stroke="#2c4a58"/><rect x="-6" y="2" width="12" height="10" rx="2" fill="#fff" stroke="#7b93a0" stroke-dasharray="3 2"/>')}unidades en paralelo: un símbolo por unidad (hasta 6; «+r» las demás)</span>`
+    + "<span>borde punteado: unidad de reserva</span><span>k de n: unidades necesarias de las instaladas</span>";
+  if (D.vista !== "auxiliares") return h;
+  const a = auxD();
+  if (a.servicios.length) h += "<b>Servicios</b><div class=\"serv\">" + a.servicios.map(x => `<span>${esc(x.servicio)}</span><span>${fmt(x.demanda, x.demanda >= 100 ? 0 : 1)} ${esc(x.unidad)}</span>`).join("") + "</div>";
+  h += "<b>Equipos auxiliares</b>"
+    + `<span>${ico(SIM_AUX.bomba())}bomba centrífuga</span><span>${ico(SIM_AUX.vb(0))}válvula de bloqueo</span>`
+    + `<span>${ico(SIM_AUX.vr(0))}válvula de retención</span><span>${ico(SIM_AUX.vc(0), "-20 -18 40 32")}válvula de control</span>`
+    + `<span>${ico(SIM_AUX.estanque())}estanque pulmón</span>`
+    + `<span class="nota">${a.bombas.length} bombas, ${a.n_bloqueo || 0} válvulas de bloqueo y ${a.n_retencion || 0} de retención; ${a.estanques.length} pulmones${(a.totales || {}).canerias_m != null ? `; ${fmt(a.totales.canerias_m, 0)} m de cañería` : ""}</span>`;
+  return h;
 }
 
 // ------------------------------------------------------------------ interacción con el diagrama
@@ -678,11 +1045,42 @@ function equipoEn(pt) {
 }
 function filtroDestino(desde) {
   return g => g.lado !== desde.lado && g.eq !== desde.eq &&
-    (desde.lado === "out" ? compatibles(desde.p.tipo, g.p.tipo) : compatibles(g.p.tipo, desde.p.tipo));
+    (LIBRE() || (desde.lado === "out" ? compatibles(desde.p.tipo, g.p.tipo) : compatibles(g.p.tipo, desde.p.tipo)));   // PAT 143
 }
 svgEl.addEventListener("pointerdown", ev => {
   if (ev.button !== 0 || !D) return;
   const pt = aMundo(ev);
+  if (SOLO() && EDIT_INS()) {              // PAT 142: en Lazos de control los instrumentos se arrastran y se unen con señales
+    const as2 = ev.target.closest("[data-asa]");
+    if (as2 && insPor(as2.dataset.asa)) {
+      drag = {m: "sen", id: as2.dataset.asa, x: pt.x, y: pt.y, x0: pt.x, y0: pt.y, obj: null};
+      svgEl.setPointerCapture(ev.pointerId); pintarSVG(); ev.preventDefault(); return;
+    }
+    const ie3 = ev.target.closest("[data-ins]");
+    if (ie3 && insPor(ie3.dataset.ins)) {
+      const c = INS[ie3.dataset.ins];
+      drag = {m: "ins", id: ie3.dataset.ins, x0: pt.x, y0: pt.y, cx: c.x, cy: c.y, movido: false};
+      svgEl.setPointerCapture(ev.pointerId); ev.preventDefault(); return;
+    }
+  }
+  if (SOLO()) {                            // PAT 138: solo seleccionar (ficha) y mover la vista
+    const ax = ev.target.closest("[data-aux]"), ie2 = ev.target.closest("[data-ins]"), sg2 = ev.target.closest("[data-sen]"), ee2 = ev.target.closest("[data-eq]"), ce2 = ev.target.closest("[data-con]");
+    const nuevo = ax ? {t: "aux", id: ax.dataset.aux} : ie2 && insPor(ie2.dataset.ins) ? {t: "ins", id: ie2.dataset.ins} : sg2 ? {t: "sen", clave: sg2.dataset.sen}
+      : ee2 && eqPor(ee2.dataset.eq) ? {t: "eq", id: ee2.dataset.eq} : ce2 ? {t: "con", clave: ce2.dataset.con} : null;
+    if (nuevo && nuevo.t === "eq" && ELEC() && modo === "layout") {     // PAT 139: en la elección en vivo los equipos se mueven
+      const e = eqPor(nuevo.id);
+      drag = {m: "eq", id: e.id, x0: pt.x, y0: pt.y, ex: POS[e.id].x, ey: POS[e.id].y, movido: false, shift: false};
+      svgEl.setPointerCapture(ev.pointerId); ev.preventDefault(); return;
+    }
+    if (nuevo && nuevo.t === "aux" && ELEC() && D.vista === "auxiliares" && modo === "layout" && PAUX[nuevo.id]) {   // PAT 140 g
+      const P = PAUX[nuevo.id];
+      drag = {m: "aux", id: nuevo.id, x0: pt.x, y0: pt.y, px: P.x, py: P.y, movido: false, linea: null};
+      svgEl.setPointerCapture(ev.pointerId); ev.preventDefault(); return;
+    }
+    if (nuevo) { sel = nuevo; fichaOculta = null; multi.clear(); pintarTodo(); return; }
+    drag = {m: "pan", sx: ev.clientX, sy: ev.clientY, tx: vista.tx, ty: vista.ty, movido: false};
+    svgEl.setPointerCapture(ev.pointerId); return;
+  }
   const as = ev.target.closest("[data-asa]");              // PAT 134: arrastrar una línea de señal desde un instrumento
   if (as && insPor(as.dataset.asa)) {
     drag = {m: "sen", id: as.dataset.asa, x: pt.x, y: pt.y, x0: pt.x, y0: pt.y, obj: null};
@@ -725,7 +1123,18 @@ svgEl.addEventListener("pointermove", ev => {
     if (Math.abs(dx) + Math.abs(dy) > 4 / vista.k) drag.movido = true;
     if (!drag.movido) return;
     if (modo === "etapas") return;
-    const e = eqPor(drag.id); e.x = r20(Math.max(0, drag.ex + dx)); e.y = r20(Math.max(0, drag.ey + dy));
+    const e = eqPor(drag.id); e.x = r20(Math.max(0, (drag.ex + dx) / ESC.x)); e.y = r20(Math.max(0, (drag.ey + dy) / ESC.y));   // PAT 139: escala de Equipos auxiliares
+    pintarSVG();
+  } else if (drag.m === "aux") {           // PAT 140 g: el auxiliar se mueve; sobre otra línea con bomba, esa línea se marca
+    const dx = pt.x - drag.x0, dy = pt.y - drag.y0;
+    if (Math.abs(dx) + Math.abs(dy) > 4 / vista.k) drag.movido = true;
+    if (!drag.movido) return;
+    const [, x] = auxPor(drag.id); if (!x) return;
+    const nx = drag.px + dx, ny = drag.py + dy;
+    x.pos = {x: nx / ESC.x, y: ny / ESC.y};
+    const ln = lineaBajo({x: nx, y: ny}, drag.id);
+    if (ln && ln !== drag.linea) { const b = auxD().bombas.find(q => q.con === ln); if (b) aviso(`Suelte aquí para conectar ${drag.id} a la línea ${b.linea}, de ${nombreEq(b.origen)} a ${nombreEq(b.destino)}.`, "ok"); }
+    drag.linea = ln;
     pintarSVG();
   } else if (drag.m === "sen") {
     drag.x = pt.x; drag.y = pt.y; drag.obj = objetivoSenal(pt, drag.id); pintarSVG();
@@ -762,7 +1171,15 @@ function finArrastre(ev) {
       else { multi.add(d.id); sel = {t: "eq", id: d.id}; }
       if (multi.size === 1 && sel && multi.has(sel.id)) multi.clear();
     } else { if (!multi.has(d.id)) multi.clear(); sel = {t: "eq", id: d.id}; }
+    fichaOculta = d.movido ? d.id : null;    // PAT 139b: la ficha (cuadro grande) se abre con un clic, no al mover un equipo
     pintarTodo();
+  } else if (d.m === "aux") {            // PAT 140 g: clic = ficha; arrastre = nueva posición o, sobre otra línea, reconexión
+    multi.clear(); sel = {t: "aux", id: d.id};
+    if (!d.movido) { fichaOculta = null; pintarTodo(); return; }
+    const [, x] = auxPor(d.id), pos = x && x.pos ? {x: x.pos.x, y: x.pos.y} : null;
+    if (d.linea) emitir("conectar_aux", {id: d.id, con: d.linea, pos});
+    else emitir("mover_aux", {id: d.id, pos});
+    fichaOculta = d.id; pintarTodo();
   } else if (d.m === "sen") {            // PAT 134
     if (d.obj) emitir("conectar_senal", {origen: d.id, tipo: d.obj.tipo, destino: d.obj.destino, senal: $("o-senal").value});
     else if (Math.hypot(d.x - d.x0, d.y - d.y0) > 8 / vista.k) aviso("Suelte la línea de señal sobre un equipo, una corriente u otro instrumento.", "error");
@@ -771,7 +1188,9 @@ function finArrastre(ev) {
     const i = insPor(d.id);
     if (d.movido && modo === "layout" && i) emitir("mover_instrumento", {id: i.id, x: i.x, y: i.y});
     else if (d.movido && modo === "etapas") aviso("En la vista por etapas los instrumentos no se mueven: vuelva a «Layout».", "error");
-    multi.clear(); sel = {t: "ins", id: d.id}; pintarTodo();
+    multi.clear(); sel = {t: "ins", id: d.id};
+    if (LAZOS()) fichaOculta = d.movido ? d.id : null;      // PAT 142: al arrastrar, Propiedades no tapa el lienzo; se abre con un clic
+    pintarTodo();
   } else if (d.m === "pan" && !d.movido) { sel = null; multi.clear(); pintarTodo(); }
 }
 svgEl.addEventListener("pointerup", finArrastre);
@@ -787,6 +1206,14 @@ function enCampoDeTexto() {             // PAT 133: con el foco en un campo, los
 }
 document.addEventListener("keydown", ev => {
   if (!D || enCampoDeTexto()) return;
+  if (SOLO()) {                                                                                     // PAT 138
+    const c2 = ev.ctrlKey || ev.metaKey, k2 = (ev.key || "").toLowerCase();
+    if ((ELEC() || EDIT_INS()) && c2 && !ev.altKey && k2 === "z" && !ev.shiftKey) { ev.preventDefault(); deshacer(); return; }      // PAT 139 y 142
+    if ((ELEC() || EDIT_INS()) && c2 && !ev.altKey && (k2 === "y" || (k2 === "z" && ev.shiftKey))) { ev.preventDefault(); rehacer(); return; }
+    if (EDIT_INS() && (ev.key === "Delete" || ev.key === "Supr") && sel && (sel.t === "ins" || sel.t === "sen")) { ev.preventDefault(); quitarSel(); return; }   // PAT 142
+    if (ev.key === "Escape") { sel = null; multi.clear(); pintarTodo(); }
+    return;
+  }
   const ctrl = ev.ctrlKey || ev.metaKey, k = (ev.key || "").toLowerCase();
   if (ctrl && !ev.altKey) {
     if (k === "z" && !ev.shiftKey) { ev.preventDefault(); deshacer(); return; }
@@ -849,32 +1276,56 @@ function quitarSel() {
 }
 function conectar(o, ps, d, pe, reparto) {
   if (o === d) { aviso("Un equipo no se puede conectar consigo mismo.", "error"); return; }
-  if (!compatibles(ps.tipo, pe.tipo)) { aviso(`Tipos incompatibles: ${o}.${ps.nombre} entrega ${ps.tipo_txt.toLowerCase()} y ${d}.${pe.nombre} espera ${pe.tipo_txt.toLowerCase()}.`, "error"); return; }
+  if (!compatibles(ps.tipo, pe.tipo) && !LIBRE()) { aviso(`Tipos incompatibles: ${o}.${ps.nombre} entrega ${ps.tipo_txt.toLowerCase()} y ${d}.${pe.nombre} espera ${pe.tipo_txt.toLowerCase()}.`, "error"); return; }
   if (D.conexiones.some(c => c.origen === o && c.puerto_origen === ps.nombre && c.destino === d && c.puerto_destino === pe.nombre)) { aviso("Esa conexión ya existe.", "error"); return; }
   emitir("conectar", {origen: o, puerto_origen: ps.nombre, destino: d, puerto_destino: pe.nombre, reparto});
 }
 
 // ------------------------------------------------------------------ catálogo (arrastrar al lienzo)
+const AYUDA_CAT_EQ = "Arrastre un equipo al lienzo o haga clic. Varias unidades = líneas en paralelo.";
+const AYUDA_CAT_LAZOS = "Arrastre un lazo típico y suéltelo sobre un equipo: quedan sus instrumentos con el número de lazo siguiente libre y sus líneas de señal. Los instrumentos sueltos se sueltan sobre un equipo, una corriente o un lugar libre. Para unir dos lazos, arrastre desde el punto azul de un instrumento hasta un instrumento de otro lazo.";
+function tituloCatalogo(lazos) {          // PAT 142: el panel de la izquierda cambia de nombre en Lazos de control
+  const d = document.querySelector(".izq > details.tit3"); if (!d) return;
+  const h = d.querySelector("h3"), t = d.querySelector(".ayuda-txt");
+  if (h) h.textContent = lazos ? "Catálogo de lazos" : "Catálogo de equipos";
+  if (t) t.textContent = lazos ? AYUDA_CAT_LAZOS : AYUDA_CAT_EQ;
+}
 function pintarCatalogo() {
   const cat = D.catalogo[rubro];
+  tituloCatalogo(!!cat.tipicos);
   if (cat.instrumentos) {                 // PAT 134: puntos de control de ISA-5.1 y elementos de lazo de ISA-5.4
     let g0 = null;
-    $("catalogo").innerHTML = cat.instrumentos.map(c => (c.grupo !== g0 ? (g0 = c.grupo, `<div class="cat-grupo">${esc(c.grupo)}</div>`) : "")
+    // PAT 142: en Lazos de control, primero el grupo «Lazos típicos» (plantillas que se sueltan sobre un equipo)
+    const tip = (cat.tipicos || []).map((c, j) => (j === 0 ? `<div class="cat-grupo">${esc(c.grupo)}</div>` : "")
+      + `<div class="item tipico" data-tipico="${esc(c.variable)}" title="${esc(`${c.nombre}: ${c.letras}. Suéltelo sobre un equipo; el parámetro que gobierna se toma del equipo si lo tiene.`)}">`
+      + `<svg width="40" height="40" viewBox="-26 -24 52 60">${c.svg}</svg><div class="tx"><b>＋ ${esc(c.nombre)}</b><br><i>${esc(c.letras)}</i></div></div>`).join("");
+    $("catalogo").innerHTML = tip + cat.instrumentos.map(c => (c.grupo !== g0 ? (g0 = c.grupo, `<div class="cat-grupo">${esc(c.grupo)}</div>`) : "")
       + `<div class="item isa" data-isa="${esc(c.clave)}" title="${esc(`${c.nombre}. ${c.isa51 ? "Letras ISA-5.1" : "Código ISA-5.4"} por defecto: ${c.letras} (se cambian en Propiedades). Fuente: ${c.fuente}. Suéltelo sobre un equipo para unirlo a él.`)}">`
       + `<svg width="40" height="40" viewBox="-26 -24 52 60">${c.svg}</svg><div class="tx"><b>＋ ${esc(c.letras)} · ${esc(c.nombre)}</b><br><i>${c.isa51 ? "ISA-5.1" : "ISA-5.4"}</i></div></div>`).join("");
     return;
   }
   let catPrev = null;   // PAT 132: en «Todos los equipos» se agrupan por categoría de la Tabla C.1 de la ISO 10628
-  const cabecera = c => { if (rubro !== "todos" || c.categoria === catPrev) return ""; catPrev = c.categoria; return `<div class="cat-grupo">${c.categoria} · ${esc(c.categoria_nombre || "")}</div>`; };
-  $("catalogo").innerHTML = cat.equipos.map(c => cabecera(c) + `<div class="item" data-tipo="${c.tipo}" title="${esc(`${c.simbolo_nombre}. ISO 10628: categoría ${c.categoria}, letra ${c.letra}. Entradas: ${c.entradas.map(p => p.nombre).join(", ") || "ninguna"}; salidas: ${c.salidas.map(p => p.nombre).join(", ")}`)}">`
+  // PAT 136 (T22): listas por función y por planta (solo tipo y grupo: el resto sale de «todos») y buscador sin tildes
+  const TT = Object.fromEntries(((D.catalogo.todos || cat).equipos || []).map(e => [e.tipo, e]));
+  const q = normTxt($("buscar-eq") ? $("buscar-eq").value : "").split(" ").filter(x => x);
+  let lista = (q.length && D.catalogo.todos ? D.catalogo.todos.equipos : cat.equipos).map(x => x.simbolo ? x : Object.assign({}, TT[x.tipo] || {}, x)).filter(x => x.simbolo);
+  if (q.length) lista = lista.filter(x => { const t = x.buscar || normTxt(x.nombre + " " + x.tipo + " " + x.letra); return q.every(w => t.includes(w)); });
+  const agrupa = q.length ? "todos" : rubro;
+  const cabecera = c => { if (c.grupo && !q.length) { if (c.grupo === catPrev) return ""; catPrev = c.grupo; return `<div class="cat-grupo">${esc(c.grupo)}</div>`; }
+    if (agrupa !== "todos" || c.categoria === catPrev) return ""; catPrev = c.categoria; return `<div class="cat-grupo">${c.categoria} · ${esc(c.categoria_nombre || "")}</div>`; };
+  if (!lista.length) { $("catalogo").innerHTML = `<div class="cat-grupo">Sin equipos para «${esc($("buscar-eq").value)}»</div>`; return; }
+  $("catalogo").innerHTML = lista.map(c => cabecera(c) + `<div class="item" data-tipo="${c.tipo}" title="${esc(`${c.simbolo_nombre}. ISO 10628: categoría ${c.categoria}, letra ${c.letra}. Entradas: ${c.entradas.map(p => p.nombre).join(", ") || "ninguna"}; salidas: ${c.salidas.map(p => p.nombre).join(", ")}`)}">`
     + `<svg width="36" height="36" viewBox="0 0 60 60">${c.simbolo}</svg><div class="tx"><b>＋ ${esc(c.letra)} · ${esc(c.nombre)}</b><br><i>${esc((c.entradas.map(p => p.nombre).join("/") || "—") + " → " + c.salidas.map(p => p.nombre).join("/"))}</i></div></div>`).join("");
 }
 $("rubro").addEventListener("change", () => { rubro = $("rubro").value; pintarCatalogo(); altura(); });
+function normTxt(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\*/g, " ").replace(/\s+/g, " ").trim(); }   // PAT 136
+$("buscar-eq").addEventListener("input", () => { pintarCatalogo(); altura(); });
 $("catalogo").addEventListener("pointerdown", ev => {
   const it = ev.target.closest(".item"); if (!it || ev.button !== 0) return;
   ev.preventDefault();
+  if (it.dataset.tipico) { arrastrarTipico(ev, it); return; }      // PAT 142
   const esIsa = !!it.dataset.isa;          // PAT 134
-  const c = esIsa ? D.catalogo[rubro].instrumentos.find(x => x.clave === it.dataset.isa) : D.catalogo[rubro].equipos.find(x => x.tipo === it.dataset.tipo);
+  const c = esIsa ? D.catalogo[rubro].instrumentos.find(x => x.clave === it.dataset.isa) : (D.catalogo.todos || D.catalogo[rubro]).equipos.find(x => x.tipo === it.dataset.tipo);
   if (!c) return;
   const f = document.createElement("div"); f.className = "fantasma"; f.style.display = "none";
   f.innerHTML = esIsa ? `<svg width="46" height="46" viewBox="-26 -24 52 60">${c.svg}</svg>` : `<svg width="46" height="46" viewBox="0 0 60 60">${c.simbolo}</svg>`; document.body.appendChild(f);
@@ -902,6 +1353,34 @@ $("catalogo").addEventListener("pointerdown", ev => {
   };
   it.addEventListener("pointermove", mover); it.addEventListener("pointerup", soltar); it.addEventListener("pointercancel", soltar);
 });
+function arrastrarTipico(ev, it) {       // PAT 142: lazo típico del catálogo arrastrado hasta un equipo del lienzo
+  const c = (D.catalogo[rubro].tipicos || []).find(x => x.variable === it.dataset.tipico); if (!c) return;
+  const f = document.createElement("div"); f.className = "fantasma"; f.style.display = "none";
+  f.innerHTML = `<svg width="46" height="46" viewBox="-26 -24 52 60">${c.svg}</svg>`; document.body.appendChild(f);
+  const cd = {sx: ev.clientX, sy: ev.clientY, movido: false};
+  it.setPointerCapture(ev.pointerId);
+  const mover = e => {
+    if (Math.abs(e.clientX - cd.sx) + Math.abs(e.clientY - cd.sy) > 5) cd.movido = true;
+    if (!cd.movido) return;
+    f.style.display = "block"; f.style.left = (e.clientX - 25) + "px"; f.style.top = (e.clientY - 25) + "px";
+    const r = svgEl.getBoundingClientRect();
+    $("lienzo").classList.toggle("arrastrando-cat", e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+  };
+  const soltar = e => {
+    it.removeEventListener("pointermove", mover); it.removeEventListener("pointerup", soltar); it.removeEventListener("pointercancel", soltar);
+    f.remove(); $("lienzo").classList.remove("arrastrando-cat");
+    const r = svgEl.getBoundingClientRect(), dentro = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    soltarLazo(c, cd.movido && dentro ? aMundo(e) : null, cd.movido);
+  };
+  it.addEventListener("pointermove", mover); it.addEventListener("pointerup", soltar); it.addEventListener("pointercancel", soltar);
+}
+function soltarLazo(c, pt, movido) {      // PAT 142: sobre un equipo (o, con un clic, sobre el equipo seleccionado)
+  if (modo === "etapas") { modo = "layout"; botonesVista(); calcularPosiciones(); }
+  if (!ops.ins) { ops.ins = true; $("o-ins").checked = true; }
+  const e = pt ? equipoEn(pt) : (!movido && sel && sel.t === "eq" ? eqPor(sel.id) : null);
+  if (!e) { aviso(movido ? "Suelte el lazo típico sobre un equipo: sus instrumentos quedan unidos a él." : "Arrastre el lazo típico hasta un equipo del lienzo (o seleccione un equipo y haga clic en el lazo).", "error"); return; }
+  emitir("agregar_lazo", {variable: c.variable, equipo: e.id});
+}
 function soltarInstrumento(c, pt) {       // PAT 134: agrega el símbolo; sobre un equipo queda unido a él y junto a él
   if (modo === "etapas") { modo = "layout"; botonesVista(); calcularPosiciones(); }
   if (!ops.ins) { ops.ins = true; $("o-ins").checked = true; }
@@ -941,6 +1420,16 @@ function pintarKPIs() {
     k.cascada_kW != null ? `${fmt(100 * k.cobertura, 1)} % del sumidero ${k.sumidero} (${fmt(k.sumidero_kW, 0)} kW)` : "");
   h += kpi("Inversión declarada", k.inversion_declarada ? "$" + fmt(k.inversion_declarada / 1e6, 0) + " M" : "—", "", "Suma del costo declarado en cada equipo");
   h += kpi("Conexiones", String(k.conexiones ?? D.conexiones.length));
+  if (SOLO() && !LAZOS()) {                       // PAT 138; PAT 142: no en Lazos de control
+    const cs = k.con_seleccion ?? 0, ts = k.seleccionables ?? 0;
+    h += kpi("Disponibilidad de la línea", k.A_linea != null ? fmt(100 * k.A_linea, 1) + " %" : "—", "", "Producto de las disponibilidades k de n de las etapas con selección comercial (línea en serie)");
+    h += kpi("Equipos con selección", `${cs} de ${ts}`, cs < ts ? "critico" : "bien", "Equipos con modelo comercial aplicado en Planta real");
+  }
+  if (D.vista === "auxiliares") {
+    h += kpi("Inversión en auxiliares", k.aux_total_clp != null ? "$" + fmt(k.aux_total_clp / 1e6, 0) + " M" : "—", "", k.aux_total_instalado_clp != null ? `Instalada: $${fmt(k.aux_total_instalado_clp / 1e6, 0)} M` : "");
+    h += kpi("Potencia de bombeo", k.aux_bombeo_kW != null ? fmt(k.aux_bombeo_kW, 1) + " kW" : "—");
+    h += kpi("Volumen de los pulmones", k.aux_pulmones_m3 != null ? fmt(k.aux_pulmones_m3, 0) + " m³" : "—");
+  }
   $("kpis").innerHTML = h;
 }
 function pintarBarras() {
@@ -967,9 +1456,12 @@ $("barras").addEventListener("click", ev => {
 function filaParam(e, p) {
   const k = `p:${e.id}:${p.clave}`, et = `${esc(p.nombre)}${p.unidad && p.unidad !== "—" ? ` [${esc(p.unidad)}]` : ""}`;
   const tip = `Categoría: ${p.categoria}. Fuente: ${p.fuente || "—"}.${p.justificacion ? " " + p.justificacion : ""}`;
-  if (p.fijado) return `<div class="fila solo"><span class="et">${et} <span class="info" title="${esc(tip)}">i</span></span>`
+  const marca = `<span class="info" title="${esc(tip)}">i</span> <small>${esc(p.categoria)}</small>`;     // PAT 140: ayuda y fuente en todos los tipos de parámetro
+  if (p.fijado) return `<div class="fila solo"><span class="et">${et} ${marca}</span>`
     + `<span class="nota">${fmt(p.valor, 4)} · lo ajusta la especificación «${esc(p.fijado)}» (Variables de planta)</span></div>`;
-  if (p.tipo === "bool") return `<div class="fila solo"><label class="chk" style="margin:0;color:#30505f"><input type="checkbox" data-k="${k}" data-ev="parametro" data-id="${e.id}" data-clave="${p.clave}" ${p.valor ? "checked" : ""}>${et}</label></div>`;
+  if (p.tipo === "bool") return `<div class="fila solo"><label class="chk" style="margin:0;color:#30505f"><input type="checkbox" data-k="${k}" data-ev="parametro" data-id="${e.id}" data-clave="${p.clave}" ${p.valor ? "checked" : ""}>${et} ${marca}</label></div>`;
+  if (p.tipo === "texto") return `<div class="fila solo"><span class="et">${et} ${marca}</span>`       // PAT 140: etiquetas de texto (modelo, materia…)
+    + `<input type="text" data-k="${k}" data-ev="parametro" data-id="${e.id}" data-clave="${p.clave}" value="${esc(p.valor ?? "")}"></div>`;
   const val = p.valor == null ? "" : p.valor;
   const rng = p.deslizador ? `<input type="range" data-k="${k}:r" data-ev="parametro" data-id="${e.id}" data-clave="${p.clave}" min="${p.min}" max="${p.max}" step="${p.paso}" value="${p.valor ?? p.min}">` : "<span></span>";
   return `<div class="fila"><span class="et">${et} <span class="info" title="${esc(tip)}">i</span> <small>${esc(p.categoria)}</small><span class="lim" data-lim="${k}">${esc(LIM[k] || "")}</span></span>${rng}`
@@ -1002,32 +1494,40 @@ function resultadosCon(c) {
   return `<div class="res">${r.join("")}</div>`;
 }
 function pintarProp() {
-  $("cajon").hidden = !sel;
+  if (fichaOculta && !(sel && (sel.id === fichaOculta))) fichaOculta = null;
+  $("cajon").hidden = !sel || (!!fichaOculta && sel.id === fichaOculta);
+  const editaIns = EDIT_INS() && sel && (sel.t === "ins" || sel.t === "sen");      // PAT 142: Propiedades del instrumento en Lazos de control
+  $("cajon").querySelector("h3").textContent = SOLO() && !editaIns ? "Ficha" : "Propiedades";
+  const largo = !!(SOLO() && sel && ELEC() && objCompDe(sel.id) && !$("cajon").hidden);           // PAT 140 c: ficha comparativa más alta
+  $("cajon").classList.toggle("largo", largo); $("lienzo").classList.toggle("con-ficha", largo);
+  if (SOLO() && !editaIns) { $("prop").innerHTML = fichaSolo(); firmaProp = ""; return; }          // PAT 138: sin campos editables
   let h = "", firma = "";
   if (sel && sel.t === "eq") {
     const e = eqPor(sel.id);
     const cap = e.params.filter(p => ["capacidad", "estado", "costo", "consumo_especifico"].includes(p.clave));
-    const otros = e.params.filter(p => !cap.includes(p));
+    const textos = e.params.filter(p => p.tipo === "texto");          // PAT 140: modelo, materia y etiquetas de corrientes
+    const otros = e.params.filter(p => !cap.includes(p) && p.tipo !== "texto");
     firma = "eq:" + e.id + ":" + e.params.map(p => p.clave + (p.fijado ? "f" : "") + p.tipo).join(",");
     h = `<div class="cab"><svg width="38" height="38" viewBox="-4 -4 68 68">${e.simbolo}</svg><div><b>${esc(e.id)} · ${esc(e.nombre_tipo)}</b><span>${esc(e.simbolo_nombre)} · ISO 10628 cat. ${e.categoria}, letra ${e.letra}</span></div></div>`
-      + `<div class="fila solo"><span class="et">Nombre del equipo</span><input type="text" data-k="n:${e.id}" data-ev="renombrar" data-id="${e.id}" value="${esc(e.nombre)}"></div>`
+      + `<div class="secs"><section class="sec"><div class="fila solo"><span class="et">Nombre del equipo</span><input type="text" data-k="n:${e.id}" data-ev="renombrar" data-id="${e.id}" value="${esc(e.nombre)}"></div>`
       + ayudaHTML(AYUDA_RES_EQ, "margin:2px 0 0", "Resultados del equipo")   // PAT 134: «?» de la tabla
-      + `<div id="res-sel">${resultadosEq(e)}</div>`
-      + (cap.length ? `<h4>Capacidad · teoría de restricciones</h4>${cap.map(p => filaParam(e, p)).join("")}` : "")
-      + (otros.length ? `<h4>Parámetros de proceso</h4>${otros.map(p => filaParam(e, p)).join("")}` : "")
-      + ayudaHTML("Las etiquetas de texto y la posición exacta se editan en el formulario de abajo.", "margin:4px 0 6px")
-      + `<button class="peligro" data-accion="quitar">Eliminar equipo (Supr)</button>`;
+      + `<div id="res-sel">${resultadosEq(e)}</div></section>`
+      + (cap.length ? `<section class="sec"><h4>Capacidad · teoría de restricciones</h4>${cap.map(p => filaParam(e, p)).join("")}</section>` : "")
+      + (textos.length ? `<section class="sec"><h4>Modelo y etiquetas</h4>${textos.map(p => filaParam(e, p)).join("")}</section>` : "")
+      + (otros.length ? `<section class="sec"><h4>Parámetros de proceso</h4>${otros.map(p => filaParam(e, p)).join("")}</section>` : "")
+      + `<section class="sec">` + ayudaHTML("La posición del equipo se cambia arrastrándolo en el lienzo.", "margin:4px 0 6px")
+      + `<button class="peligro" data-accion="quitar">Eliminar equipo (Supr)</button></section></div>`;
   } else if (sel && sel.t === "con") {
     const c = conPor(sel.clave);
     firma = "con:" + c.clave;
     h = `<div class="cab"><svg width="38" height="38" viewBox="0 0 38 38"><path d="M4 19 H30" stroke="${c.color}" stroke-width="4"${c.tipo === "vapor" ? ' stroke-dasharray="6 3"' : ""}/><path d="M28 13 L36 19 L28 25Z" fill="${c.color}"/></svg>`
       + `<div><b>Corriente ${esc(c.nombre || "sin número")}</b><span>${esc(c.tipo_txt)} · ${esc(c.origen)}.${esc(c.puerto_origen)} → ${esc(c.destino)}.${esc(c.puerto_destino)}</span></div></div>`
-      + ayudaHTML(AYUDA_RES_CON, "margin:2px 0 0", "Resultados de la corriente")   // PAT 134: «?» de la tabla
-      + `<div id="res-sel">${resultadosCon(c)}</div>`
+      + `<div class="secs"><section class="sec">` + ayudaHTML(AYUDA_RES_CON, "margin:2px 0 0", "Resultados de la corriente")   // PAT 134: «?» de la tabla
+      + `<div id="res-sel">${resultadosCon(c)}</div></section><section class="sec">`
       + `<div class="fila"><span class="et">Reparto del caudal de salida [%]</span><input type="range" data-k="c:${c.clave}:r" data-ev="reparto" data-clave="${esc(c.clave)}" min="0" max="100" step="1" value="${c.reparto}">`
       + `<input type="number" data-k="c:${c.clave}" data-ev="reparto" data-clave="${esc(c.clave)}" min="0" max="100" step="any" value="${c.reparto}"></div>`
       + `<div class="fila solo"><span class="et">Número de corriente (ISO 10628)</span><input type="text" data-k="cn:${c.clave}" data-ev="nombre_corriente" data-clave="${esc(c.clave)}" value="${esc(c.nombre)}"></div>`
-      + `<button class="peligro" data-accion="quitar">Quitar conexión (Supr)</button>`;
+      + `<button class="peligro" data-accion="quitar">Quitar conexión (Supr)</button></section></div>`;
   } else if (sel && sel.t === "ins") {    // PAT 134
     const i = insPor(sel.id), {x, y, dx, dy, auto, ...resto} = i;
     firma = "ins:" + JSON.stringify(resto) + "|" + D.equipos.map(q => q.id).join(",") + "|" + D.conexiones.map(c => c.clave).join(",") + "|" + insLista().map(q => q.id).join(",");
@@ -1046,6 +1546,167 @@ function pintarProp() {
     if (rs && sel && (sel.t === "eq" || sel.t === "con")) rs.innerHTML = sel.t === "eq" ? resultadosEq(eqPor(sel.id)) : resultadosCon(conPor(sel.clave));
     actualizarValores($("prop"));
   } else { $("prop").innerHTML = h; firmaProp = firma; }
+}
+// PAT 138: ficha de solo lectura (Planta real y Equipos auxiliares)
+const filaF = (a, b) => `<span>${esc(a)}</span><span>${esc(b)}</span>`;
+const pctF = (v, d = 2) => v == null ? "—" : fmt(100 * v, d) + " %";
+const usdF = v => v == null ? "sin referencia" : "US$ " + fmt(v, 0);
+function auxDeEquipo(id) {
+  const a = auxD();
+  return [...a.bombas.filter(x => !x.en_diagrama && (x.origen === id || x.destino === id)).map(x => [x.id, `bomba de la línea ${x.linea}`]),
+    ...a.estanques.filter(x => x.antes === id || x.despues === id).map(x => [x.id, `estanque pulmón entre ${x.antes} y ${x.despues}`]),
+    ...a.valvulas.filter(x => !x.en_diagrama && x.equipo === id).map(x => [x.id, "válvula de control"])];
+}
+function fichaAux(id) {
+  const [t, x] = auxPor(id); if (!t) return "";
+  const cab = (sim, tit, sub, vb = "-20 -18 40 34") => `<div class="cab"><svg width="38" height="38" viewBox="${vb}">${sim}</svg><div><b>${esc(tit)}</b><span>${esc(sub)}</span></div></div>`;
+  if (t === "bomba") return cab(SIM_AUX.bomba(), `${x.id} · Bomba centrífuga`, `Línea ${x.linea}: ${x.origen} → ${x.destino}`)
+    + `<div class="res">${[filaF("Caudal", fmt(x.Q_m3h, 1) + " m³/h"), filaF("Altura", fmt(x.H_m, 1) + " m"), filaF("Diámetro interno", fmt(x.D_mm, 0) + " mm"),
+      filaF("Potencia", fmt(x.potencia_kW, 1) + " kW"), filaF("Costo comprado", usdF(x.costo_usd)), filaF("Válvulas", "2 de bloqueo y 1 de retención")].join("")}</div>`
+    + `<div class="nota">Red hidráulica de la planta (motor/hidraulica.py). Costo: ${esc(x.fuente || "—")}. Válvulas por bomba: Supuesto de motor/auxiliares.py.</div>`;
+  if (t === "valvula") return cab(SIM_AUX.vc(0), `${x.id} · Válvula de control`, x.nombre)
+    + `<div class="res">${[filaF("Cv", x.Cv != null ? fmt(x.Cv, 1) : "—"), filaF("Equipo del lazo", x.equipo || "—"), filaF("Costo comprado", usdF(x.costo_usd))].join("")}</div>`
+    + (x.nota ? `<div class="nota">${esc(x.nota)}</div>` : "");
+  return cab(SIM_AUX.estanque(), `${x.id} · Estanque pulmón`, `Entre ${x.antes} y ${x.despues}`)
+    + `<div class="res">${[filaF("Capacidad adoptada", fmt(x.masa_t, 1) + " t"), filaF("Volumen útil", fmt(x.v_util_m3, 1) + " m³"), filaF("Volumen geométrico", fmt(x.v_geo_m3, 1) + " m³"),
+      filaF("Diámetro", fmt(x.D_m, 2) + " m"), filaF("Altura", fmt(x.H_m, 2) + " m"), filaF("Costo comprado", usdF(x.costo_usd))].join("")}</div>`
+    + `<div class="nota">Dimensionado por ${esc({residencia: "tiempo de residencia", falla: "pulmón por falla", mayor: "el mayor de los dos métodos"}[x.metodo] || x.metodo || "—")}; costo Supuesto escalado con Williams (motor/auxiliares.py).</div>`;
+}
+// PAT 140 g: «Conectar después»: línea que sirve una bomba (lista) y vuelta del símbolo a su línea
+const nombreEq = id => { const e = D && eqPor(id); return e ? `${e.id} ${e.nombre}` : String(id || ""); };
+function controlesAux(id) {
+  if (!ELEC() || D.vista !== "auxiliares") return "";
+  const [t, x] = auxPor(id); if (!t) return "";
+  let h = "";
+  if (t === "bomba" && !x.en_diagrama && x.con) {
+    const ls = auxD().bombas.filter(b => !b.en_diagrama && b.con);
+    h += `<div class="fila solo"><span class="et">Línea que sirve</span><select data-linea-aux="${esc(id)}" style="width:100%">`
+      + ls.map(b => `<option value="${esc(b.con)}"${b.con === x.con ? " selected" : ""}>${esc(`Línea ${b.linea}: ${nombreEq(b.origen)} → ${nombreEq(b.destino)} (${fmt(b.Q_m3h, b.Q_m3h >= 100 ? 0 : 1)} m³/h)`)}</option>`).join("")
+      + `</select></div><div class="nota">Al cambiar la línea, ${esc(id)} toma el caudal, la altura, el diámetro nominal (DN) y la potencia de la nueva línea, y la bomba que estaba en ella pasa a la línea que ${esc(id)} deja, porque cada línea de líquido lleva una bomba. Se recalculan los candidatos y el C de las dos. También puede arrastrar la bomba sobre otra línea del lienzo.</div>`;
+  } else if (t === "bomba") h += `<div class="nota">${esc(id)} es un equipo del diagrama: su línea se cambia en Planta ficticia (Diseño).</div>`;
+  else h += `<div class="nota">${t === "valvula" ? "La válvula de control pertenece a su lazo de control" : "El estanque pulmón va entre sus dos equipos"}: su símbolo se mueve arrastrándolo y sigue unido a su línea.</div>`;
+  if (x.pos) h += `<button data-reubicar-aux="${esc(id)}" style="margin-top:4px">Volver a su lugar sobre la línea</button>`;
+  return `<section class="sec"><h4>Conexión</h4>${h}</section>`;
+}
+$("prop").addEventListener("change", ev => {
+  const s2 = ev.target.closest("[data-linea-aux]"); if (!s2) return;
+  emitir("conectar_aux", {id: s2.dataset.lineaAux, con: s2.value, pos: null});
+});
+$("prop").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-reubicar-aux]"); if (!b) return;
+  const id = b.dataset.reubicarAux;
+  emitir("mover_aux", {id, pos: null}); ponerPos(id, null); pintarTodo();
+});
+// PAT 139b: costo total y disponibilidad del candidato elegido para un equipo o auxiliar (elección en vivo), para la ficha
+function costoElegido(id) {
+  if (!ELEC()) return "";
+  const o = objetivos().find(x => (x.dianas || []).includes(id)); if (!o) return "";
+  const c = (o.candidatos || []).find(x => x.id === o.elegido);
+  if (!c) return `<section class="sec"><h4>Costo total y disponibilidad</h4><div class="nota">${o.elegido ? `Elegido: ${esc(o.etq_elegido || o.elegido)} (fuera de la lista vigente).` : "Sin candidato elegido."}</div></section>`;
+  const us = v => v == null ? "—" : "US$ " + fmt(v, 0);
+  return `<section class="sec"><h4>Costo total y disponibilidad</h4><div class="res">${[filaF("Candidato elegido", c.etq), filaF("Fabricante", c.fab || "sin dato"),
+    filaF("Unidades (n) y necesarias (k)", `${c.n} y ${c.k}`), filaF("C_inv (por año)", us(c.Ci)), filaF("C_op (por año)", us(c.Co)), filaF("C_inef (por año)", us(c.Cf)),
+    filaF("C = C_inv + C_op + C_inef", us(c.C)), filaF("Disponibilidad A", pctF(c.A)), filaF("η en operación", pctF(c.eta, 1)), filaF("Origen", c.org || "—")].join("")}</div>`
+    + `<div class="nota">Fuente: ${md(c.fuente || "sin dato")}${c.url ? ` (${esc(c.url)})` : ""}. Costos en US$ por año (motor/costo_total.py).</div></section>`;
+}
+// PAT 140 c: ficha comparativa de las 3 opciones de una etapa (o de un auxiliar). Los textos ya vienen del motor (motor/tres_opciones.py).
+const COL_OP = ["#2a78d6", "#c98c31", "#1b7a5a"];
+function objCompDe(id) { return objetivos().find(o => (o.dianas || []).includes(id) && o.comparacion && (o.comparacion.opciones || []).length) || null; }
+function svgCurvas(cu, req, unidad, solo, W = 300, H = 170) {
+  // η/η_max contra la producción de la etapa, con la misma escala en todas (eje x de 0 a cu.x[último], eje y de y_min a y_max)
+  const x0 = 34, y0 = H - 30, ww = W - x0 - 10, hh = H - 46, xmax = cu.x[cu.x.length - 1] || 1, ymin = cu.y_min, ymax = cu.y_max, o = [];
+  const X = v => x0 + ww * v / xmax, Y = v => y0 - hh * (v - ymin) / (ymax - ymin);
+  o.push(`<path d="M${x0} ${y0 - hh - 4} V${y0} H${x0 + ww + 4}" fill="none" stroke="#8099a5"/>`);
+  for (let i = 0; i <= 4; i++) { const v = xmax * i / 4; o.push(`<text x="${X(v)}" y="${y0 + 12}" font-size="9" text-anchor="middle" fill="#5b7280">${fmt(v, v < 10 ? 1 : 0)}</text>`); }
+  for (const v of [0.4, 0.6, 0.8, 1.0]) { const y = Y(v); o.push(`<text x="${x0 - 3}" y="${y + 3}" font-size="9" text-anchor="end" fill="#5b7280">${fmt(100 * v, 0)}</text><path d="M${x0} ${y} H${x0 + ww}" stroke="#e3ecef"/>`); }
+  o.push(`<path d="M${X(req)} ${y0 - hh} V${y0}" stroke="#5b7280" stroke-dasharray="3 3"/><text x="${X(req) + 3}" y="${y0 - hh + 9}" font-size="8.5" fill="#5b7280">requerida</text>`);
+  o.push(`<text x="${x0 + ww / 2}" y="${y0 + 24}" font-size="9.5" text-anchor="middle" fill="#30505f">Producción de la etapa (${esc(unidad)})</text>`);
+  o.push(`<text x="${x0}" y="9" font-size="9.5" fill="#30505f">η/η_max (%)</text>`);
+  cu.series.forEach((s, i) => {
+    if (solo != null && solo !== i) return;
+    const pts = cu.x.map((v, j) => `${X(v).toFixed(1)},${Y(s.eta[j]).toFixed(1)}`).join(" ");
+    o.push(`<polyline points="${pts}" fill="none" stroke="${COL_OP[i % 3]}" stroke-width="${solo != null ? 2.4 : 2}"${solo == null && i ? ` stroke-dasharray="${i === 1 ? "6 3" : "2 2"}"` : ""}><title>${esc(s.etq)}</title></polyline>`);
+    if (s.diseno_x != null) o.push(`<path d="M${X(s.diseno_x)} ${Y(1) - 5} l5 5 l-5 5 l-5 -5 Z" fill="#fff" stroke="${COL_OP[i % 3]}" stroke-width="1.4"><title>Punto de diseño: ${fmt(s.diseno_x, 1)} ${esc(unidad)}</title></path>`);
+    o.push(`<circle cx="${X(s.op.x)}" cy="${Y(s.op.eta)}" r="4.5" fill="${COL_OP[i % 3]}" stroke="#fff"><title>Operación: ${fmt(s.op.x, 1)} ${esc(unidad)}, η/η_max ${fmt(100 * s.op.eta, 1)} %</title></circle>`);
+  });
+  if (solo != null) { const s = cu.series[solo]; o.push(`<text x="${x0 + 4}" y="${H - 2}" font-size="9" fill="#406273">Operación: η/η_max ${fmt(100 * s.op.eta, 1)} %</text>`); }
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${o.join("")}</svg>`;
+}
+function fichaComparativa(o) {
+  const cp = o.comparacion, ops = cp.opciones, n = ops.length, cands = o.candidatos || [];
+  let h = `<div class="nota" style="margin:2px 0 6px">${esc(o.req || "")}. Compare fila por fila (en verde suave, el valor más conveniente de cada fila) y elija una. Las demás opciones de la etapa están en la tabla «Todas las opciones» bajo el lienzo${o.n_todos ? ` (${o.n_todos} en total)` : ""}.</div>`;
+  if (cp.curva) {
+    const ayC = cp.ayuda_curvas || `Círculo: punto de operación de cada opción; rombo: punto de diseño. ${cp.curva.fuente || ""}${cp.nota_curvas ? " " + cp.nota_curvas : ""}`;
+    h += `<div class="comp-graf"><details class="ayuda"><summary><b style="font-size:13px">Curva de eficiencia de las ${n} opciones (misma escala)</b><span class="qi" title="Cómo leer el gráfico: clic para ver u ocultar">ⓘ</span></summary><div class="ayuda-txt">${esc(ayC)}</div></details><div class="comp-ley">`
+      + ops.map((x, i) => `<span><i style="background:${COL_OP[i % 3]}"></i>Opción ${i + 1}: ${esc(x.titulo)}</span>`).join("") + `</div>`
+      + `<div style="max-width:620px">${svgCurvas(cp.curva, cp.requerida, cp.unidad, null, 560, 210)}</div>`
+      + `</div>`;   // PAT 140 d: el único gráfico de curvas de la ficha; PAT 140 e: su texto explicativo va en el ⓘ del título, cerrado por defecto
+  }
+  h += `<div class="comp" style="--nop:${n}"><div class="c-h">Opción</div>`;
+  ops.forEach((x, i) => {
+    h += `<div class="c-h" style="border-top:4px solid ${COL_OP[i % 3]}">Opción ${i + 1}: ${esc(x.titulo)}${o.elegido === x.id ? '<span class="c-apl">Aplicada</span>' : ""}`
+      + `<small>${esc(x.fabricante)} · ${esc(x.origen)}</small>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(corto(x.url, 48))}</a>` : ""}</div>`;
+  });
+  for (const sc of cp.secciones || []) {
+    h += `<div class="c-sec">${esc(sc.titulo)}</div>`;
+    for (const f of sc.filas) {
+      h += `<div class="c-et"${f.ayuda ? ` title="${esc(f.ayuda)}"` : ""}>` + (f.info   // PAT 140 e: ⓘ con el para qué y el por qué (clic o toque; funciona en pantalla táctil)
+        ? `<details class="ayuda"><summary><span>${esc(f.etq)}</span><span class="qi" title="Cómo se calcula y para qué sirve: clic para ver u ocultar">ⓘ</span></summary><div class="ayuda-txt">${esc(f.info)}</div></details>`
+        : esc(f.etq)) + `</div>`;
+      f.valores.forEach((v, i) => { const al = /^US\$/.test(v) ? " usd" : (/^\d/.test(v) ? "" : " txt"); h += `<div class="c-v${al}${f.conveniente[i] ? " conv" : ""}">${esc(v)}</div>`; });   // plata a la derecha, números al centro, texto a la izquierda
+    }
+    if (sc.nota) h += `<div class="c-nota">${esc(sc.nota)}</div>`;
+  }
+  h += `<div class="c-et"><b>Elegir</b></div>` + ops.map(x => { const c = cands.find(y => y.id === x.id), ap = o.elegido === x.id;
+    return `<div><button class="prim c-elegir" data-elegir-op="${esc(x.id)}" data-obj="${esc(o.id)}"${c && !ap ? "" : " disabled"}>${ap ? "Aplicada" : "Elegir esta opción"}</button></div>`; }).join("");
+  h += `</div>`;
+  // PAT 140 e: sin la regla de las 3 opciones ni la base de cálculo (sus cifras están en los ⓘ de «Costo total»)
+  return h;
+}
+function fichaSolo() {
+  const nota = ELEC() ? ""     // PAT 140 e: sin la línea «Las conexiones se cambian en Planta ficticia…»
+    : LAZOS() ? '<div class="nota" style="margin-top:6px">Los equipos y las corrientes se cambian en Planta ficticia (Diseño). Aquí se sueltan los lazos típicos sobre un equipo y se editan los instrumentos.</div>'   // PAT 142
+    : '<div class="nota" style="margin-top:6px">Los equipos y las conexiones se cambian en Planta ficticia (Diseño); la selección comercial, en Planta real.</div>';
+  if (!sel) return `<div class="nota">Haga clic en un equipo${D.vista === "auxiliares" ? ", una bomba, una válvula o un estanque" : ""} para ver su ficha.</div>` + nota;
+  const oc = ELEC() && (sel.t === "eq" || sel.t === "aux") ? objCompDe(sel.id) : null;       // PAT 140 c: 3 opciones en columnas
+  if (oc) {
+    let cab = "";
+    if (sel.t === "aux") { const f = fichaAux(sel.id); cab = f.slice(0, f.indexOf("</div></div>") + 12) + controlesAux(sel.id); }   // PAT 140 g
+    else { const e = eqPor(sel.id); if (e) cab = `<div class="cab"><svg width="38" height="38" viewBox="-4 -4 68 68">${e.simbolo}</svg><div><b>${esc(e.id)} · ${esc(e.nombre)}</b><span>${esc(e.nombre_tipo)} · ISO 10628 cat. ${e.categoria}, letra ${e.letra}</span></div></div>`; }
+    return cab + `<div class="nota" style="font-weight:600;color:#25485a">Comparación de las ${(oc.comparacion.opciones || []).length} opciones</div>` + fichaComparativa(oc) + nota;
+  }
+  if (sel.t === "aux") {
+    const f = fichaAux(sel.id), k = f.indexOf("</div></div>") + 12;      // cabecera aparte, datos en columnas
+    return f.slice(0, k) + `<div class="secs"><section class="sec"><h4>Datos del equipo auxiliar</h4>${f.slice(k)}</section>${controlesAux(sel.id)}${costoElegido(sel.id)}${nota ? `<section class="sec">${nota}</section>` : ""}</div>`;
+  }
+  if (sel.t === "eq") {
+    const e = eqPor(sel.id); if (!e) return "";
+    let h = `<div class="cab"><svg width="38" height="38" viewBox="-4 -4 68 68">${e.simbolo}</svg><div><b>${esc(e.id)} · ${esc(e.nombre)}</b><span>${esc(e.nombre_tipo)} · ISO 10628 cat. ${e.categoria}, letra ${e.letra}</span></div></div>`
+      + `<div class="secs"><section class="sec">` + ayudaHTML(AYUDA_RES_EQ, "margin:2px 0 0", "Resultados del equipo") + resultadosEq(e) + "</section>";
+    const R = realDe(e);
+    if (R && R.seleccion) h += "<section class=\"sec\"><h4>Selección comercial</h4><div class=\"res\">" + [filaF("Modelo y fabricante", R.modelo), filaF("Unidades en paralelo (n)", String(R.n)),
+      filaF("Necesarias (k)", String(R.k)), filaF("Capacidad por unidad", fmt(R.capacidad_unidad, 2) + " t/h"), filaF("Capacidad instalada", fmt(R.capacidad_instalada, 2) + " t/h"),
+      filaF("MTBF de una unidad", fmt(R.mtbf_h, 0) + " h"), filaF("MTTR de una unidad", fmt(R.mttr_h, 1) + " h"), filaF("Disponibilidad de una unidad", pctF(R.A_unidad)),
+      filaF(`Disponibilidad de la etapa (${R.k} de ${R.n})`, pctF(R.A_etapa))].join("") + `</div><div class="nota">Fuente: ${md(R.fuente || "—")}${R.categoria ? ` (${esc(R.categoria)})` : ""}.</div></section>`;
+    else if (R) h += `<section class="sec"><h4>Selección comercial</h4>` + (ELEC() ? '<div class="nota" style="color:#7a4b0c">Sin equipo real elegido: arrastre al lienzo un candidato de esta etapa (lista de la izquierda) o haga clic en él.</div>'
+      : '<div class="nota" style="color:#7a4b0c">Sin selección comercial: aplique una combinación en Planta real (abajo del lienzo de esa pantalla).</div>') + "</section>";
+    h += costoElegido(e.id);
+    const CE = D.curva_eficiencia, ce = CE && CE.etapas ? CE.etapas.find(x => x.id === e.id) : null;
+    if (ce) h += `<section class="sec"><h4>Eficiencia en operación</h4><div class="res">${[filaF("Carga por unidad en operación", pctF(ce.carga_rel, 1) + " del punto de diseño"),
+      filaF("Eficiencia relativa η/η_max", pctF(ce.eta_op, 1)), filaF("Punto de diseño por unidad", fmt(ce.q_diseno_t_h, 2) + " t/h")].join("")}</div><div class="nota">Curva η(q) de motor/costo_total.py (Supuesto «a_curva»); ver la curva de eficiencia bajo el lienzo.</div></section>`;
+    const ax = D.vista === "auxiliares" ? auxDeEquipo(e.id) : [];
+    if (ax.length) h += "<section class=\"sec\"><h4>Equipos auxiliares</h4>" + ax.map(([id, txt]) => `<div class="nota"><a href="#" data-ver-aux="${esc(id)}">${esc(id)}</a>: ${esc(txt)}</div>`).join("") + "</section>";
+    return h + (nota ? `<section class="sec">${nota}</section>` : "") + `</div>`;
+  }
+  if (sel.t === "con") {
+    const c = conPor(sel.clave); if (!c) return "";
+    return `<div class="cab"><svg width="38" height="38" viewBox="0 0 38 38"><path d="M4 19 H30" stroke="${c.color}" stroke-width="4"/><path d="M28 13 L36 19 L28 25Z" fill="${c.color}"/></svg>`
+      + `<div><b>Corriente ${esc(c.nombre || "sin número")}</b><span>${esc(c.tipo_txt)} · ${esc(c.origen)}.${esc(c.puerto_origen)} → ${esc(c.destino)}.${esc(c.puerto_destino)}</span></div></div>`
+      + `<div class="secs"><section class="sec"><h4>Resultados de la corriente</h4>${resultadosCon(c)}${DNC[c.clave] ? `<div class="nota">Cañería ${esc(DNC[c.clave])}.</div>` : ""}</section>${nota ? `<section class="sec">${nota}</section>` : ""}</div>`;
+  }
+  if (sel.t === "ins") { const i = insPor(sel.id); return i ? `<div class="cab"><svg width="44" height="48" viewBox="-26 -24 52 60">${i.svg}</svg><div><b>${esc(i.id)} · ${esc(i.simbolo_nombre)}</b><span>${esc(i.lectura)}</span></div></div>` + nota : ""; }
+  if (sel.t === "sen") { const [i, sn] = senPor(sel.clave); return i ? `<div class="nota">Señal ${esc(i.id)} → ${esc(nombreDestino(sn))} (${esc(sn.senal_nombre)}).</div>` + nota : ""; }
+  return nota;
 }
 function opciones(lst, val) {
   return lst.map(([v, t]) => `<option value="${esc(v)}"${String(v) === String(val ?? "") ? " selected" : ""}>${esc(t)}</option>`).join("");
@@ -1069,8 +1730,16 @@ function propIns(i) {
   h += campo("Ubicación", lista("ubicacion", i.ubicaciones.map(u => [u, (isa.ubicaciones || {})[u] || u])));
   h += campo("Descripción", txt("descripcion", "Qué mide o controla"));
   h += campo("Equipo", lista("equipo", [["", "Sin equipo"]].concat(D.equipos.map(q => [q.id, `${q.id} · ${q.nombre}`]))));
-  if (e) h += campo("Parámetro que mide o controla", lista("parametro", [["", "Ninguno"]].concat(e.params.map(p => [p.clave, p.nombre]))));
+  if (e) h += campo("Parámetro que mide o controla", lista("parametro", [["", "Ninguno"]].concat(e.params.filter(p => p.tipo !== "texto").map(p => [p.clave, p.nombre]))));
   if (i.isa51) h += campo("Elemento final de control", txt("elemento_final", "Por ejemplo TV-101"));
+  if (i.isa51) {                          // PAT 142: información mínima de ISA-5.4 (p. 32, requisitos 6 y 7; pp. 23, 26, 27 y 28)
+    const alims = [["", "Sin declarar"]].concat((isa.alimentaciones || []).map(a => [a, a]));
+    if (i.alimentacion && !alims.some(a => a[0] === i.alimentacion)) alims.push([i.alimentacion, i.alimentacion]);
+    h += `<h4>Datos del lazo ISA-5.4</h4>` + campo("Fuente de alimentación", lista("alimentacion", alims));
+    if (i.es_final) h += campo("Acción en falla", lista("accion_falla", [["", "Sin declarar"]].concat(Object.entries(isa.acciones_falla || {}))));
+    if (i.es_controlador) h += campo("Acción del controlador", lista("accion", [["", "Sin declarar"]].concat(Object.entries(isa.acciones || {}))))
+      + campo("Consigna con su unidad", txt("consigna", "Por ejemplo 95 °C"));
+  }
   h += `<h4>Líneas de señal ISA-5.1</h4><div class="senlista">` + (i.conexiones.map(s => `<div><span title="${esc(s.clave)}">→ ${esc(nombreDestino(s))}${s.parametro_nombre ? " · " + esc(corto(s.parametro_nombre, 22)) : ""}</span>`
     + `<select data-k="sn:${esc(s.clave)}" data-ev="senal_ins" data-clave="${esc(s.clave)}">${opciones(sen, s.senal)}</select><button data-quitar-sen="${esc(s.clave)}" title="Quitar la línea">×</button></div>`).join("")
     || `<span class="nota">Sin líneas propias${i.equipo ? `: se dibuja una línea de referencia tenue a ${esc(i.equipo)}` : ""}.</span>`) + "</div>";
@@ -1087,7 +1756,8 @@ function propSen(i, s) {
   const isa = D.isa || {}, e = s.tipo === "equipo" ? eqPor(s.destino) : null;
   let h = `<div class="cab"><svg width="38" height="38" viewBox="0 0 38 38">${lineaSenal({x: 3, y: 19}, {x: 35, y: 19}, s.senal, 1)}</svg><div><b>Señal ${esc(i.id)} → ${esc(nombreDestino(s))}</b><span>${esc(s.senal_nombre)} · ISA-5.1</span></div></div>`;
   h += `<div class="fila solo"><span class="et">Tipo de señal</span><select data-k="sn:${esc(s.clave)}" data-ev="senal_ins" data-clave="${esc(s.clave)}">${opciones(Object.entries(isa.senales || {}), s.senal)}</select></div>`;
-  if (e) h += `<div class="fila solo"><span class="et">Parámetro de ${esc(e.id)} que mide o controla</span><select data-k="sp:${esc(s.clave)}" data-ev="senal_par" data-clave="${esc(s.clave)}">${opciones([["", "Ninguno"]].concat(e.params.map(p => [p.clave, p.nombre])), s.parametro)}</select></div>`;
+  if (e) h += `<div class="fila solo"><span class="et">Parámetro de ${esc(e.id)} que mide o controla</span><select data-k="sp:${esc(s.clave)}" data-ev="senal_par" data-clave="${esc(s.clave)}">${opciones([["", "Ninguno"]].concat(e.params.filter(p => p.tipo !== "texto").map(p => [p.clave, p.nombre])), s.parametro)}</select></div>`;
+  if (s.entre_lazos) h += `<div class="fila solo"><span class="et">Relación entre lazos (une el lazo ${esc(i.lazo)} con otro lazo)</span><select data-k="sr:${esc(s.clave)}" data-ev="senal_rel" data-clave="${esc(s.clave)}">${opciones([["", "Sin relación"]].concat(Object.entries(isa.relaciones || {})), s.relacion)}</select></div>`;   // PAT 142
   h += `<button data-accion="ver-ins" data-id="${esc(i.id)}">Ver ${esc(i.id)}</button> <button class="peligro" data-accion="quitar">Quitar línea (Supr)</button>`;
   return h;
 }
@@ -1096,6 +1766,7 @@ function valorDe(inp) {
   if (d.ev === "ins") { const i = insPor(d.id); return i ? (i[d.campo] ?? "") : null; }          // PAT 134
   if (d.ev === "senal_ins") { const s = senPor(d.clave)[1]; return s ? s.senal : null; }
   if (d.ev === "senal_par") { const s = senPor(d.clave)[1]; return s ? s.parametro : null; }
+  if (d.ev === "senal_rel") { const s = senPor(d.clave)[1]; return s ? (s.relacion || "") : null; }     // PAT 142
   if (d.ev === "parametro") { const p = eqPor(d.id)?.params.find(p => p.clave === d.clave); return p ? (p.tipo === "bool" ? p.valor : p.valor) : null; }
   if (d.ev === "renombrar") return eqPor(d.id)?.nombre;
   if (d.ev === "reparto") return conPor(d.clave)?.reparto;
@@ -1119,10 +1790,11 @@ function actualizarValores(raiz) {
 function manejarEntrada(ev, inmediato, ms = 300) {
   const inp = ev.target; if (!inp.dataset || !inp.dataset.ev) return;
   const d = inp.dataset;
-  if (d.ev === "ins" || d.ev === "senal_ins" || d.ev === "senal_par") {        // PAT 134: se envían al confirmar
+  if (d.ev === "ins" || d.ev === "senal_ins" || d.ev === "senal_par" || d.ev === "senal_rel") {        // PAT 134: se envían al confirmar
     if (!inmediato || String(valorDe(inp) ?? "") === inp.value) return;
     if (d.ev === "ins") emitir("instrumento", {id: d.id, [d.campo]: inp.value});
     else if (d.ev === "senal_ins") emitir("senal", {clave: d.clave, senal: inp.value});
+    else if (d.ev === "senal_rel") emitir("senal", {clave: d.clave, relacion: inp.value || null});     // PAT 142
     else emitir("senal", {clave: d.clave, parametro: inp.value || null});
     return;
   }
@@ -1163,17 +1835,30 @@ $("prop").addEventListener("click", ev => {                     // PAT 134: lín
     return;
   }
   const v = ev.target.closest('[data-accion="ver-ins"]'); if (v) { sel = {t: "ins", id: v.dataset.id}; pintarTodo(); }
+  const va = ev.target.closest("[data-ver-aux]"); if (va) { ev.preventDefault(); sel = {t: "aux", id: va.dataset.verAux}; pintarTodo(); }   // PAT 138
 });
 $("prop").addEventListener("change", ev => {
   if (ev.target.id !== "s-dest") return;
   const [t, ...r] = ev.target.value.split("|"), e = t === "equipo" ? eqPor(r.join("|")) : null, sp = $("s-par");
-  sp.hidden = !e; sp.innerHTML = e ? opciones([["", "Parámetro que mide o controla (opcional)"]].concat(e.params.map(p => [p.clave, p.nombre])), "") : "";
+  sp.hidden = !e; sp.innerHTML = e ? opciones([["", "Parámetro que mide o controla (opcional)"]].concat(e.params.filter(p => p.tipo !== "texto").map(p => [p.clave, p.nombre])), "") : "";
+});
+$("prop").addEventListener("click", ev => {                     // PAT 140 c: «Elegir esta opción» de la ficha comparativa
+  const b = ev.target.closest("[data-elegir-op]"); if (!b || b.disabled) return;
+  const o = objetivos().find(x => x.id === b.dataset.obj), c = o && (o.candidatos || []).find(x => x.id === b.dataset.elegirOp);
+  if (o && c) elegir(o, c);
 });
 $("cerrar").onclick = () => { sel = null; pintarTodo(); };
 ["pointerdown", "wheel"].forEach(t => $("cajon").addEventListener(t, ev => ev.stopPropagation(), {passive: true}));
 
 const NOMBRES_GLOBALES = {T_final_residual: ["Temperatura final del calor residual", "°C", 10, 80, 1], dT_min: ["Diferencia mínima de temperatura", "K", 1, 30, 0.5]};
 function pintarVars() {
+  if (SOLO()) {                            // PAT 138: solo lectura
+    const f = D.alimentaciones.map(a => filaF(`Alimentación de ${a.id}`, fmt(a.valor, 2) + " t/h"))
+      .concat(D.especs.map(s => filaF(s.descripcion, fmt(s.valor, 2) + " " + s.unidad)))
+      .concat(Object.entries(D.globales).map(([k, v]) => filaF((NOMBRES_GLOBALES[k] || [k])[0], fmt(v, 1) + " " + ((NOMBRES_GLOBALES[k] || [k, ""])[1]))));
+    $("vars").innerHTML = (f.length ? `<div class="res">${f.join("")}</div>` : '<span class="nota">Sin variables de planta.</span>') + '<span class="nota">Se cambian en Planta ficticia (Diseño).</span>';
+    firmaVars = ""; return;
+  }
   let h = "", firma = "v:" + D.alimentaciones.map(a => a.id + a.editable).join(",") + "|" + D.especs.length + "|" + Object.keys(D.globales).join(",");
   for (const a of D.alimentaciones) {
     if (!a.editable) { h += `<div class="fila solo"><span class="et">Alimentación de ${esc(a.id)} [t/h]</span><span class="nota">${fmt(a.valor, 2)} t/h · la ajusta la especificación de producción</span></div>`; continue; }
@@ -1191,7 +1876,61 @@ function pintarVars() {
   else { $("vars").innerHTML = h || '<span class="nota">Sin variables de planta.</span>'; firmaVars = firma; }
 }
 
+// PAT 139b (pedido del profesor Torres, 14-11-2026): curva característica de eficiencia de la línea, η/η_max contra la producción,
+// con un máximo en el punto de diseño (motor/lienzo.curva_eficiencia_linea). Reemplaza a la recta «producción real contra
+// alimentación», que solo repetía la proporción del balance hasta el cuello de botella.
+const AYUDA_CURVA_EF = "<b>Cómo se lee.</b> Eje x: producción de la línea (t/h de producto), de 0 a la capacidad de la línea (donde se satura el recurso crítico). "
+  + "Eje y: eficiencia relativa η/η<sub>max</sub> (100 % = el equipo trabaja en su punto de diseño). Línea verde gruesa: eficiencia de la línea "
+  + "(energía ideal / energía real, ponderada por el consumo de cada etapa); naranja: el recurso crítico (o el equipo que usted seleccionó); "
+  + "grises: las demás etapas. Banda verde clara: zona de buen rendimiento (recurso crítico entre 70 % y 120 % de su punto de diseño). "
+  + "Rombo: punto de diseño de la línea (máximo de la curva). Círculo: punto de operación actual. Si el círculo queda a la izquierda del rombo, "
+  + "los equipos están sobredimensionados para esta producción y gastan más energía por tonelada (sube C_op); a la derecha, se acercan a su límite.<br>"
+  + "<b>Por qué esta curva.</b> Es la curva característica de eficiencia de la línea: la eficiencia tiene su máximo en el punto de diseño "
+  + "y cae al alejarse, como en la curva de una bomba con su punto de mejor eficiencia (<i>Pumps and Systems</i>, 2018, "
+  + "https://www.pumpsandsystems.com/sites/default/files/webinars/2018/0426/EfficientPumpSelectionandControl.pdf). La zona de 70 % a 120 % es la región "
+  + "de operación preferida del Hydraulic Institute, ANSI/HI 9.6.3 (https://www.introtopumps.com/pump-terms/por-preferred-operating-range/, consultado el "
+  + "14-11-2026), extendida como Supuesto a todos los equipos. La utilización de cada etapa frente a su capacidad efectiva, el otro gráfico de la "
+  + "gestión de operaciones para líneas en serie y en paralelo (el recurso de mayor utilización implícita es el cuello de botella; R. Caballero, "
+  + "<i>Process flow analysis</i>, Universidad Tecnológica de Panamá, https://www.academia.utp.ac.pa/sites/default/files/docente/541/l3_process_flow_analysis_0.pdf, "
+  + "consultado el 14-11-2026), está en «Capacidad efectiva y utilización» arriba. Curva de cada etapa: η(q) de motor/costo_total.py (Supuesto «a_curva» = 0,6).";
+function pintarCurvaEficiencia(CE, idRes) {
+  const W = 260, H = 158, x0 = 34, y0 = 122, ww = 204, hh = 104, o = [];
+  const xmax = Math.max(CE.capacidad_linea || 0, ...CE.x, 1e-6) * 1.02, ymin = 0, ymax = 1.0;
+  const X = v => x0 + ww * v / xmax, Y = v => y0 - hh * (v - ymin) / (ymax - ymin);
+  const pl = ys => CE.x.map((v, i) => `${X(v).toFixed(1)},${Y(ys[i]).toFixed(1)}`).join(" ");
+  if (CE.zona) o.push(`<rect x="${X(CE.zona[0])}" y="${y0 - hh}" width="${Math.max(0, X(CE.zona[1]) - X(CE.zona[0]))}" height="${hh}" fill="#2e9e5b" opacity=".10"/>`
+    + `<text x="${(X(CE.zona[0]) + X(CE.zona[1])) / 2}" y="${y0 - 4}" font-size="8" text-anchor="middle" fill="#2b7a4b">zona de buen rendimiento</text>`);
+  o.push(`<path d="M${x0} ${y0 - hh - 4} V${y0} H${x0 + ww + 4}" fill="none" stroke="#8099a5"/>`);
+  for (let i = 0; i <= 4; i++) { const v = xmax * i / 4, x = X(v); o.push(`<text x="${x}" y="${y0 + 12}" font-size="9" text-anchor="middle" fill="#5b7280">${fmt(v, v < 10 ? 1 : 0)}</text>`); }
+  for (let i = 0; i <= 4; i++) { const v = ymin + (ymax - ymin) * i / 4, y = Y(v); o.push(`<text x="${x0 - 3}" y="${y + 3}" font-size="9" text-anchor="end" fill="#5b7280">${fmt(100 * v, 0)}</text>`); if (i) o.push(`<path d="M${x0} ${y} H${x0 + ww}" stroke="#e3ecef"/>`); }
+  o.push(`<text x="${x0 + ww / 2}" y="${y0 + 24}" font-size="9.5" text-anchor="middle" fill="#30505f">Producción de la línea (t/h de producto)</text>`);
+  o.push(`<text x="${x0}" y="10" font-size="9.5" fill="#30505f">Eficiencia relativa η/η_max (%)</text>`);
+  const res = idRes || CE.critico;
+  for (const e of CE.etapas) if (e.id !== res) o.push(`<polyline points="${pl(e.eta)}" fill="none" stroke="#a9bcc5" stroke-width="1"><title>${esc(`${e.id} · ${e.nombre}`)}</title></polyline>`);
+  const er = CE.etapas.find(e => e.id === res);
+  if (er) o.push(`<polyline points="${pl(er.eta)}" fill="none" stroke="#d48d28" stroke-width="1.8"><title>${esc(`${er.id} · ${er.nombre}`)}</title></polyline>`);
+  o.push(`<polyline points="${pl(CE.eta_linea)}" fill="none" stroke="#167a80" stroke-width="2.6"><title>Eficiencia de la línea</title></polyline>`);
+  const d = CE.diseno, op = CE.operacion;
+  if (d && d.eta_linea != null) o.push(`<path d="M${X(d.produccion)} ${Y(d.eta_linea) - 5} l5 5 l-5 5 l-5 -5 Z" fill="#fff" stroke="#167a80" stroke-width="1.5"><title>Punto de diseño de la línea: ${fmt(d.produccion, 1)} t/h, η ${fmt(100 * d.eta_linea, 1)} %</title></path>`);
+  if (op && op.eta_linea != null) {
+    const eo = er ? (er.eta_op ?? op.eta_critico) : op.eta_critico;
+    o.push(`<path d="M${X(op.produccion)} ${Y(op.eta_linea)} V${y0}" stroke="#c98c31" stroke-dasharray="2 2"/>`);
+    if (er && eo != null) o.push(`<circle cx="${X(op.produccion)}" cy="${Y(eo)}" r="3.2" fill="#d48d28"/>`);
+    o.push(`<circle cx="${X(op.produccion)}" cy="${Y(op.eta_linea)}" r="4.5" fill="#d48d28" stroke="#fff"><title>Operación actual: ${fmt(op.produccion, 1)} t/h, η de la línea ${fmt(100 * op.eta_linea, 1)} %</title></circle>`);
+  }
+  o.push(`<text x="${x0 + 4}" y="${H - 2}" font-size="8.5" fill="#406273">Operación: ${fmt(op.produccion, 1)} t/h, η línea ${fmt(100 * op.eta_linea, 1)} %${er ? `, ${esc(er.id)} ${fmt(100 * (er.eta_op ?? 0), 1)} %` : ""}${op.sobrecarga ? " (sobrecarga)" : ""}</text>`);
+  $("curva").innerHTML = `<svg viewBox="0 0 ${W} ${H + 4}" width="100%">${o.join("")}</svg>`;
+}
 function pintarCurva() {
+  const CE = D.curva_eficiencia;
+  const e0 = sel && sel.t === "eq" ? eqPor(sel.id) : null;
+  if (CE && CE.x && CE.x.length && (!e0 || CE.etapas.some(x => x.id === e0.id))) {
+    const r = e0 ? CE.etapas.find(x => x.id === e0.id) : null;
+    $("curva-tit").textContent = r ? `Curva de eficiencia de ${r.id} y de la línea` : "Curva de eficiencia de la línea";
+    pintarCurvaEficiencia(CE, r ? r.id : null);
+    curvaAyuda(AYUDA_CURVA_EF, true);
+    return;
+  }
   const W = 260, H = 150, x0 = 34, y0 = 122, ww = 214, hh = 104, o = [];
   const e = sel && sel.t === "eq" ? eqPor(sel.id) : null;
   const ejes = (ymax, tity) => {
@@ -1217,21 +1956,11 @@ function pintarCurva() {
     o.push(`<circle cx="${X(100)}" cy="${Y(Math.min(base, ef ?? base))}" r="4.5" fill="#d48d28"/>`);
     $("curva").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${o.join("")}</svg>`;
     curvaAyuda("Línea azul: carga que le llega; verde: lo que procesa (hasta su capacidad efectiva). Punto: operación actual.");
-  } else if (D.curva) {
-    $("curva-tit").textContent = "Curva de capacidad de la línea";
-    const ymax = Math.max(...D.curva.map(p => p[1]), (D.kpis.produccion_t_h || 0) * 1.6, 0.001) * 1.08, Y = v => y0 - hh * v / ymax;
-    ejes(ymax, "Producción real (t/h)");
-    if (D.kpis.produccion_t_h != null) o.push(`<path d="M${X(0)} ${Y(0)} L${X(160)} ${Y(D.kpis.produccion_t_h * 1.6)}" stroke="#7aa6c2" stroke-dasharray="4 3" fill="none"/>`);
-    o.push(`<polyline points="${D.curva.map(p => X(p[0]) + "," + Y(p[1])).join(" ")}" fill="none" stroke="#167a80" stroke-width="2.6"/>`);
-    const act = D.curva.find(p => p[0] === 100);
-    if (act) o.push(`<circle cx="${X(100)}" cy="${Y(act[1])}" r="4.5" fill="#d48d28"/>`);
-    $("curva").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${o.join("")}</svg>`;
-    curvaAyuda("La producción sube con la alimentación hasta que el recurso crítico se satura; ahí la curva se aplana. Azul: sin restricciones.");
-  } else { $("curva-tit").textContent = "Curva de desempeño"; $("curva").innerHTML = '<span class="nota">Seleccione un equipo con carga.</span>'; curvaAyuda(""); }
+  } else { $("curva-tit").textContent = "Curva de desempeño"; $("curva").innerHTML = '<span class="nota">Resuelva la planta y declare capacidades para ver la curva de eficiencia de la línea.</span>'; curvaAyuda(""); }
 }
-function curvaAyuda(texto) {           // PAT 134: la lectura de la curva va en su «?»; sin curva no hay «?»
+function curvaAyuda(texto, html) {     // PAT 134: la lectura de la curva va en su «?»; sin curva no hay «?»
   const d = $("curva-det"), t = $("curva-ayuda");
-  if (t.textContent !== texto) t.textContent = texto;
+  if (html) { if (t.innerHTML !== texto) t.innerHTML = texto; } else if (t.textContent !== texto) t.textContent = texto;
   d.classList.toggle("sin-ayuda", !texto);
   if (!texto) d.open = false;
 }
@@ -1250,16 +1979,223 @@ let toastT = null;
 function md(s) { return esc(s).replace(/\*([^*\n]+)\*/g, "<i>$1</i>"); }   // PAT 135: *hot break* en cursiva
 function aviso(texto, tipo) {
   const malo = tipo === "error" || tipo === "aviso";       // PAT 134: «aviso» = valor acotado por el motor
-  const t = $("toast"); t.innerHTML = md(texto); t.className = "toast ver" + (malo ? " error" : "");
+  const t = $("toast"); t.innerHTML = md(texto); t.className = "toast ver" + (malo ? " error" : (tipo === "ok" ? " ok" : ""));   // PAT 140 g: verde
   clearTimeout(toastT); toastT = setTimeout(() => { t.className = "toast"; }, malo ? 5200 : 3600);
+}
+
+// ------------------------------------------------------------------ PAT 139 (punto 6): elección en vivo
+const objetivos = () => (ELEC() && D.eleccion.objetivos) || [];
+function objDeSel() {
+  if (!sel || (sel.t !== "eq" && sel.t !== "aux")) return null;
+  return objetivos().find(o => (o.dianas || []).includes(sel.id)) || null;
+}
+function fmtC(v) { return v == null ? "—" : fmt(v, 0); }
+function htmlCand(o, c) {
+  const elegido = o.elegido === c.id;
+  return `<div class="cand${elegido ? " elegido" : ""}" data-obj="${esc(o.id)}" data-cand="${esc(c.id)}" title="${esc(`${c.etq}${c.fab ? ". Fabricante: " + c.fab : ""}. Origen: ${c.org}.${c.url ? " " + c.url : ""} Arrástrelo al lienzo (se aplica a ${art(o.nombre_largo || o.id)}) o haga clic para aplicarlo.`)}">`
+    + `<div class="c-cab"><b>${elegido ? "✓ " : ""}${esc(c.etq)}</b><span class="c-num">C ${fmtC(c.C)}</span></div>`
+    + `<div class="c-det"><span><span class="c-org ${esc(c.org)}">${esc(c.org)}</span>${esc(c.fab || "sin fabricante")}</span><span>A ${c.A == null ? "—" : fmt(100 * c.A, 2) + " %"} · η ${c.eta == null ? "—" : fmt(100 * c.eta, 1) + " %"}</span></div>`
+    + `<div class="c-det"><span title="C_inv, C_op y C_inef en US$ por año">C_inv ${fmtC(c.Ci)} · C_op ${fmtC(c.Co)} · C_inef ${fmtC(c.Cf)}</span></div></div>`;
+}
+const ORDEN = {C: [1, "C"], Ci: [1, "Ci"], Co: [1, "Co"], Cf: [1, "Cf"], A: [-1, "A"], eta: [-1, "eta"]};
+function ordenar(cs) {                     // PAT 139b: el estudiante ordena la lista por la columna que quiera
+  const v = $("elec-orden").value || "C";
+  if (v === "org") return [...cs].sort((a, b) => String(a.org).localeCompare(String(b.org), "es") || (a.C ?? Infinity) - (b.C ?? Infinity));
+  const [sg, k] = ORDEN[v] || ORDEN.C;
+  return [...cs].sort((a, b) => (a[k] == null) - (b[k] == null) || sg * ((a[k] ?? 0) - (b[k] ?? 0)));
+}
+$("elec-orden").addEventListener("change", () => { pintarEleccion(); altura(); });
+function pintarEleccion() {
+  if (!ELEC()) return;
+  const os = objetivos(), act = objDeSel();
+  if (act && act.id !== objAnterior) { abiertos.add(act.id); }
+  objAnterior = act ? act.id : null;
+  $("elec-tit").textContent = D.eleccion.titulo || "Candidatos";
+  if (!os.length) {
+    $("elec-nota").textContent = D.equipos.length ? "No hay etapas con candidatos que elegir." : "La planta está vacía.";
+    $("elec-lista").innerHTML = ""; return;
+  }
+  const hechos = os.filter(o => o.elegido).length;
+  $("elec-nota").innerHTML = `${hechos} de ${os.length} elegidos. C, C_inv, C_op y C_inef en US$ por año.${act ? "" : " Clic en una etapa del lienzo para ver solo sus candidatos."}`;
+  const lista = act ? [act] : os;
+  let g0 = null;
+  $("elec-lista").innerHTML = lista.map(o => {
+    const el = (o.candidatos || []).find(c => c.id === o.elegido), abierto = !!act || abiertos.has(o.id);
+    const cab = (o.grupo && o.grupo !== g0 && !act) ? (g0 = o.grupo, `<div class="elec-grupo">${esc(o.grupo)}</div>`) : "";
+    return cab + `<div class="obj${act ? " sel" : ""}"><div class="obj-cab" data-abrir="${esc(o.id)}"><b>${abierto ? "▾" : "▸"} ${esc(o.nombre)}</b><br>`
+      + `<span class="nota">${esc(o.req || "")}</span> ${el ? `<span class="ok">✓ ${esc(corto(el.etq, 40))}</span>` : (o.elegido ? `<span class="ok">✓ ${esc(corto(o.etq_elegido || "elegido", 40))}</span>` : `<span class="falta">sin elegir</span>`)}</div>`
+      + (abierto ? ordenar(o.candidatos || []).map(c => htmlCand(o, c)).join("") || `<div class="nota" style="padding:4px 7px">Sin candidatos.</div>` : "")
+      + (abierto && o.n_todos > (o.candidatos || []).length ? `<div class="nota" style="padding:3px 7px">${(o.candidatos || []).length} opciones de distinto número de unidades, de ${o.n_todos}; las demás están en «Todas las opciones» bajo el lienzo. Clic en la etapa: ficha comparativa.</div>` : "") + `</div>`;   // PAT 140 c
+  }).join("") + (act ? `<div class="nota" style="margin-top:4px"><a href="#" data-todas="1">Ver todas las etapas</a></div>` : "");
+}
+function dianaEn(e) {                       // id del equipo, bomba, válvula o estanque bajo el puntero ("" = lienzo vacío; null = fuera)
+  const r = svgEl.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return null;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const a = el && el.closest ? el.closest("[data-aux]") : null; if (a) return a.dataset.aux;
+  const q = el && el.closest ? el.closest("[data-eq]") : null; if (q) return q.dataset.eq;
+  const eq = equipoEn(aMundo(e)); return eq ? eq.id : "";
+}
+// PAT 140 g: el candidato se suelta en cualquier lugar libre del lienzo (se aplica a su equipo, que queda ahí) o sobre otro equipo de la
+// misma clase con capacidad parecida (±20 %); mientras se arrastra, los destinos quedan marcados y el equipo elegido parpadea al soltar.
+let arrCand = null, parpadeo = null;
+function art(n) {                            // «la bomba P-101 …», «el estanque pulmón …», «la etapa F1 …»: el nombre dentro de una frase
+  const t = String(n || "");
+  for (const [p, a] of [["Bomba", "la"], ["Válvula", "la"], ["Generación", "la"], ["Etapa", "la"], ["Estanque", "el"]])
+    if (t.startsWith(p)) return `${a} ${t[0].toLowerCase()}${t.slice(1)}`;
+  return t;
+}
+const fmtQ = v => fmt(v, v >= 100 || Math.abs(v - Math.round(v)) < 1e-9 ? 0 : 1);
+function calzaJS(c, o2) {                     // igual que motor/eleccion_viva.calza
+  const cap = (c.cap || 0) * (c.k || 0), req = o2.requerida, u = o2.unidad ? " " + o2.unidad : "";
+  if (!cap || !req) return [false, "no se conoce su capacidad"];
+  const r = cap / req, base = `entrega ${fmtQ(cap)}${u} y necesita ${fmtQ(req)}${u}`;
+  if (Math.abs(r - 1) <= 0.2 + 1e-9) return [true, base];
+  return [false, base + (r < 1 ? `: le falta un ${fmt(100 * (1 - r), 0)} %` : `: queda un ${fmt(100 * (r - 1), 0)} % sobredimensionado`) + " (se acepta hasta 20 % de diferencia)"];
+}
+function destinosDe(o, c) {
+  const m = new Map();
+  for (const d of o.dianas || []) m.set(d, {tipo: "propio", o2: o});
+  for (const o2 of objetivos()) {
+    if (o2 === o || o2.clase == null || o2.clase !== o.clase || (o2.unidad || "") !== (o.unidad || "")) continue;
+    const [ok, motivo] = calzaJS(c, o2);
+    for (const d of o2.dianas || []) if (!m.has(d)) m.set(d, {tipo: ok ? "otro" : "nocalza", o2, motivo});
+  }
+  return m;
+}
+function movible(o) {                         // ¿el símbolo del equipo puede quedar donde se suelta el candidato?
+  const d = (o.dianas || []);
+  return d.length === 1 && modo === "layout" && o.clase !== "servicio" && (!!auxPor(d[0])[0] || !!eqPor(d[0]));
+}
+function textoDestino(o, c, dn, dest) {
+  const nom = o.nombre_largo || o.id, x = dest && dn ? dest.get(dn) : null;
+  if (dn === null) return `Suéltelo dentro del lienzo: se aplica a ${esc(art(nom))}.`;
+  if (dn === "") return `Se aplica a ${esc(art(nom))}` + (movible(o) ? (auxPor(o.dianas[0])[0] ? " y queda aquí, unida a su línea." : " y la etapa queda aquí, con sus líneas.") : ".");
+  if (x && x.tipo === "propio") return `Se aplica a ${esc(art(nom))}.`;
+  if (x && x.tipo === "otro") return `Se aplica a ${esc(art(x.o2.nombre_largo || x.o2.id))} (${esc(x.motivo)}).`;
+  if (x && LIBRE()) return `<span class="no">Se aplica a ${esc(art(x.o2.nombre_largo || x.o2.id))}, pero no calza: ${esc(x.motivo)}.</span>`;   // PAT 143
+  if (x) return `<span class="no">No calza en ${esc(art(x.o2.nombre_largo || x.o2.id))}: ${esc(x.motivo)}.</span>`;
+  return `<span class="no">${esc(nombreDe(dn))} es otro tipo de equipo: suéltelo en un lugar libre o sobre un equipo marcado.</span>`;
+}
+function nombreDe(id) {
+  const o = objetivos().find(x => (x.dianas || []).length === 1 && x.dianas[0] === id);
+  return o && o.nombre_largo ? o.nombre_largo : nombreEq(id);
+}
+function parpadear(id) {
+  parpadeo = {id, hasta: Date.now() + 2700};
+  setTimeout(() => { if (parpadeo && Date.now() >= parpadeo.hasta) { parpadeo = null; pintarSVG(); } }, 2800);
+}
+function pintarDestinos() {                  // anillos punteados de los destinos del arrastre y del equipo que parpadea
+  const g = [...$("svg").children].find(x => x.tagName.toLowerCase() === "g"); if (!g) return;
+  const k = vista.k, fs = Math.max(11, 9.5 / k), t = T(), h = [];
+  const anillo = (id, cls, etq, color) => {
+    const A = PAUX[id], P = POS[id];
+    let x, y, w;
+    if (A) { x = A.x - A.r; y = A.y - A.r; w = 2 * A.r; }
+    else if (P) { x = P.x - 14; y = P.y - 14; w = t + 28; }
+    else return;
+    h.push(`<rect class="${cls}" x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(w)}" rx="${f1(Math.min(14, w / 2))}"/>`);
+    if (etq) h.push(`<text class="etq-dest" x="${f1(x + w / 2)}" y="${f1(y - 6 / k)}" font-size="${f1(fs)}" text-anchor="middle" fill="${color}" paint-order="stroke" stroke="#fff" stroke-width="${f1(3.5 / k)}">${esc(etq)}</text>`);
+  };
+  if (arrCand) for (const [id, d] of arrCand.dest) if (d.tipo !== "nocalza" || LIBRE())       // PAT 143: con conexión libre, en naranjo
+    anillo(id, `anillo-dest ${d.tipo}${arrCand.sobre === id ? " sobre" : ""}`, id, d.tipo === "propio" ? "#1b7a5a" : (d.tipo === "nocalza" ? "#b45309" : "#1d4ed8"));
+  if (parpadeo && Date.now() < parpadeo.hasta) anillo(parpadeo.id, "parpadeo", "", "");
+  if (h.length) g.insertAdjacentHTML("beforeend", h.join(""));
+}
+function elegir(o, c, extra, o2) {
+  extra = extra || {};
+  emitir("elegir", Object.assign({objetivo: o.id, candidato: c.id}, extra));
+  const ob = o2 || o;
+  if (!o2) { o.elegido = c.id; o.etq_elegido = c.etq; } else ob.etq_elegido = c.etq;
+  if (extra.pos) ponerPos((o.dianas || [])[0], extra.pos);
+  const d = (ob.dianas || [])[0];
+  if (d) { sel = eqPor(d) ? {t: "eq", id: d} : (auxPor(d)[0] ? {t: "aux", id: d} : sel); if (sel) fichaOculta = sel.id; parpadear(d); }
+  aviso(`Se aplicó ${c.etq} a ${art(ob.nombre_largo || ob.id)}${extra.pos ? ", en el lugar donde lo soltó" : ""}.`, "ok"); pintarTodo();
+}
+function soltarCandidato(o, c, dn, pt, dest) {
+  const x = dest ? dest.get(dn) : null, nom = art(o.nombre_largo || o.id);
+  if (dn === "") {                                                // lugar libre: se aplica a su equipo, que queda ahí
+    const extra = {};
+    if (movible(o)) {
+      const id = o.dianas[0];
+      if (auxPor(id)[0]) { extra.pos = {x: pt.x / ESC.x, y: pt.y / ESC.y}; extra.diana = id; }
+      else extra.pos = {x: Math.max(0, (pt.x - T() / 2) / ESC.x), y: Math.max(0, (pt.y - T() / 2) / ESC.y)};
+    }
+    elegir(o, c, extra); return;
+  }
+  if (x && x.tipo === "propio") { elegir(o, c); return; }
+  if (x && x.tipo === "otro") { elegir(o, c, {destino: x.o2.id}, x.o2); return; }
+  if (x && LIBRE()) { elegir(o, c, {destino: x.o2.id}, x.o2); aviso(`Se aplicó ${c.etq} a ${art(x.o2.nombre_largo || x.o2.id)}, pero no calza: ${x.motivo}.`, "aviso"); return; }   // PAT 143
+  if (x) aviso(`No se aplicó ${c.etq} a ${art(x.o2.nombre_largo || x.o2.id)}: ${x.motivo}. Suéltelo en un lugar libre del lienzo para aplicarlo a ${nom}.`, "error");
+  else aviso(`${nombreDe(dn)} es otro tipo de equipo. Suelte el candidato en un lugar libre del lienzo (se aplica a ${nom}) o sobre un equipo marcado.`, "error");
+  pintarSVG();
+}
+$("elec-lista").addEventListener("click", ev => {
+  const t = ev.target.closest("[data-todas]"); if (t) { ev.preventDefault(); sel = null; pintarTodo(); return; }
+  const h = ev.target.closest("[data-abrir]"); if (!h) return;
+  const id = h.dataset.abrir;
+  if (objDeSel()) return;
+  if (abiertos.has(id)) abiertos.delete(id); else abiertos.add(id);
+  pintarEleccion(); altura();
+});
+$("elec-lista").addEventListener("pointerdown", ev => {
+  const it = ev.target.closest(".cand"); if (!it || ev.button !== 0 || !ELEC()) return;
+  const o = objetivos().find(x => x.id === it.dataset.obj), c = o && (o.candidatos || []).find(x => x.id === it.dataset.cand);
+  if (!c) return;
+  ev.preventDefault();
+  const f = document.createElement("div"); f.className = "fantasma cand-f"; f.style.display = "none";
+  f.innerHTML = `<b>${esc(c.etq)}</b><br><span class="nota"></span>`; document.body.appendChild(f);
+  const nt = f.querySelector(".nota");
+  const cd = {sx: ev.clientX, sy: ev.clientY, movido: false};
+  it.setPointerCapture(ev.pointerId);
+  const mover = e => {
+    if (Math.abs(e.clientX - cd.sx) + Math.abs(e.clientY - cd.sy) > 5) cd.movido = true;
+    if (!cd.movido) return;
+    if (!arrCand) { arrCand = {o, c, dest: destinosDe(o, c), sobre: undefined}; }
+    f.style.display = "block"; f.style.left = (e.clientX + 12) + "px"; f.style.top = (e.clientY + 8) + "px";
+    const dn = dianaEn(e);
+    $("lienzo").classList.toggle("arrastrando-cat", dn !== null);
+    if (dn !== arrCand.sobre) { arrCand.sobre = dn; nt.innerHTML = textoDestino(o, c, dn, arrCand.dest); pintarSVG(); }
+  };
+  const soltar = e => {
+    it.removeEventListener("pointermove", mover); it.removeEventListener("pointerup", soltar); it.removeEventListener("pointercancel", soltar);
+    f.remove(); $("lienzo").classList.remove("arrastrando-cat");
+    const dest = arrCand ? arrCand.dest : null; arrCand = null;
+    if (e.type === "pointercancel") { pintarSVG(); return; }
+    if (!cd.movido) { elegir(o, c); return; }                       // clic: se aplica a su equipo
+    const dn = dianaEn(e);
+    if (dn === null) { pintarSVG(); return; }                       // soltado fuera del lienzo: no pasa nada
+    soltarCandidato(o, c, dn, aMundo(e), dest || destinosDe(o, c));
+  };
+  it.addEventListener("pointermove", mover); it.addEventListener("pointerup", soltar); it.addEventListener("pointercancel", soltar);
+});
+function rotularElegidos() {                 // Equipos auxiliares: el modelo elegido junto a su bomba, válvula, estanque o caldera
+  const svg = $("svg"), g = [...svg.children].find(x => x.tagName.toLowerCase() === "g");
+  if (!g) return;
+  const r = svgEl.getBoundingClientRect(), fs = Math.max(9, 8 / vista.k);
+  let h = "";
+  for (const o of objetivos()) {
+    if (!o.elegido) continue;
+    const c = (o.candidatos || []).find(x => x.id === o.elegido), etq = c ? c.etq : (o.etq_elegido || "");
+    for (const d of (o.dianas || []).slice(0, 1)) {
+      const el = svg.querySelector(`[data-aux="${CSS.escape(d)}"]`) || svg.querySelector(`[data-eq="${CSS.escape(d)}"]`);
+      if (!el) continue;
+      const b = el.getBoundingClientRect();
+      const x = (b.left + b.width / 2 - r.left - vista.tx) / vista.k, y = (b.bottom - r.top - vista.ty) / vista.k + fs;
+      h += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${fs.toFixed(1)}" text-anchor="middle" fill="#1b7a5a" font-weight="600" pointer-events="none"><title>${esc(etq)}</title>✓ ${esc(corto(etq, 24))}</text>`;
+    }
+  }
+  if (h) g.insertAdjacentHTML("beforeend", h);
 }
 
 function pintarTodo() {
   if (!D) return;
-  pintarKPIs(); pintarSVG(); pintarBarras(); pintarProp(); pintarVars(); pintarCurva(); pintarCaja(); botonesHistorial();
+  if (SOLO()) pintarLeyenda();           // PAT 138: el resumen de servicios cambia con la planta
+  pintarKPIs(); pintarSVG(); pintarBarras(); pintarProp(); pintarVars(); pintarCurva(); pintarCaja(); botonesHistorial(); pintarEleccion();
   ajustarCatalogo(); altura();
 }
 function ajustarCatalogo() {          // PAT 135: el panel del catálogo llega hasta donde termina el lienzo (720 px)
+  if (SOLO() && !LAZOS()) return;       // PAT 138: sin catálogo en solo lectura (PAT 142: salvo Lazos de control)
   const lista = $("catalogo"), lz = $("lienzo");
   const alto = Math.round(lz.getBoundingClientRect().bottom - lista.getBoundingClientRect().top - 9);   // 8 px de relleno y 1 de borde del panel
   if (alto > 120 && Math.abs((parseFloat(lista.style.height) || 0) - alto) > 1) { lista.style.height = alto + "px"; lista.style.maxHeight = alto + "px"; }
@@ -1274,6 +2210,7 @@ $("b-pista").onclick = () => { pistaN += 1; caja = "pista"; pintarCaja(); altura
 $("b-sec").onclick = () => emitir("secuencia", {});
 $("b-cap").onclick = () => emitir("capacidades", {holgura: +$("b-holg").value, solo_vacias: true});
 $("b-guardar").onclick = () => emitir("guardar", {});
+$("b-generar").onclick = () => { if (ELEC()) emitir("generar", {}); };          // PAT 139
 $("b-deshacer").onclick = () => deshacer(); $("b-rehacer").onclick = () => rehacer(); $("b-duplicar").onclick = () => duplicar();
 $("z-mas").onclick = () => zoom(1.25); $("z-menos").onclick = () => zoom(0.8); $("z-ajustar").onclick = () => { vistaManual = false; ajustar(); };
 $("o-etq").onchange = ev => { ops.etq = ev.target.checked; pintarSVG(); };
@@ -1286,7 +2223,7 @@ function svgExportable() {
   const b = caja_bbox(), w = Math.ceil(b.x1 - b.x0), h = Math.ceil(b.y1 - b.y0 + 30);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${b.x0} ${b.y0 - 30} ${w} ${h}" font-family="Arial">`
     + `<rect x="${b.x0}" y="${b.y0 - 30}" width="${w}" height="${h}" fill="#fff"/>${defs()}`
-    + `<text x="${b.x0 + 10}" y="${b.y0 - 12}" font-size="13" font-weight="700">${esc(D.nombre)} · diagrama del simulador de planta</text>${mundo(true)}</svg>`;
+    + `<text x="${b.x0 + 10}" y="${b.y0 - 12}" font-size="13" font-weight="700">${esc(D.nombre)} · ${SOLO() ? esc(NOMBRE_VISTA[D.vista] || "") : "diagrama del simulador de planta"}</text>${mundo(true)}</svg>`;
 }
 function bajar(nombre, blob) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre;

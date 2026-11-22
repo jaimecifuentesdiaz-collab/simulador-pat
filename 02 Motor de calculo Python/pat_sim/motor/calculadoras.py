@@ -25,7 +25,7 @@ FACTOR_CO2_KG_TJ = {"Gas natural": 56100.0, "Diésel (gas oil)": 74100.0, "Gas l
 # PAT 133, mejora 11: valores de partida citables con su fecha
 FACTOR_RED_SEN = 0.2384     # t CO2e/MWh, Sistema Eléctrico Nacional 2023 (Coordinador Eléctrico Nacional, 11-01-2024); mismo de los Capítulos 2 a 4
 FUENTE_FACTOR_RED = ("0,2384 t CO2e/MWh: factor de emisión del Sistema Eléctrico Nacional de 2023, Coordinador Eléctrico Nacional, "
-                     "publicado el 11-01-2024 (el mismo de los Capítulos 2 a 4). Reemplácelo por el del año vigente cuando se publique")
+                     "publicado el 11-01-2024. Reemplácelo por el del año vigente cuando se publique")
 CEPCI_ACTUAL = 797.9        # promedio anual 2023 (Chemical Engineering, 25-03-2024); 2024 y 2025 solo con suscripción
 FUENTE_CEPCI = ("797,9: promedio anual 2023 del CEPCI (Chemical Engineering, 25-03-2024, de acceso libre). El promedio 2025 subió 1,6 % sobre "
                 "el de 2024 (Chemical Engineering, 02-04-2026), pero sus valores solo se publican con suscripción")

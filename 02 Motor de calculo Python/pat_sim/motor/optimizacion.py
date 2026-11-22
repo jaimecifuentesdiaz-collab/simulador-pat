@@ -17,7 +17,7 @@ from . import riesgo
 GLOBALES = {"dT_min": ("Aproximación mínima de temperatura", "°C", 1.0, 20.0),
             "T_final_residual": ("Temperatura final de los residuales", "°C", 15.0, 45.0)}   # rangos de los deslizadores de p_calor.py
 EXCLUIR = ("capacidad", "estado", "costo", "consumo_especifico")
-OBJETIVOS = {"van": "VAN de la cascada (MM$)", "van_area": "VAN de la cascada con inversión según el área (MM$)",
+OBJETIVOS = {"van": "VAN de la cascada (M$)", "van_area": "VAN de la cascada con inversión según el área (M$)",
              "calor": "Calor recuperado por la cascada (kW)", "pinch": "Objetivo pinch (kW)"}
 # Coeficientes globales U (W/m²·K) para el objetivo van_area, valores centrales del Capítulo 4 (calc_cap234.py):
 U_CONDENSACION = 840.0   # vapor que condensa contra pulpa de tomate (Sangrame et al., 2000, p. 205)

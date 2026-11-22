@@ -32,7 +32,8 @@ def _desafio(**kw):
 # ------------------------------------------------------------------ motor/desafio.py
 def test_validar_desafio_correcto_y_errores():
     assert D.validar(_desafio()) == []
-    malo = _desafio(titulo=" ", rubro="agar", precios=[dict(producto="", precio=-1, moneda="Peso", unidad="", fuente="")])
+    # PAT 143 b: «agar» ya es un rubro válido (catalogos/agar.py); el rubro inválido de la prueba pasa a ser «xyz»
+    malo = _desafio(titulo=" ", rubro="xyz", precios=[dict(producto="", precio=-1, moneda="Peso", unidad="", fuente="")])
     malo["demanda"] = dict(periodo="quincena", unidad="litros", valores=[1.0, float("nan")], etiquetas=["x"], fuente="")
     err = D.validar(malo)
     assert any("título" in e for e in err) and any("Rubro" in e for e in err) and any("Período" in e for e in err)
@@ -97,7 +98,7 @@ def test_desafio_de_planta_sin_desafio():
 
 
 def test_saludo():
-    assert D.saludo("Jaime  Cifuentes") == "don Jaime Cifuentes, su desafío es"
+    assert D.saludo("Jaime  Cifuentes") == "Jaime Cifuentes, su desafío es"   # PAT 140 g: sin «don» por defecto
     assert D.saludo("Ana Pérez", "doña") == "doña Ana Pérez, su desafío es"
     assert D.saludo("Ana Pérez", "") == "Ana Pérez, su desafío es"
     assert D.saludo("  ") == "Su desafío es"
@@ -219,7 +220,7 @@ def test_crud_desafios(man):
     with pytest.raises(ValueError):
         man.guardar_desafio(_desafio())                       # título repetido
     with pytest.raises(ValueError):
-        man.guardar_desafio(_desafio(titulo="Otro", rubro="agar"))   # no válido
+        man.guardar_desafio(_desafio(titulo="Otro", rubro="xyz"))   # no válido (PAT 143 b: «agar» ya es un rubro válido)
     with pytest.raises(KeyError):
         man.guardar_desafio(dict(_desafio(titulo="Z"), id=999))
     j = man.guardar_desafio(_desafio(titulo="Segundo", activo=False))

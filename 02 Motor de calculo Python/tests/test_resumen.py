@@ -36,7 +36,7 @@ def test_precio_de_equilibrio_de_la_bomba_de_calor_como_en_el_excel():
 
 def test_valor_del_gas_al_henry_hub():
     r = resumen_planta(agrozzi.crear())
-    assert math.isclose(eco.valor_gas(r["gas_base"]["MMBtu"], 2.77, 990.35), 355.753, abs_tol=0.01)      # MM$, COMBUSTIBLE!H21
+    assert math.isclose(eco.valor_gas(r["gas_base"]["MMBtu"], 2.77, 990.35), 355.753, abs_tol=0.01)      # M$, COMBUSTIBLE!H21
     assert math.isclose(eco.valor_gas(r["gas_cascada"]["MMBtu"], 2.77, 990.35), 202.309, abs_tol=0.01)   # COMBUSTIBLE!H22
 
 
