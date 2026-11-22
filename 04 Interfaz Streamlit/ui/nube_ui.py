@@ -5,6 +5,10 @@ Con SUPABASE_URL y SUPABASE_KEY (clave publicable) en los secretos y el paquete 
 (ui/proyectos.almacen) y Docente usa el rol de la cuenta. Sin claves, sin paquete o sin red, la aplicación sigue en modo local
 con SQLite y la barra lateral lo dice en una línea.
 
+PAT 146 (22-11-2026): con la nube configurada el ingreso es obligatorio, en una pantalla propia (ui/acceso.pantalla_ingreso_nube,
+llamada desde acceso.exigir antes de construir la navegación). La barra lateral ya no tiene el desplegable de ingreso: solo muestra
+la cuenta con su rol y «Salir», que limpia toda la sesión de Streamlit y vuelve a la pantalla de ingreso.
+
 La sesión queda en st.session_state (cada persona tiene la suya; nunca en st.cache_resource, que comparten todas las sesiones del
 servidor). La contraseña se lee de un formulario que se vacía al enviarlo y no se guarda en ninguna parte.
 """
@@ -88,27 +92,24 @@ def salir():
 
 
 def panel_lateral():
-    """Arriba del proyecto abierto en la barra lateral: modo local, formulario de ingreso o la cuenta con su rol."""
+    """Arriba del proyecto abierto en la barra lateral: modo local o la cuenta con su rol y «Salir» (PAT 146: sin formulario de ingreso)."""
     s = sesion()
     if s is not None:
         a, b = st.columns([3, 2], vertical_alignment="center")
         a.caption(C.esc(f"Nube: **{s.usuario}**, rol {N.NOMBRE_ROL.get(s.rol, s.rol)}"))
-        if b.button("Salir", key="nube_salir", width="stretch", help="Cierra la sesión de la nube; el simulador sigue en modo local."):
+        # PAT 146: «Salir» cierra la sesión, limpia toda la sesión de Streamlit y vuelve a la pantalla de ingreso
+        if b.button("Salir", key="nube_salir", width="stretch", help="Cierra la sesión y vuelve a la pantalla de ingreso."):
             salir()
+            from . import acceso as ACC
+            ACC.limpiar_sesion()
             st.rerun()
         return
     e = estado()
     if not e.get("disponible"):
         st.caption(":gray[Modo local]", help=e.get("aviso") or "Sin conexión a la nube configurada.")
         return
-    with st.expander("Ingresar a la nube"):
-        with st.form("nube_form", clear_on_submit=True, border=False):
-            usuario = st.text_input("Usuario", key="nube_usuario", placeholder="usuario01",
-                                    help=f"Usuario corto (usuario01 equivale a usuario01@{e.get('dominio') or N.DOMINIO_DEFECTO}) o el correo completo.")
-            clave = st.text_input("Contraseña", type="password")          # sin key: no queda en st.session_state
-            entrar = st.form_submit_button("Ingresar", type="primary", width="stretch")
-        if entrar:                                 # el formulario se vacía al enviarlo: la contraseña no queda en la sesión
-            ok, msg = ingresar(usuario, clave)
-            if ok:
-                st.rerun()
-            st.caption(f":orange[{C.esc(msg)}]")
+    # PAT 146: con la nube configurada el ingreso es obligatorio y se hace en la pantalla de ingreso (ui/acceso.py); la barra
+    # lateral ya no ofrece el desplegable «Ingresar a la nube». Esta línea solo se ve si la pantalla de ingreso no se mostró.
+    st.caption(":gray[Sin sesión en la nube]")
+    # PAT 146: se quitó el desplegable «Ingresar a la nube» (usuario, contraseña e «Ingresar»); ese formulario vive ahora en
+    # acceso.pantalla_ingreso_nube, que reutiliza ingresar().

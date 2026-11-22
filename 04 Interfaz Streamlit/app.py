@@ -46,6 +46,7 @@ _recargar_interfaz()
 st.html(C.ESTILO)
 from ui import acceso   # noqa: E402  (PAT 138: T25 acceso controlado por usuarios)
 acceso.exigir()        # con PAT_ACCESO=usuarios (Hugging Face Spaces) pide usuario y clave; en el computador no hace nada
+# PAT 146: con la nube configurada (Supabase), exigir() muestra antes la pantalla de ingreso obligatoria y detiene la página
 C.iniciar_estado()
 bd = C.obtener_bd(); ss = st.session_state; pl = C.planta()
 if not ss.get("_mant_sembrado"):                              # PAT 135: catálogos, símbolos, parámetros y desafíos en la base

@@ -81,8 +81,76 @@ def autenticar(g, usuario: str, clave: str) -> dict | None:
     return None
 
 
+# PAT 146: con la nube configurada el ingreso es obligatorio, en una pantalla propia como en un ERP
+_CSS_SIN_LATERAL = """<style>
+[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {display: none !important;}
+</style>"""
+
+
+def nube_obligatoria() -> bool:
+    """PAT 146: True si la nube está configurada (claves, URL válida, clave publicable y paquete supabase). Nunca bota la aplicación."""
+    try:
+        from . import nube_ui as NU
+        return bool(NU.estado().get("disponible"))
+    except Exception:
+        return False
+
+
+def _mensaje_ingreso(msg: str) -> str:
+    """PAT 146: el mensaje de nube_ui.ingresar dice «sigue en modo local» cuando no hay red; con el ingreso obligatorio no se abre."""
+    msg = (msg or "No se pudo ingresar.").replace("; el simulador sigue en modo local.", ". Revise la conexión e intente de nuevo.")
+    return msg
+
+
+def pantalla_ingreso_nube() -> None:
+    """PAT 146: sin sesión de nube muestra solo la pantalla de ingreso (sin barra lateral, índice ni barra de etapas) y detiene la
+    página con st.stop(); ninguna pantalla se abre antes de ingresar, tampoco con ?p= en la dirección. Con sesión no hace nada."""
+    from . import nube_ui as NU
+    if NU.activa():
+        return
+    st.html(_CSS_SIN_LATERAL)
+    _a, centro, _b = st.columns([1, 1.4, 1])
+    with centro:
+        st.title("Simulador PAT")
+        st.markdown("Simulador de diseño de plantas de proceso y recuperación de calor")
+        with st.form("ing_form", border=True):
+            usuario = st.text_input("Usuario", key="ing_usuario", placeholder="usuario01",
+                                    help="Su usuario, por ejemplo usuario01; también acepta el correo completo")
+            clave = st.text_input("Contraseña", type="password")      # sin key: la contraseña no queda en st.session_state
+            entrar = st.form_submit_button("Ingresar", type="primary", width="stretch")
+        if entrar:
+            try:
+                ok, msg = NU.ingresar(usuario, clave)
+            except Exception as e:                               # nunca bota la aplicación
+                ok, msg = False, f"No se pudo ingresar a la nube ({type(e).__name__})."
+            if ok:
+                st.rerun()
+            st.error(C.esc(_mensaje_ingreso(msg)))
+        st.caption("Las cuentas las crea el administrador. Si olvidó su contraseña, pídale una nueva.")
+    st.stop()
+
+
+def limpiar_sesion() -> None:
+    """PAT 146: borra todas las claves de st.session_state (proyecto, planta y datos de la cuenta anterior) y la dirección ?p=.
+    Algunas claves de widgets no se dejan borrar en la misma ejecución: se saltan sin botar la aplicación."""
+    ss = st.session_state
+    for k in list(ss.keys()):
+        try:
+            del ss[k]
+        except Exception:
+            pass
+    try:
+        st.query_params.clear()
+    except Exception:
+        pass
+
+
 def exigir() -> None:
-    """Con el acceso activo y sin sesión, muestra el ingreso y detiene la página. Con sesión, muestra quién entró y «Salir»."""
+    """Con el acceso activo y sin sesión, muestra el ingreso y detiene la página. Con sesión, muestra quién entró y «Salir».
+    PAT 146: si la nube está configurada, manda el ingreso a la nube (pantalla_ingreso_nube) y el acceso T25 no se usa."""
+    if nube_obligatoria():                         # PAT 146
+        pantalla_ingreso_nube()
+        return
     if not activo():
         return
     ss = st.session_state
